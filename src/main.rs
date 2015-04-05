@@ -2,7 +2,8 @@ extern crate regex;
 
 #[derive(Debug, PartialEq)]
 enum Atom {
-    Integer(i32),
+    Integer(i64),
+    Float(f64),
     Symbol(String),
     Nil
 }
@@ -17,10 +18,16 @@ fn tokenize(line: &str) -> Node {
 }
 
 fn atom(token: &str) -> Atom {
-    let i = token.parse::<i32>();
+    let i = token.parse::<i64>();
      match i {
          Ok(v) => Atom::Integer(v),
-         _ => Atom::Symbol(token.to_string()),
+         _ => {
+             let f = token.parse::<f64>();
+             match f {
+                 Ok(x) => Atom::Float(x),
+                 _ => Atom::Symbol(token.to_string())
+             }
+         },
      }
 }
 
@@ -102,7 +109,9 @@ fn eof() {
     let x = parse("");
 }
 
-
+fn eval(node: &Node) -> Atom {
+    return Atom::Nil;
+}
 
 fn parse(line: &str) -> Node {
     tokenize(line)
