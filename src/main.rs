@@ -1,5 +1,12 @@
 extern crate regex;
 
+use regex::Regex;
+use std::collections::HashMap;
+use std::io::prelude::*;
+use std::io::stdin;
+use std::iter::Iterator;
+use std::string::String;
+
 #[derive(Debug, PartialEq)]
 enum Atom {
     Integer(i64),
@@ -8,7 +15,13 @@ enum Atom {
     Nil
 }
 
-use regex::Regex;
+fn default_env() -> HashMap<String,String> {
+    let mut env = HashMap::new();
+
+    env.insert("FOO".to_string(), "BAR".to_string());
+
+    return env;
+}
 
 fn tokenize(line: &str) -> Node {
     let r = Regex::new(r"\s+").unwrap();
@@ -36,6 +49,7 @@ fn atom_test() {
     assert_eq!(Atom::Integer(32), atom("32"));
     assert_eq!(Atom::Symbol("symbol".to_string()), atom("symbol"));
 }
+
 #[derive(Debug,PartialEq)]
 struct Node {
     atom: Atom,
@@ -109,7 +123,35 @@ fn eof() {
     let x = parse("");
 }
 
-fn eval(node: &Node) -> Atom {
+fn add(v: Vec<Atom>) -> Atom {
+    let mut result = 0;
+
+    for i in v {
+        match i {
+            Atom::Integer(d) => result += d,
+            _ => panic!("DfD"),
+        }
+    }
+
+    return Atom::Integer(result);
+}
+
+fn eval(node: &Node, env: &mut HashMap<String,String>) -> Atom {
+    match node.atom {
+        Atom::Nil => {
+            let args = node.children.iter()
+                .skip(1)
+                .map(|node| eval(node, env)).collect();
+            return add(args);
+        },
+        Atom::Symbol(ref v) => {
+            // string
+        },
+        Atom::Integer(v) => {
+            return Atom::Integer(v);
+        },
+        _ => unreachable!(),
+    }
     return Atom::Nil;
 }
 
@@ -117,8 +159,38 @@ fn parse(line: &str) -> Node {
     tokenize(line)
 }
 
-pub fn main() {
-    let x = parse("(+ 1 (* 3 2))");
+fn flush() {
+    let out = std::io::stdout();
+    let mut o = out.lock();
+    o.flush().unwrap();
+}
 
-    println!("x has {} many children", x.children.len());
+fn repl() {
+    println!("Rust Lisp!");
+    let mut input = stdin();
+    let mut line = String::new();
+    let mut env = default_env();
+    loop {
+        print!(">");
+        flush();
+
+        match input.read_line(&mut line) {
+            Ok(size) => {
+                if size == 0 {
+                    break;
+                } else {
+                    let r = eval(&parse(&line), &mut env);
+                    println!("{:?}", r);
+                }
+            },
+            Err(e) => {
+                println!("Error: {:?}", e);
+                break;
+            }
+        }
+    }
+}
+
+pub fn main() {
+    repl();
 }
