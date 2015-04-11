@@ -1,6 +1,5 @@
 extern crate regex;
 
-use std::rc::Rc;
 use regex::Regex;
 use std::collections::HashMap;
 use std::io::prelude::*;
@@ -16,10 +15,10 @@ enum Atom {
     Nil
 }
 
-type Function = Fn(Vec<Atom>) -> Atom;
+type Function = Fn(&Vec<Atom>) -> Atom;
 type FunctionMap = HashMap<String, Box<Function>>;
 
-fn nil_func(v: Vec<Atom>) -> Atom {
+fn nil_func(_: &Vec<Atom>) -> Atom {
     return Atom::Nil;
 }
 
@@ -27,11 +26,11 @@ struct Env {
     func_map: FunctionMap
 }
 
-fn add(v: Vec<Atom>) -> Atom {
+fn add(v: &Vec<Atom>) -> Atom {
     let mut result = 0;
 
     for i in v {
-        match i {
+        match *i {
             Atom::Integer(d) => result += d,
             _ => panic!("Can only add integers right now!"),
         }
@@ -39,15 +38,6 @@ fn add(v: Vec<Atom>) -> Atom {
 
     return Atom::Integer(result);
 }
-
-// fn define(args: Vec<Atom>, env: &mut Env) -> Atom {
-//     if let Atom::Symbol(ref s) = args[0] {
-//         env..insert(s.to_string(), EnvValue::Value(args[0].clone()));
-//         return Atom::Nil;
-//     } else {
-//         panic!("can't define a non symbol!");
-//     }
-// }
 
 fn default_env() -> Env {
     let mut env = Env{func_map: HashMap::new()};
@@ -85,7 +75,6 @@ struct Node {
     children: Vec<Node>
 }
 
-
 fn read_tokens(iter: &mut std::iter::Peekable<regex::RegexSplits>) -> Node {
     let mut node = Node{ atom: Atom::Nil, children: vec![] };
 
@@ -122,7 +111,7 @@ fn eval(node: &Node, env: &mut Env) -> Atom {
                     }
 
                     match env.func_map.get(s) {
-                        Some(f) => return f(args),
+                        Some(f) => return f(&args),
                         None => return Atom::Nil
                     }
                 },
