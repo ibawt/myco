@@ -1,5 +1,6 @@
 extern crate regex;
 
+use std::rc::Rc;
 use regex::Regex;
 use std::collections::HashMap;
 use std::io::prelude::*;
@@ -7,7 +8,7 @@ use std::io::stdin;
 use std::iter::Iterator;
 use std::string::String;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 enum Atom {
     Integer(i64),
     Float(f64),
@@ -15,10 +16,44 @@ enum Atom {
     Nil
 }
 
-fn default_env() -> HashMap<String,String> {
-    let mut env = HashMap::new();
+type Function = Fn(Vec<Atom>) -> Atom;
+type FunctionMap = HashMap<String, Box<Function>>;
 
-    env.insert("FOO".to_string(), "BAR".to_string());
+fn nil_func(v: Vec<Atom>) -> Atom {
+    return Atom::Nil;
+}
+
+struct Env {
+    func_map: FunctionMap
+}
+
+fn add(v: Vec<Atom>) -> Atom {
+    let mut result = 0;
+
+    for i in v {
+        match i {
+            Atom::Integer(d) => result += d,
+            _ => panic!("Can only add integers right now!"),
+        }
+    }
+
+    return Atom::Integer(result);
+}
+
+// fn define(args: Vec<Atom>, env: &mut Env) -> Atom {
+//     if let Atom::Symbol(ref s) = args[0] {
+//         env..insert(s.to_string(), EnvValue::Value(args[0].clone()));
+//         return Atom::Nil;
+//     } else {
+//         panic!("can't define a non symbol!");
+//     }
+// }
+
+fn default_env() -> Env {
+    let mut env = Env{func_map: HashMap::new()};
+
+    env.func_map.insert("nil".to_string(), Box::new(nil_func) as Box<Function>);
+    env.func_map.insert("+".to_string(), Box::new(add) as Box<Function>);
 
     return env;
 }
@@ -44,21 +79,12 @@ fn atom(token: &str) -> Atom {
      }
 }
 
-#[test]
-fn atom_test() {
-    assert_eq!(Atom::Integer(32), atom("32"));
-    assert_eq!(Atom::Symbol("symbol".to_string()), atom("symbol"));
-}
-
 #[derive(Debug,PartialEq)]
 struct Node {
     atom: Atom,
     children: Vec<Node>
 }
 
-fn make_atom_node(s: &str) -> Node {
-    return Node{ atom: atom(s), children: vec![]};
-}
 
 fn read_tokens(iter: &mut std::iter::Peekable<regex::RegexSplits>) -> Node {
     let mut node = Node{ atom: Atom::Nil, children: vec![] };
@@ -83,75 +109,37 @@ fn read_tokens(iter: &mut std::iter::Peekable<regex::RegexSplits>) -> Node {
     return node;
 }
 
-#[test]
-fn simple_read_tokens() {
-    let x = parse("(+ 1 2)");
+fn eval(node: &Node, env: &mut Env) -> Atom {
+     match node.atom {
+        Atom::Nil => {
+            let args: Vec<Atom> = node.children.iter().skip(1).map(|node| eval(node, env)).collect();
 
-    assert_eq!(Atom::Nil, x.atom);
-    assert_eq!(3, x.children.len());
+            match node.children[0].atom {
+                Atom::Symbol(ref s) => {
+                    if *s == "define" {
+                        println!("define!");
+                        return Atom::Nil;
+                    }
 
-    let xx : Vec<Node> = vec![make_atom_node("+"), make_atom_node("1"), make_atom_node("2")];
-
-    for pair in xx.iter().zip(x.children.iter()) {
-        assert_eq!(pair.0, pair.1);
-    }
-}
-
-#[test]
-fn nested_read_tokens() {
-    let x = parse("(+ 1 (* 2 2))");
-
-    assert_eq!( atom("+"), x.children[0].atom);
-    assert_eq!( atom("1"), x.children[1].atom);
-    assert_eq!( Atom::Nil, x.children[2].atom);
-
-    assert_eq!( 3, x.children[2].children.len());
-    assert_eq!( atom("*"), x.children[2].children[0].atom);
-    assert_eq!( atom("2"), x.children[2].children[1].atom);
-    assert_eq!( atom("2"), x.children[2].children[2].atom);
-}
-
-#[test]
-#[should_panic]
-fn unmatched_bracket() {
-    let x = parse("(+ 1");
-}
-
-#[test]
-#[should_panic]
-fn eof() {
-    let x = parse("");
-}
-
-fn add(v: Vec<Atom>) -> Atom {
-    let mut result = 0;
-
-    for i in v {
-        match i {
-            Atom::Integer(d) => result += d,
-            _ => panic!("DfD"),
+                    match env.func_map.get(s) {
+                        Some(f) => return f(args),
+                        None => return Atom::Nil
+                    }
+                },
+                _ => panic!("has to be a symbol!")
+            }
+        },
+        Atom::Integer(i) => {
+            println!("an integer: {}", i);
+        },
+        Atom::Float(f) => {
+            println!("a float: {}", f);
+        },
+        Atom::Symbol(ref s) => {
+            println!("a symbol, {}", s);
         }
     }
 
-    return Atom::Integer(result);
-}
-
-fn eval(node: &Node, env: &mut HashMap<String,String>) -> Atom {
-    match node.atom {
-        Atom::Nil => {
-            let args = node.children.iter()
-                .skip(1)
-                .map(|node| eval(node, env)).collect();
-            return add(args);
-        },
-        Atom::Symbol(ref v) => {
-            // string
-        },
-        Atom::Integer(v) => {
-            return Atom::Integer(v);
-        },
-        _ => unreachable!(),
-    }
     return Atom::Nil;
 }
 
@@ -193,4 +181,57 @@ fn repl() {
 
 pub fn main() {
     repl();
+}
+
+#[cfg(test)]
+mod test {
+    fn make_atom_node(s: &str) -> Node {
+        return Node{ atom: atom(s), children: vec![]};
+    }
+
+    #[test]
+    fn atom_test() {
+        assert_eq!(Atom::Integer(32), atom("32"));
+        assert_eq!(Atom::Symbol("symbol".to_string()), atom("symbol"));
+    }
+
+    #[test]
+    fn simple_read_tokens() {
+        let x = parse("(+ 1 2)");
+
+        assert_eq!(Atom::Nil, x.atom);
+        assert_eq!(3, x.children.len());
+
+        let xx : Vec<Node> = vec![make_atom_node("+"), make_atom_node("1"), make_atom_node("2")];
+
+        for pair in xx.iter().zip(x.children.iter()) {
+            assert_eq!(pair.0, pair.1);
+        }
+    }
+
+    #[test]
+    fn nested_read_tokens() {
+        let x = parse("(+ 1 (* 2 2))");
+
+        assert_eq!( atom("+"), x.children[0].atom);
+        assert_eq!( atom("1"), x.children[1].atom);
+        assert_eq!( Atom::Nil, x.children[2].atom);
+
+        assert_eq!( 3, x.children[2].children.len());
+        assert_eq!( atom("*"), x.children[2].children[0].atom);
+        assert_eq!( atom("2"), x.children[2].children[1].atom);
+        assert_eq!( atom("2"), x.children[2].children[2].atom);
+    }
+
+    #[test]
+    #[should_panic]
+    fn unmatched_bracket() {
+        let x = parse("(+ 1");
+    }
+
+    #[test]
+    #[should_panic]
+    fn eof() {
+        let x = parse("");
+    }
 }
