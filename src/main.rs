@@ -15,44 +15,68 @@ enum Atom {
     Nil
 }
 
-type Function = Fn(&Vec<Atom>) -> Atom;
+type Function = Fn(&Vec<Atom>) -> AtomResult;
 type FunctionMap = HashMap<String, Box<Function>>;
 
-fn nil_func(_: &Vec<Atom>) -> Atom {
-    return Atom::Nil;
+#[derive(Debug)]
+enum Error {
+    UnexpectedType,
+    Parser
+}
+
+type AtomResult = Result<Atom, Error>;
+type ParseResult = Result<Node, Error>;
+
+fn nil_func(_: &Vec<Atom>) -> AtomResult {
+    return Ok(Atom::Nil);
 }
 
 struct Env {
     func_map: FunctionMap
 }
 
-fn add(v: &Vec<Atom>) -> Atom {
+fn add(v: &Vec<Atom>) -> AtomResult {
     let mut result = 0;
 
     for i in v {
         match *i {
             Atom::Integer(d) => result += d,
-            _ => panic!("Can only add integers right now!"),
+            _ => return Err(Error::UnexpectedType)
         }
     }
 
-    return Atom::Integer(result);
+    return Ok(Atom::Integer(result));
 }
+
+fn sub(v: &Vec<Atom>) -> AtomResult {
+    let mut result = 0;
+
+    for i in v {
+        match *i {
+            Atom::Integer(d) => result -= d,
+            _ => return Err(Error::UnexpectedType)
+        }
+    }
+
+    return Ok(Atom::Integer(result));
+}
+
 
 fn default_env() -> Env {
     let mut env = Env{func_map: HashMap::new()};
 
     env.func_map.insert("nil".to_string(), Box::new(nil_func) as Box<Function>);
     env.func_map.insert("+".to_string(), Box::new(add) as Box<Function>);
+    env.func_map.insert("-".to_string(), Box::new(sub) as Box<Function>);
 
     return env;
 }
 
-fn tokenize(line: &str) -> Node {
+fn tokenize(line: &str) -> ParseResult {
     let r = Regex::new(r"\s+").unwrap();
     let l = line.replace("(", " ( ").replace(")", " ) ").trim().to_string();
     let iter = r.split(&l);
-    read_tokens(&mut iter.peekable())
+    return read_tokens(&mut iter.peekable());
 }
 
 fn atom(token: &str) -> Atom {
@@ -75,7 +99,7 @@ struct Node {
     children: Vec<Node>
 }
 
-fn read_tokens(iter: &mut std::iter::Peekable<regex::RegexSplits>) -> Node {
+fn read_tokens(iter: &mut std::iter::Peekable<regex::RegexSplits>) -> ParseResult {
     let mut node = Node{ atom: Atom::Nil, children: vec![] };
 
     match iter.next() {
@@ -84,38 +108,44 @@ fn read_tokens(iter: &mut std::iter::Peekable<regex::RegexSplits>) -> Node {
                 match iter.peek() {
                     Some(&")") => break,
                     Some(_) => {},
-                    None => panic!("unexpected EOF"),
+                    None => return Err(Error::Parser)
                 }
-                node.children.push(read_tokens(iter));
+                let token = try!(read_tokens(iter));
+                node.children.push(token);
             }
         },
-        Some(")") => panic!("mismatched )"),
+        Some(")") => return Err(Error::Parser),
         Some(x) => {
             node.atom = atom(x);
         },
-        None => panic!("unexpected EOF")
+        None => return Err(Error::Parser)
     }
-    return node;
+    return Ok(node);
 }
 
-fn eval(node: &Node, env: &mut Env) -> Atom {
-     match node.atom {
+fn eval(node: &Node, env: &mut Env) -> AtomResult {
+    match node.atom {
         Atom::Nil => {
-            let args: Vec<Atom> = node.children.iter().skip(1).map(|node| eval(node, env)).collect();
+            // TODO: use the iterators
+            let mut args: Vec<Atom> = vec![];
+            for i in node.children.iter().skip(1) {
+                let a = try!(eval(i, env));
+                args.push(a);
+            }
 
             match node.children[0].atom {
                 Atom::Symbol(ref s) => {
                     if *s == "define" {
                         println!("define!");
-                        return Atom::Nil;
+                        return Ok(Atom::Nil);
                     }
 
                     match env.func_map.get(s) {
                         Some(f) => return f(&args),
-                        None => return Atom::Nil
+                        None => return Ok(Atom::Nil)
                     }
                 },
-                _ => panic!("has to be a symbol!")
+                _ => unreachable!()
             }
         },
         Atom::Integer(i) => {
@@ -129,10 +159,10 @@ fn eval(node: &Node, env: &mut Env) -> Atom {
         }
     }
 
-    return Atom::Nil;
+    return Ok(Atom::Nil);
 }
 
-fn parse(line: &str) -> Node {
+fn parse(line: &str) -> ParseResult {
     tokenize(line)
 }
 
@@ -147,6 +177,7 @@ fn repl() {
     let mut input = stdin();
     let mut line = String::new();
     let mut env = default_env();
+
     loop {
         print!(">");
         flush();
@@ -154,10 +185,18 @@ fn repl() {
         match input.read_line(&mut line) {
             Ok(size) => {
                 if size == 0 {
+                    println!("Bye!");
                     break;
                 } else {
-                    let r = eval(&parse(&line), &mut env);
-                    println!("{:?}", r);
+                    if let Ok(p) = parse(&line) {
+                        if let Ok(r) = eval(&p, &mut env) {
+                            println!("{:?}", r);
+                        } else {
+                            println!("Error in evaluation");
+                        }
+                    } else {
+                        println!("Error in parsing");
+                    }
                 }
             },
             Err(e) => {
@@ -174,6 +213,11 @@ pub fn main() {
 
 #[cfg(test)]
 mod test {
+    use super::Node;
+    use super::Atom;
+    use super::atom;
+    use super::parse;
+
     fn make_atom_node(s: &str) -> Node {
         return Node{ atom: atom(s), children: vec![]};
     }
