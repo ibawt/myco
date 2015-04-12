@@ -4,7 +4,6 @@ extern crate readline;
 use regex::Regex;
 use std::collections::HashMap;
 use std::io::prelude::*;
-use std::io::stdin;
 use std::iter::Iterator;
 use std::string::String;
 
@@ -23,7 +22,9 @@ type FunctionMap = HashMap<String, Box<Function>>;
 enum Error {
     UnexpectedType,
     Parser,
-    InvalidArguments
+    InvalidArguments,
+    NotAFunction,
+    NotImplemented
 }
 
 type AtomResult = Result<Atom, Error>;
@@ -41,9 +42,10 @@ fn add(v: &Vec<Atom>) -> AtomResult {
     let mut result = 0;
 
     for i in v {
-        match *i {
-            Atom::Integer(d) => result += d,
-            _ => return Err(Error::UnexpectedType)
+        if let Atom::Integer(d) =  *i {
+            result += d
+        } else {
+            return Err(Error::UnexpectedType)
         }
     }
 
@@ -133,52 +135,34 @@ fn read_tokens(iter: &mut std::iter::Peekable<regex::RegexSplits>) -> ParseResul
 }
 
 fn eval(node: &Node, env: &mut Env) -> AtomResult {
-    match node.atom {
-        Atom::Nil => {
-            // TODO: use the iterators
-            let mut args: Vec<Atom> = vec![];
-            for i in node.children.iter().skip(1) {
-                let a = try!(eval(i, env));
-                args.push(a);
-            }
-
-            match node.children[0].atom {
-                Atom::Symbol(ref s) => {
-                    if *s == "define" {
-                        println!("define!");
-                        return Ok(Atom::Nil);
-                    }
-
-                    match env.func_map.get(s) {
-                        Some(f) => return f(&args),
-                        None => return Ok(Atom::Nil)
-                    }
-                },
-                _ => unreachable!()
-            }
-        },
-        Atom::Integer(i) => {
-            println!("an integer: {}", i);
-        },
-        Atom::Float(f) => {
-            println!("a float: {}", f);
-        },
-        Atom::Symbol(ref s) => {
-            println!("a symbol, {}", s);
+    if let Atom::Nil = node.atom {
+        // TODO: use the iterators
+        let mut args: Vec<Atom> = vec![];
+        for i in node.children.iter().skip(1) {
+            let a = try!(eval(i, env));
+            args.push(a);
         }
-    }
 
-    return Ok(node.atom.clone());
+        if let Atom::Symbol(ref s) = node.children[0].atom {
+            if *s == "define" {
+                return Err(Error::NotImplemented)
+            }
+
+            if let Some(f) = env.func_map.get(s) {
+                f(&args)
+            } else {
+                Ok(Atom::Nil)
+            }
+        } else {
+            Err(Error::NotAFunction)
+        }
+    } else {
+        Ok(node.atom.clone())
+    }
 }
 
 fn parse(line: &str) -> ParseResult {
     tokenize(line)
-}
-
-fn flush() {
-    let out = std::io::stdout();
-    let mut o = out.lock();
-    o.flush().unwrap();
 }
 
 fn repl() {
