@@ -21,7 +21,8 @@ type FunctionMap = HashMap<String, Box<Function>>;
 #[derive(Debug)]
 enum Error {
     UnexpectedType,
-    Parser
+    Parser,
+    InvalidArguments
 }
 
 type AtomResult = Result<Atom, Error>;
@@ -49,9 +50,16 @@ fn add(v: &Vec<Atom>) -> AtomResult {
 }
 
 fn sub(v: &Vec<Atom>) -> AtomResult {
-    let mut result = 0;
+    if v.len() < 1 {
+        return Err(Error::InvalidArguments)
+    }
 
-    for i in v {
+    let mut result = match v[0] {
+        Atom::Integer(d) => d,
+        _ => return Err(Error::UnexpectedType)
+    };
+
+    for i in v.iter().skip(1) {
         match *i {
             Atom::Integer(d) => result -= d,
             _ => return Err(Error::UnexpectedType)
@@ -159,7 +167,7 @@ fn eval(node: &Node, env: &mut Env) -> AtomResult {
         }
     }
 
-    return Ok(Atom::Nil);
+    return Ok(node.atom.clone());
 }
 
 fn parse(line: &str) -> ParseResult {
@@ -189,10 +197,9 @@ fn repl() {
                     break;
                 } else {
                     if let Ok(p) = parse(&line) {
-                        if let Ok(r) = eval(&p, &mut env) {
-                            println!("{:?}", r);
-                        } else {
-                            println!("Error in evaluation");
+                        match eval(&p, &mut env) {
+                            Ok(r) => println!("{:?}", r),
+                            Err(e) => println!("Error in evaluation: {:?}", e)
                         }
                     } else {
                         println!("Error in parsing");
