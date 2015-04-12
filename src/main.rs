@@ -186,9 +186,7 @@ fn repl() {
     let mut env = default_env();
 
     loop {
-        let line = readline::readline(">");
-
-        match line {
+        match readline::readline(">") {
             Some(s) => {
                 if let Ok(p) = parse(&s) {
                     match eval(&p, &mut env) {
@@ -200,7 +198,7 @@ fn repl() {
                 }
             },
             None => {
-                println!("Error");
+                println!("Exiting...");
                 break;
             }
         }
