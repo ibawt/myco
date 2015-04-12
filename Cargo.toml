@@ -7,4 +7,4 @@ regex = "0.1.8"
 
 [dependencies.readline]
 git = "https://github.com/ibawt/rust-readline.git"
-rev = "1990b43e5f6d0585d75618dd3f88458acfb09d5b"
+rev = "266a87153a550720724b909e3029f0598ad664fd"
