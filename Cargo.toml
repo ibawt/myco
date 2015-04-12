@@ -4,3 +4,7 @@ version = "0.0.1"
 authors = ["Ian Quick <ian.quick@gmail.com>"]
 [dependencies]
 regex = "0.1.8"
+
+[dependencies.readline]
+git = "https://github.com/ibawt/rust-readline.git"
+rev = "1990b43e5f6d0585d75618dd3f88458acfb09d5b"

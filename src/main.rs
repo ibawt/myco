@@ -1,4 +1,5 @@
 extern crate regex;
+extern crate readline;
 
 use regex::Regex;
 use std::collections::HashMap;
@@ -182,32 +183,24 @@ fn flush() {
 
 fn repl() {
     println!("Rust Lisp!");
-    let mut input = stdin();
-    let mut line = String::new();
     let mut env = default_env();
 
     loop {
-        print!(">");
-        flush();
+        let line = readline::readline(">");
 
-        match input.read_line(&mut line) {
-            Ok(size) => {
-                if size == 0 {
-                    println!("Bye!");
-                    break;
-                } else {
-                    if let Ok(p) = parse(&line) {
-                        match eval(&p, &mut env) {
-                            Ok(r) => println!("{:?}", r),
-                            Err(e) => println!("Error in evaluation: {:?}", e)
-                        }
-                    } else {
-                        println!("Error in parsing");
+        match line {
+            Some(s) => {
+                if let Ok(p) = parse(&s) {
+                    match eval(&p, &mut env) {
+                        Ok(r) => println!("{:?}", r),
+                        Err(e) => println!("Error in evaluation: {:?}", e)
                     }
+                } else {
+                    println!("Error in parsing");
                 }
             },
-            Err(e) => {
-                println!("Error: {:?}", e);
+            None => {
+                println!("Error");
                 break;
             }
         }
