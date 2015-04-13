@@ -12,6 +12,7 @@ enum Atom {
     Integer(i64),
     Float(f64),
     Symbol(String),
+    Boolean(bool),
     Nil
 }
 
@@ -35,7 +36,8 @@ fn nil_func(_: &Vec<Atom>) -> AtomResult {
 }
 
 struct Env {
-    func_map: FunctionMap
+    func_map: FunctionMap,
+    def_map: HashMap<String, Atom>
 }
 
 fn add(v: &Vec<Atom>) -> AtomResult {
@@ -72,9 +74,8 @@ fn sub(v: &Vec<Atom>) -> AtomResult {
     return Ok(Atom::Integer(result));
 }
 
-
 fn default_env() -> Env {
-    let mut env = Env{func_map: HashMap::new()};
+    let mut env = Env{func_map: HashMap::new(), def_map: HashMap::new()};
 
     env.func_map.insert("nil".to_string(), Box::new(nil_func) as Box<Function>);
     env.func_map.insert("+".to_string(), Box::new(add) as Box<Function>);
@@ -134,9 +135,38 @@ fn read_tokens(iter: &mut std::iter::Peekable<regex::RegexSplits>) -> ParseResul
     return Ok(node);
 }
 
+fn define(args: Vec<Atom>, env: &mut Env) -> AtomResult {
+    if args.len() != 2 {
+        return Err(Error::InvalidArguments);
+    }
+
+    if let Atom::Symbol(ref key) = args[0] {
+        env.def_map.insert(key.clone(), args[1].clone());
+        Ok(Atom::Nil)
+    } else {
+        Err(Error::InvalidArguments)
+    }
+}
+
+fn get(args: Vec<Atom>, env: &Env) -> AtomResult {
+    if args.len() != 1 {
+        return Err(Error::InvalidArguments);
+    }
+
+    if let Atom::Symbol(ref s) = args[0] {
+        if let Some(a) = env.def_map.get(s) {
+            Ok(a.clone())
+        } else {
+            Ok(Atom::Nil)
+        }
+    } else {
+        Err(Error::InvalidArguments)
+    }
+}
+
 fn eval(node: &Node, env: &mut Env) -> AtomResult {
     if let Atom::Nil = node.atom {
-        // TODO: use the iterators
+        // This won't work for if
         let mut args: Vec<Atom> = vec![];
         for i in node.children.iter().skip(1) {
             let a = try!(eval(i, env));
@@ -144,9 +174,11 @@ fn eval(node: &Node, env: &mut Env) -> AtomResult {
         }
 
         if let Atom::Symbol(ref s) = node.children[0].atom {
-            if *s == "define" {
-                return Err(Error::NotImplemented)
-            }
+            match s.as_ref() {
+                "define" => return define(args, env),
+                "get" => return get(args, env),
+                _ => ()
+            };
 
             if let Some(f) = env.func_map.get(s) {
                 f(&args)
