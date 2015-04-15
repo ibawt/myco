@@ -309,6 +309,7 @@ mod test {
         assert_eq!( atom("2"), x.children[2].children[2].atom);
     }
 
+
     #[test]
     #[should_panic]
     fn unmatched_bracket() {
