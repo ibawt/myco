@@ -74,12 +74,24 @@ fn sub(v: &Vec<Atom>) -> AtomResult {
     return Ok(Atom::Integer(result));
 }
 
+fn equals(args: &Vec<Atom>) -> AtomResult {
+    let v = &args[0];
+
+    for i in args.iter().skip(1) {
+        if v != i {
+            return Ok(Atom::Boolean(false));
+        }
+    }
+    Ok(Atom::Boolean(true))
+}
+
 fn default_env() -> Env {
     let mut env = Env{func_map: HashMap::new(), def_map: HashMap::new()};
 
     env.func_map.insert("nil".to_string(), Box::new(nil_func) as Box<Function>);
     env.func_map.insert("+".to_string(), Box::new(add) as Box<Function>);
     env.func_map.insert("-".to_string(), Box::new(sub) as Box<Function>);
+    env.func_map.insert("=".to_string(), Box::new(equals) as Box<Function>);
 
     return env;
 }
@@ -92,6 +104,12 @@ fn tokenize(line: &str) -> ParseResult {
 }
 
 fn atom(token: &str) -> Atom {
+    match token {
+        "true" => return Atom::Boolean(true),
+        "false" => return Atom::Boolean(false),
+        _ => ()
+    }
+
     let i = token.parse::<i64>();
      match i {
          Ok(v) => Atom::Integer(v),
@@ -119,7 +137,7 @@ fn read_tokens(iter: &mut std::iter::Peekable<regex::RegexSplits>) -> ParseResul
             loop {
                 match iter.peek() {
                     Some(&")") => break,
-                    Some(_) => {},
+                    Some(_) => (),
                     None => return Err(Error::Parser)
                 }
                 let token = try!(read_tokens(iter));
@@ -164,21 +182,42 @@ fn get(args: Vec<Atom>, env: &Env) -> AtomResult {
     }
 }
 
+fn eval_args(node: &Node, env: &mut Env) -> Result<Vec<Atom>, Error> {
+    let mut args: Vec<Atom> = vec![];
+
+    for i in node.children.iter().skip(1) {
+        let atom = try!(eval(i, env));
+        args.push(atom);
+    }
+    return Ok(args);
+}
+
 fn eval(node: &Node, env: &mut Env) -> AtomResult {
     if let Atom::Nil = node.atom {
-        // This won't work for if
-        let mut args: Vec<Atom> = vec![];
-        for i in node.children.iter().skip(1) {
-            let a = try!(eval(i, env));
-            args.push(a);
-        }
-
         if let Atom::Symbol(ref s) = node.children[0].atom {
             match s.as_ref() {
-                "define" => return define(args, env),
-                "get" => return get(args, env),
+                "define" => {
+                    let args = try!(eval_args(node, env));
+                    return define(args, env);
+                },
+                "get" => {
+                    return get( try!(eval_args(node, env)), env);
+                 },
+                "if" => {
+                    let predicate = try!(eval(&node.children[1], env));
+                    if let Atom::Boolean(b) = predicate {
+                        if b {
+                            return eval(&node.children[2], env);
+                        } else if node.children.len() > 2 {
+                            return eval(&node.children[3], env);
+                        }
+                    }
+                    return Err(Error::InvalidArguments)
+                },
                 _ => ()
             };
+
+            let args = try!(eval_args(node, env));
 
             if let Some(f) = env.func_map.get(s) {
                 f(&args)
@@ -244,7 +283,7 @@ mod test {
 
     #[test]
     fn simple_read_tokens() {
-        let x = parse("(+ 1 2)");
+        let x = parse("(+ 1 2)").unwrap();
 
         assert_eq!(Atom::Nil, x.atom);
         assert_eq!(3, x.children.len());
@@ -258,7 +297,7 @@ mod test {
 
     #[test]
     fn nested_read_tokens() {
-        let x = parse("(+ 1 (* 2 2))");
+        let x = parse("(+ 1 (* 2 2))").unwrap();
 
         assert_eq!( atom("+"), x.children[0].atom);
         assert_eq!( atom("1"), x.children[1].atom);
@@ -273,12 +312,12 @@ mod test {
     #[test]
     #[should_panic]
     fn unmatched_bracket() {
-        let x = parse("(+ 1");
+        parse("(+ 1").unwrap();
     }
 
     #[test]
     #[should_panic]
     fn eof() {
-        let x = parse("");
+         parse("").unwrap();
     }
 }
