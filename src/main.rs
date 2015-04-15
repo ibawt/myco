@@ -136,7 +136,10 @@ fn read_tokens(iter: &mut std::iter::Peekable<regex::RegexSplits>) -> ParseResul
         Some("(") => {
             loop {
                 match iter.peek() {
-                    Some(&")") => break,
+                    Some(&")") => {
+                        iter.next();
+                        break
+                    },
                     Some(_) => (),
                     None => return Err(Error::Parser)
                 }
@@ -309,6 +312,21 @@ mod test {
         assert_eq!( atom("2"), x.children[2].children[2].atom);
     }
 
+    #[test]
+    fn subexp_token_test() {
+        let x = parse("(+ 1 (+ 2 3) 4)").unwrap();
+
+        assert_eq!( atom("+"), x.children[0].atom);
+        assert_eq!( atom("1"), x.children[1].atom);
+        assert_eq!( Atom::Nil, x.children[2].atom);
+
+        assert_eq!( 3, x.children[2].children.len());
+        assert_eq!( atom("+"), x.children[2].children[0].atom);
+        assert_eq!( atom("2"), x.children[2].children[1].atom);
+        assert_eq!( atom("3"), x.children[2].children[2].atom);
+
+        assert_eq!(atom("4"), x.children[3].atom);
+    }
 
     #[test]
     #[should_panic]
