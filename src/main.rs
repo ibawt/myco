@@ -111,16 +111,16 @@ fn atom(token: &str) -> Atom {
     }
 
     let i = token.parse::<i64>();
-     match i {
-         Ok(v) => Atom::Integer(v),
-         _ => {
-             let f = token.parse::<f64>();
-             match f {
-                 Ok(x) => Atom::Float(x),
-                 _ => Atom::Symbol(token.to_string())
-             }
-         },
-     }
+    match i {
+        Ok(v) => Atom::Integer(v),
+        _ => {
+            let f = token.parse::<f64>();
+            match f {
+                Ok(x) => Atom::Float(x),
+                _ => Atom::Symbol(token.to_string())
+            }
+        },
+    }
 }
 
 #[derive(Debug,PartialEq)]
@@ -140,17 +140,16 @@ fn read_tokens(iter: &mut std::iter::Peekable<regex::RegexSplits>) -> ParseResul
                         iter.next();
                         break
                     },
-                    Some(_) => (),
+                    Some(_) => {
+                        let token = try!(read_tokens(iter));
+                        node.children.push(token);
+                    },
                     None => return Err(Error::Parser)
                 }
-                let token = try!(read_tokens(iter));
-                node.children.push(token);
             }
         },
         Some(")") => return Err(Error::Parser),
-        Some(x) => {
-            node.atom = atom(x);
-        },
+        Some(x) => node.atom = atom(x),
         None => return Err(Error::Parser)
     }
     return Ok(node);
@@ -208,14 +207,20 @@ fn eval(node: &Node, env: &mut Env) -> AtomResult {
                  },
                 "if" => {
                     let predicate = try!(eval(&node.children[1], env));
-                    if let Atom::Boolean(b) = predicate {
-                        if b {
-                            return eval(&node.children[2], env);
-                        } else if node.children.len() > 2 {
-                            return eval(&node.children[3], env);
-                        }
+
+                    let truthy = match predicate {
+                        Atom::Boolean(b) => b,
+                        Atom::Nil => false,
+                        _ => true
+                    };
+
+                    if truthy {
+                        return eval(&node.children[2], env);
+                    } else if node.children.len() > 2 {
+                        return eval(&node.children[3], env);
+                    } else {
+                        return Ok(Atom::Boolean(false))
                     }
-                    return Err(Error::InvalidArguments)
                 },
                 _ => ()
             };
@@ -273,6 +278,12 @@ mod test {
     use super::Atom;
     use super::atom;
     use super::parse;
+    use super::default_env;
+    use super::eval;
+
+    fn teval(s: &str) -> Atom {
+        eval(&parse(s).unwrap(), &mut default_env()).unwrap()
+    }
 
     fn make_atom_node(s: &str) -> Node {
         return Node{ atom: atom(s), children: vec![]};
@@ -326,6 +337,27 @@ mod test {
         assert_eq!( atom("3"), x.children[2].children[2].atom);
 
         assert_eq!(atom("4"), x.children[3].atom);
+    }
+
+    #[test]
+    fn if_special_form() {
+        let x = eval(&parse("(if (= 1 1) true false)").unwrap(), &mut default_env()).unwrap();
+
+        assert_eq!(Atom::Boolean(true), x);
+    }
+
+    #[test]
+    fn if_special_form_false() {
+        let x = eval(&parse("(if (= 1 2) true false)").unwrap(), &mut default_env()).unwrap();
+
+        assert_eq!(Atom::Boolean(false), x);
+    }
+
+    #[test]
+    fn if_no_else() {
+        let x = teval("(if (= 1 1) true)");
+
+        assert_eq!(Atom::Boolean(true), x);
     }
 
     #[test]
