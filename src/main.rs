@@ -151,9 +151,9 @@ fn read_tokens(iter: &mut std::iter::Peekable<regex::RegexSplits>) -> ParseResul
         },
         Some(")") => return Err(Error::Parser),
         Some(x) => return Ok(Node::Atom(atom(x))),
-        None => return Err(Error::Parser)
+        _ => ()
     }
-    unreachable!();
+    return Err(Error::Parser);
 }
 
 fn define(args: Vec<Atom>, env: &mut Env) -> AtomResult {
@@ -296,6 +296,20 @@ mod test {
         return Node::Atom(atom(s));
     }
 
+    fn as_list(n: &Node) -> &Vec<Node> {
+        match n {
+            &Node::List(ref l) => l,
+            _ => panic!("don't get here!")
+        }
+    }
+
+    fn as_atom(n: &Node) -> &Atom {
+        match n {
+            &Node::Atom(ref a) => a,
+            _ => panic!("not here!")
+        }
+    }
+
     #[test]
     fn atom_test() {
         assert_eq!(Atom::Integer(32), atom("32"));
@@ -304,48 +318,53 @@ mod test {
 
     #[test]
     fn simple_read_tokens() {
-        // let x = parse("(+ 1 2)").unwrap();
+        let x = parse("(+ 1 2)").unwrap();
 
-        // let l: Vec<Node> = match x {
-        //     Node::List(l) => assert_eq!(3, l.len()),
-        //     _ => assert!(false)
-        // };
+        let l = as_list(&x);
 
-        // let xx : Vec<Node> = vec![make_atom_node("+"), make_atom_node("1"), make_atom_node("2")];
+        assert_eq!(3, l.len());
 
-        // for pair in xx.iter().zip(l.iter()) {
-        //     assert_eq!(pair.0, pair.1);
-        // }
+        let xx : Vec<Node> = vec![make_atom_node("+"), make_atom_node("1"), make_atom_node("2")];
+
+        for pair in xx.iter().zip(l.iter()) {
+            assert_eq!(pair.0, pair.1);
+        }
     }
 
     #[test]
     fn nested_read_tokens() {
         let x = parse("(+ 1 (* 2 2))").unwrap();
 
-        // assert_eq!( atom("+"), x.children[0].atom);
-        // assert_eq!( atom("1"), x.children[1].atom);
-        // assert_eq!( Atom::Nil, x.children[2].atom);
+        let l = as_list(&x);
 
-        // assert_eq!( 3, x.children[2].children.len());
-        // assert_eq!( atom("*"), x.children[2].children[0].atom);
-        // assert_eq!( atom("2"), x.children[2].children[1].atom);
-        // assert_eq!( atom("2"), x.children[2].children[2].atom);
+        assert_eq!( atom("+"), *as_atom(&l[0]));
+        assert_eq!( atom("1"), *as_atom(&l[1]));
+
+        let l2 = as_list(&l[2]);
+
+        assert_eq!( 3, l.len());
+        assert_eq!( atom("*"), *as_atom(&l2[0]));
+        assert_eq!( atom("2"), *as_atom(&l2[1]));
+        assert_eq!( atom("2"), *as_atom(&l2[2]));
     }
 
     #[test]
     fn subexp_token_test() {
         let x = parse("(+ 1 (+ 2 3) 4)").unwrap();
 
-        // assert_eq!( atom("+"), x.children[0].atom);
-        // assert_eq!( atom("1"), x.children[1].atom);
-        // assert_eq!( Atom::Nil, x.children[2].atom);
+        let l = as_list(&x);
 
-        // assert_eq!( 3, x.children[2].children.len());
-        // assert_eq!( atom("+"), x.children[2].children[0].atom);
-        // assert_eq!( atom("2"), x.children[2].children[1].atom);
-        // assert_eq!( atom("3"), x.children[2].children[2].atom);
+        assert_eq!( atom("+"), *as_atom(&l[0]));
+        assert_eq!( atom("1"), *as_atom(&l[1]));
 
-        // assert_eq!(atom("4"), x.children[3].atom);
+        let l2 = as_list(&l[2]);
+
+        assert_eq!( 3, l2.len());
+        assert_eq!( atom("+"), *as_atom(&l2[0]));
+        assert_eq!( atom("2"), *as_atom(&l2[1]));
+        assert_eq!( atom("3"), *as_atom(&l2[2]));
+
+        assert_eq!(atom("4"), *as_atom(&l[3]));
     }
 
     #[test]
