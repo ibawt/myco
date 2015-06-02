@@ -12,12 +12,19 @@ use errors::Error::*;
 
 use std::collections::HashMap;
 use std::string::String;
+
 type EvalResult = Result<Eval, Error>;
 type Function = Fn(&Vec<Eval>) -> EvalResult;
 type FunctionMap = HashMap<String, Box<Function>>;
 
+#[derive(Debug, Clone, PartialEq)]
+enum Eval {
+    Atom(Atom),
+    Node(Node)
+}
+
 fn nil_func(_: &Vec<Eval>) -> EvalResult {
-    return Ok(Eval::Atom(Atom::Nil));
+    Ok(Eval::Atom(Atom::Nil))
 }
 
 struct Env {
@@ -32,11 +39,11 @@ fn add(v: &Vec<Eval>) -> EvalResult {
         if let Eval::Atom(Atom::Integer(d)) = *i {
                 result += d
         } else {
-            return Err(Error::UnexpectedType);
+            return Err(Error::UnexpectedType)
         }
     }
 
-    return Ok(Eval::Atom(Atom::Integer(result)));
+    Ok(Eval::Atom(Atom::Integer(result)))
 }
 
 fn sub(v: &Vec<Eval>) -> EvalResult {
@@ -56,7 +63,7 @@ fn sub(v: &Vec<Eval>) -> EvalResult {
         }
     }
 
-    return Ok(Eval::Atom(Atom::Integer(result)));
+    Ok(Eval::Atom(Atom::Integer(result)))
 }
 
 fn equals(args: &Vec<Eval>) -> EvalResult {
@@ -64,7 +71,7 @@ fn equals(args: &Vec<Eval>) -> EvalResult {
 
     for i in args.iter().skip(1) {
         if v != i {
-            return Ok(Eval::Atom(Atom::Boolean(false)));
+            return Ok(Eval::Atom(Atom::Boolean(false)))
         }
     }
     Ok(Eval::Atom(Atom::Boolean(true)))
@@ -78,7 +85,7 @@ fn default_env() -> Env {
     env.func_map.insert("-".to_string(), Box::new(sub) as Box<Function>);
     env.func_map.insert("=".to_string(), Box::new(equals) as Box<Function>);
 
-    return env;
+    env
 }
 
 fn define(args: Vec<Eval>, env: &mut Env) -> EvalResult {
@@ -97,7 +104,7 @@ fn define(args: Vec<Eval>, env: &mut Env) -> EvalResult {
 fn set(args: Vec<Eval>, env: &mut Env) -> EvalResult {
     // FIXME: get rid of the clones
     if args.len() != 2 {
-        return Err(InvalidArguments);
+        return Err(InvalidArguments)
     }
 
     if let Eval::Atom(Atom::Symbol(ref key)) = args[0] {
@@ -112,7 +119,7 @@ fn set(args: Vec<Eval>, env: &mut Env) -> EvalResult {
 
 fn get(args: Vec<Eval>, env: &Env) -> EvalResult {
     if args.len() != 1 {
-        return Err(Error::InvalidArguments);
+        return Err(Error::InvalidArguments)
     }
 
     if let Eval::Atom(Atom::Symbol(ref s)) = args[0] {
@@ -133,16 +140,11 @@ fn eval_args(list: &Vec<Node>, env: &mut Env) -> Result<Vec<Eval>, Error> {
         let atom = try!(eval(i, env));
         args.push(atom);
     }
-    return Ok(args);
-}
-#[derive(Debug, Clone, PartialEq)]
-enum Eval {
-    Atom(Atom),
-    Node(Node)
+    Ok(args)
 }
 
 fn quote(v: &Vec<Node>) -> Result<Eval, Error> {
-    return Ok(Eval::Node(v[1].clone()));
+    Ok(Eval::Node(v[1].clone()))
 }
 
 fn eval(node: &Node, env: &mut Env) -> Result<Eval, Error> {
@@ -236,8 +238,9 @@ mod test {
     use super::default_env;
     use super::eval;
     use atom::Atom;
-
-    fn teval(s: &str) -> Atom {
+    use super::Eval;
+    
+    fn teval(s: &str) -> Eval {
         eval(&tokenize(s).unwrap(), &mut default_env()).unwrap()
     }
 
@@ -318,21 +321,21 @@ mod test {
     fn if_special_form() {
         let x = eval(&tokenize("(if (= 1 1) true false)").unwrap(), &mut default_env()).unwrap();
 
-        assert_eq!(Atom::Boolean(true), x);
+        assert_eq!(Eval::Atom(Atom::Boolean(true)), x);
     }
 
     #[test]
     fn if_special_form_false() {
         let x = eval(&tokenize("(if (= 1 2) true false)").unwrap(), &mut default_env()).unwrap();
 
-        assert_eq!(Atom::Boolean(false), x);
+        assert_eq!(Eval::Atom(Atom::Boolean(false)), x);
     }
 
     #[test]
     fn if_no_else() {
         let x = teval("(if (= 1 1) true)");
 
-        assert_eq!(Atom::Boolean(true), x);
+        assert_eq!(Eval::Atom(Atom::Boolean(true)), x);
     }
 
     #[test]
