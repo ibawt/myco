@@ -141,6 +141,10 @@ enum Eval {
     Node(Node)
 }
 
+fn quote(v: &Vec<Node>) -> Result<Eval, Error> {
+    return Ok(Eval::Node(v[1].clone()));
+}
+
 fn eval(node: &Node, env: &mut Env) -> Result<Eval, Error> {
     match node {
         &Node::List(ref list) => {
@@ -153,7 +157,7 @@ fn eval(node: &Node, env: &mut Env) -> Result<Eval, Error> {
                                 return define(args, env);
                             },
                             "quote" => {
-                                return Ok(Eval::Node(Node::List(list.clone())))
+                                return quote(&list);
                             },
                             "set!" => {
                                 return set( try!(eval_args(&list, env)), env);
