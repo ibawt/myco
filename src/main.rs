@@ -1,88 +1,73 @@
 extern crate regex;
 extern crate readline;
 
-use regex::Regex;
+mod errors;
+mod atom;
+mod parser;
+
+use parser::*;
+use atom::*;
+use errors::Error;
+use errors::Error::*;
+
 use std::collections::HashMap;
-use std::io::prelude::*;
-use std::iter::Iterator;
 use std::string::String;
-
-#[derive(Debug, PartialEq, Clone)]
-enum Atom {
-    Integer(i64),
-    Float(f64),
-    Symbol(String),
-    Boolean(bool),
-    Nil
-}
-
-type Function = Fn(&Vec<Atom>) -> AtomResult;
+type EvalResult = Result<Eval, Error>;
+type Function = Fn(&Vec<Eval>) -> EvalResult;
 type FunctionMap = HashMap<String, Box<Function>>;
 
-#[derive(Debug)]
-enum Error {
-    UnexpectedType,
-    Parser,
-    InvalidArguments,
-    NotAFunction,
-    NotImplemented
-}
-
-type AtomResult = Result<Atom, Error>;
-type ParseResult = Result<Node, Error>;
-
-fn nil_func(_: &Vec<Atom>) -> AtomResult {
-    return Ok(Atom::Nil);
+fn nil_func(_: &Vec<Eval>) -> EvalResult {
+    return Ok(Eval::Atom(Atom::Nil));
 }
 
 struct Env {
     func_map: FunctionMap,
-    def_map: HashMap<String, Atom>
+    def_map: HashMap<String, Eval>
 }
 
-fn add(v: &Vec<Atom>) -> AtomResult {
+fn add(v: &Vec<Eval>) -> EvalResult {
     let mut result = 0;
 
     for i in v {
-        if let Atom::Integer(d) =  *i {
-            result += d
+        if let Eval::Atom(Atom::Integer(d)) = *i {
+                result += d
         } else {
-            return Err(Error::UnexpectedType)
+            return Err(Error::UnexpectedType);
         }
     }
 
-    return Ok(Atom::Integer(result));
+    return Ok(Eval::Atom(Atom::Integer(result)));
 }
 
-fn sub(v: &Vec<Atom>) -> AtomResult {
+fn sub(v: &Vec<Eval>) -> EvalResult {
     if v.len() < 1 {
         return Err(Error::InvalidArguments)
     }
 
     let mut result = match v[0] {
-        Atom::Integer(d) => d,
+        Eval::Atom(Atom::Integer(d)) => d,
         _ => return Err(Error::UnexpectedType)
     };
 
     for i in v.iter().skip(1) {
         match *i {
-            Atom::Integer(d) => result -= d,
+            Eval::Atom(Atom::Integer(d)) => result -= d,
             _ => return Err(Error::UnexpectedType)
         }
     }
 
-    return Ok(Atom::Integer(result));
+    return Ok(Eval::Atom(Atom::Integer(result)));
 }
 
-fn equals(args: &Vec<Atom>) -> AtomResult {
+fn equals(args: &Vec<Eval>) -> EvalResult {
     let v = &args[0];
 
     for i in args.iter().skip(1) {
         if v != i {
-            return Ok(Atom::Boolean(false));
+            return Ok(Eval::Atom(Atom::Boolean(false)));
         }
     }
-    Ok(Atom::Boolean(true))
+    Ok(Eval::Atom(Atom::Boolean(true)))
 }
 
 fn default_env() -> Env {
@@ -96,97 +81,53 @@ fn default_env() -> Env {
     return env;
 }
 
-fn tokenize(line: &str) -> ParseResult {
-    let r = Regex::new(r"\s+").unwrap();
-    let l = line.replace("(", " ( ").replace(")", " ) ").trim().to_string();
-    let iter = r.split(&l);
-    return read_tokens(&mut iter.peekable());
-}
-
-fn atom(token: &str) -> Atom {
-    match token {
-        "true" => return Atom::Boolean(true),
-        "false" => return Atom::Boolean(false),
-        _ => ()
-    }
-
-    let i = token.parse::<i64>();
-    match i {
-        Ok(v) => Atom::Integer(v),
-        _ => {
-            let f = token.parse::<f64>();
-            match f {
-                Ok(x) => Atom::Float(x),
-                _ => Atom::Symbol(token.to_string())
-            }
-        },
-    }
-}
-
-#[derive(Debug,PartialEq)]
-enum Node {
-    Atom(Atom),
-    List(Vec<Node>)
-}
-
-fn read_tokens(iter: &mut std::iter::Peekable<regex::RegexSplits>) -> ParseResult {
-    match iter.next() {
-        Some("(") => {
-            let mut node: Vec<Node> = vec![];
-
-            loop {
-                match iter.peek() {
-                    Some(&")") => {
-                        iter.next();
-                        break
-                    },
-                    Some(_) => {
-                        let token = try!(read_tokens(iter));
-                        node.push(token);
-                    },
-                    None => return Err(Error::Parser)
-                }
-            }
-            return Ok(Node::List(node));
-        },
-        Some(")") => return Err(Error::Parser),
-        Some(x) => return Ok(Node::Atom(atom(x))),
-        _ => ()
-    }
-    return Err(Error::Parser);
-}
-
-fn define(args: Vec<Atom>, env: &mut Env) -> AtomResult {
+fn define(args: Vec<Eval>, env: &mut Env) -> EvalResult {
     if args.len() != 2 {
         return Err(Error::InvalidArguments);
     }
 
-    if let Atom::Symbol(ref key) = args[0] {
+    if let Eval::Atom(Atom::Symbol(ref key)) = args[0] {
         env.def_map.insert(key.clone(), args[1].clone());
-        Ok(Atom::Nil)
+        Ok(Eval::Atom(Atom::Nil))
     } else {
         Err(Error::InvalidArguments)
     }
 }
 
-fn get(args: Vec<Atom>, env: &Env) -> AtomResult {
+fn set(args: Vec<Eval>, env: &mut Env) -> EvalResult {
+    // FIXME: get rid of the clones
+    if args.len() != 2 {
+        return Err(InvalidArguments);
+    }
+
+    if let Eval::Atom(Atom::Symbol(ref key)) = args[0] {
+        if env.def_map.contains_key(key) {
+            let entry = env.def_map.entry((*key).clone()).or_insert(Eval::Atom(Atom::Nil));
+            *entry = args[1].clone();
+            return Ok(args[1].clone())
+        }
+    }
+    Err(InvalidArguments)
+}
+
+fn get(args: Vec<Eval>, env: &Env) -> EvalResult {
     if args.len() != 1 {
         return Err(Error::InvalidArguments);
     }
 
-    if let Atom::Symbol(ref s) = args[0] {
+    if let Eval::Atom(Atom::Symbol(ref s)) = args[0] {
         if let Some(a) = env.def_map.get(s) {
             Ok(a.clone())
         } else {
-            Ok(Atom::Nil)
+            Ok(Eval::Atom(Atom::Nil))
         }
     } else {
         Err(Error::InvalidArguments)
     }
 }
 
-fn eval_args(list: &Vec<Node>, env: &mut Env) -> Result<Vec<Atom>, Error> {
-    let mut args: Vec<Atom> = vec![];
+fn eval_args(list: &Vec<Node>, env: &mut Env) -> Result<Vec<Eval>, Error> {
+    let mut args = vec![];
 
     for i in list.iter().skip(1) {
         let atom = try!(eval(i, env));
@@ -194,17 +135,28 @@ fn eval_args(list: &Vec<Node>, env: &mut Env) -> Result<Vec<Atom>, Error> {
     }
     return Ok(args);
 }
+#[derive(Debug, Clone, PartialEq)]
+enum Eval {
+    Atom(Atom),
+    Node(Node)
+}
 
-fn eval(node: &Node, env: &mut Env) -> AtomResult {
-    match *node {
-        Node::List(ref list) => {
+fn eval(node: &Node, env: &mut Env) -> Result<Eval, Error> {
+    match node {
+        &Node::List(ref list) => {
             match list[0] {
                 Node::Atom(ref atom) => {
                     if let &Atom::Symbol(ref s) = atom {
                         match s.as_ref() {
-                            "define" => {
+                            "def" => {
                                 let args = try!(eval_args(&list, env));
                                 return define(args, env);
+                            },
+                            "quote" => {
+                                return Ok(Eval::Node(Node::List(list.clone())))
+                            },
+                            "set!" => {
+                                return set( try!(eval_args(&list, env)), env);
                             },
                             "get" => {
                                 return get( try!(eval_args(&list, env)), env);
@@ -213,8 +165,8 @@ fn eval(node: &Node, env: &mut Env) -> AtomResult {
                                 let predicate = try!(eval(&list[1], env));
 
                                 let truthy = match predicate {
-                                    Atom::Boolean(b) => b,
-                                    Atom::Nil => false,
+                                    Eval::Atom(Atom::Boolean(b)) => b,
+                                    Eval::Atom(Atom::Nil) => false,
                                     _ => true
                                 };
 
@@ -223,18 +175,17 @@ fn eval(node: &Node, env: &mut Env) -> AtomResult {
                                 } else if list.len() > 2 {
                                     return eval(&list[3], env);
                                 } else {
-                                    return Ok(Atom::Boolean(false))
+                                    return Ok(Eval::Atom(Atom::Boolean(false)))
                                 }
                             },
                             _ => ()
                         };
 
                         let args = try!(eval_args(&list, env));
-
                         if let Some(f) = env.func_map.get(s) {
                             f(&args)
                         } else {
-                            Ok(Atom::Nil)
+                            Ok(Eval::Atom(Atom::Nil))
                         }
                     } else {
                         Err(Error::NotAFunction)
@@ -243,12 +194,8 @@ fn eval(node: &Node, env: &mut Env) -> AtomResult {
                 Node::List(_) => panic!("derp")
             }
         },
-        Node::Atom(ref atom) => Ok(atom.clone())
+        &Node::Atom(ref atom) => Ok(Eval::Atom(atom.clone()))
     }
-}
-
-fn parse(line: &str) -> ParseResult {
-    tokenize(line)
 }
 
 fn repl() {
@@ -258,7 +205,7 @@ fn repl() {
     loop {
         match readline::readline(">") {
             Some(s) => {
-                if let Ok(p) = parse(&s) {
+                if let Ok(p) = parser::tokenize(&s) {
                     match eval(&p, &mut env) {
                         Ok(r) => println!("{:?}", r),
                         Err(e) => println!("Error in evaluation: {:?}", e)
@@ -281,19 +228,17 @@ pub fn main() {
 
 #[cfg(test)]
 mod test {
-    use super::Node;
-    use super::Atom;
-    use super::atom;
-    use super::parse;
+    use parser::*;
     use super::default_env;
     use super::eval;
+    use atom::Atom;
 
     fn teval(s: &str) -> Atom {
-        eval(&parse(s).unwrap(), &mut default_env()).unwrap()
+        eval(&tokenize(s).unwrap(), &mut default_env()).unwrap()
     }
 
     fn make_atom_node(s: &str) -> Node {
-        return Node::Atom(atom(s));
+        return Node::Atom(Atom::parse(s));
     }
 
     fn as_list(n: &Node) -> &Vec<Node> {
@@ -310,15 +255,13 @@ mod test {
         }
     }
 
-    #[test]
-    fn atom_test() {
-        assert_eq!(Atom::Integer(32), atom("32"));
-        assert_eq!(Atom::Symbol("symbol".to_string()), atom("symbol"));
+    fn atom(s: &str) -> Atom {
+        Atom::parse(s)
     }
 
     #[test]
     fn simple_read_tokens() {
-        let x = parse("(+ 1 2)").unwrap();
+        let x = tokenize("(+ 1 2)").unwrap();
 
         let l = as_list(&x);
 
@@ -333,7 +276,7 @@ mod test {
 
     #[test]
     fn nested_read_tokens() {
-        let x = parse("(+ 1 (* 2 2))").unwrap();
+        let x = tokenize("(+ 1 (* 2 2))").unwrap();
 
         let l = as_list(&x);
 
@@ -350,7 +293,7 @@ mod test {
 
     #[test]
     fn subexp_token_test() {
-        let x = parse("(+ 1 (+ 2 3) 4)").unwrap();
+        let x = tokenize("(+ 1 (+ 2 3) 4)").unwrap();
 
         let l = as_list(&x);
 
@@ -369,14 +312,14 @@ mod test {
 
     #[test]
     fn if_special_form() {
-        let x = eval(&parse("(if (= 1 1) true false)").unwrap(), &mut default_env()).unwrap();
+        let x = eval(&tokenize("(if (= 1 1) true false)").unwrap(), &mut default_env()).unwrap();
 
         assert_eq!(Atom::Boolean(true), x);
     }
 
     #[test]
     fn if_special_form_false() {
-        let x = eval(&parse("(if (= 1 2) true false)").unwrap(), &mut default_env()).unwrap();
+        let x = eval(&tokenize("(if (= 1 2) true false)").unwrap(), &mut default_env()).unwrap();
 
         assert_eq!(Atom::Boolean(false), x);
     }
@@ -391,12 +334,12 @@ mod test {
     #[test]
     #[should_panic]
     fn unmatched_bracket() {
-        parse("(+ 1").unwrap();
+        tokenize("(+ 1").unwrap();
     }
 
     #[test]
     #[should_panic]
     fn eof() {
-         parse("").unwrap();
+         tokenize("").unwrap();
     }
 }
