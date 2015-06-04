@@ -6,16 +6,16 @@ use errors::*;
 use std::iter::*;
 use regex::Regex;
 
-struct Scanner {
-    buf: String,
-    pos: usize
-}
+// struct Scanner {
+//     buf: String,
+//     pos: usize
+// }
 
-impl Scanner {
-    fn next(&mut self) -> &str {
-        ""
-    }
-}
+// impl Scanner {
+//     fn next(&mut self) -> &str {
+//         ""
+//     }
+// }
 
 pub fn tokenize(line: &str) -> ParseResult {
     let r = Regex::new(r"\s+").unwrap();
