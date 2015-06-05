@@ -140,15 +140,35 @@ fn sub(v: &Vec<Eval>) -> EvalResult {
     Ok(Eval::Atom(Atom::Integer(result)))
 }
 
-fn equals(args: &Vec<Eval>) -> EvalResult {
-    let v = &args[0];
-
-    for i in args.iter().skip(1) {
-        if v != i {
-            return Ok(Eval::Atom(Atom::Boolean(false)))
+fn equals(args: &Vec<Eval>, env: &Env) -> EvalResult {
+    if let Some(v) = args.first() {
+        for i in args.iter().skip(1) {
+            match *i {
+                Eval::Atom(Atom::Symbol(ref s)) => {
+                    match env.get(s) {
+                        Some(d) => {
+                            if d != v {
+                                return Ok(Eval::Atom(Atom::Boolean(false)));
+                            }
+                        },
+                        None => {
+                            if v != &Eval::Atom(Atom::Nil) {
+                                return Ok(Eval::Atom(Atom::Boolean(false)));
+                            }
+                        }
+                    }
+                }
+                _ => {
+                    if v != i {
+                        return Ok(Eval::Atom(Atom::Boolean(false)))
+                    }
+                }
+            }
         }
+        Ok(Eval::Atom(Atom::Boolean(true)))
+    } else {
+        Err(InvalidArguments)
     }
-    Ok(Eval::Atom(Atom::Boolean(true)))
 }
 
 fn default_env() -> Env {
@@ -160,7 +180,7 @@ fn try_built_ins(sym: &str, args: &Vec<Eval>, env: &Env) -> Option<EvalResult> {
         "nil" => Some(Ok(Eval::Atom(Atom::Nil))),
         "+" => Some(add(args, env)),
         "-" => Some(sub(args)),
-        "=" => Some(equals(args)),
+        "=" => Some(equals(args, env)),
         _ => None
     }
 }
@@ -169,7 +189,6 @@ fn define(args: Vec<Eval>, env: &mut Env) -> EvalResult {
     if args.len() != 2 {
         return Err(Error::InvalidArguments);
     }
-
     if let Eval::Atom(Atom::Symbol(ref key)) = args[0] {
         env.set(key.clone(), args[1].clone());
         Ok(Eval::Atom(Atom::Nil))
@@ -205,7 +224,7 @@ fn get(args: Vec<Eval>, env: &Env) -> EvalResult {
         } else {
             Ok(Eval::Atom(Atom::Nil))
         }
-    } else {
+    } else { 
         Err(Error::InvalidArguments)
     }
 }
@@ -230,7 +249,9 @@ fn reduce_fn_params(l: &Vec<Node>) -> Result<Vec<Atom>,Error> {
     for node in l {
         match node {
             &Node::Atom(ref a) => v.push(a.clone()),
-            _ => return Err(InvalidArguments)
+            _ => {
+                return Err(InvalidArguments)
+            }
         }
     }
     Ok(v)
@@ -256,10 +277,15 @@ fn eval_node(atom: &Atom, list: &Vec<Node>, env: &mut Env) -> EvalResult {
                 "fn" => {
                     let params = match list[1] {
                         Node::List(ref l) => try!(reduce_fn_params(l)),
-                        _ => return Err(InvalidArguments)
+                        _ => {
+                            return Err(InvalidArguments)
+                        }
                     };
 
-                    let prc = Procedure{ params: params, body: Node::List(collect_body(list))};
+                    let prc = Procedure{ params: params,
+                                         body: Node::List(collect_body(list))
+                    };
+
                     return Ok(Eval::Proc(prc))
                 },
                 "quote" => {
@@ -324,12 +350,24 @@ fn eval(node: &Node, env: &mut Env) -> Result<Eval, Error> {
                     match r {
                         Eval::Atom(a) => return eval_node(&a, list, env),
                         Eval::Proc(p) => return eval_procedure(&p, &try!(eval_args(&list, env)), env),
-                        _ => return Err(InvalidArguments)
+                        _ => {
+                            return Err(InvalidArguments)
+                        }
                     }
                 }
             }
         },
-        &Node::Atom(ref atom) => Ok(Eval::Atom(atom.clone()))
+        &Node::Atom(ref atom) => {
+            match atom {
+                &Atom::Symbol(ref s) => {
+                    match env.get(s) {
+                        Some(e) => return Ok(e.clone()),
+                        _ => return Ok(Eval::Atom(atom.clone()))
+                    }
+                }
+                _ => Ok(Eval::Atom(atom.clone()))
+            }
+        }
     }
 }
 
