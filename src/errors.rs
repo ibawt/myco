@@ -4,5 +4,6 @@ pub enum Error {
     Parser,
     InvalidArguments,
     NotAFunction,
+    NotEnoughArguments
     //NotImplemented
 }

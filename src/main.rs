@@ -120,6 +120,46 @@ fn add(v: &Vec<Eval>, env: &Env) -> EvalResult {
     Ok(Eval::Atom(Atom::Integer(result)))
 }
 
+enum Comparison {
+    LessThan,
+    GreaterThan,
+    LessThanOrEqual,
+    GreaterThanOrEqual
+}
+
+use Comparison::*;
+
+fn cmp(v: &Vec<Eval>, env: &Env, cmp: Comparison) -> EvalResult {
+    if v.len() < 2 {
+        return Err(NotEnoughArguments)
+    }
+
+    let initial = match v[0] {
+        Eval::Atom(Atom::Integer(a)) => a,
+        _ => return Err(UnexpectedType)
+    };
+
+    for i in v.iter().skip(1) {
+        match i {
+            &Eval::Atom(Atom::Integer(d)) => {
+                let b = match cmp {
+                    LessThan => initial < d,
+                    GreaterThan => initial > d,
+                    LessThanOrEqual => initial <= d,
+                    GreaterThanOrEqual => initial >= d
+                };
+
+                if !b {
+                    return Ok(Eval::Atom(Atom::Boolean(false)))
+                }
+            },
+            _ => return Err(UnexpectedType)
+        }
+    }
+
+    Ok(Eval::Atom(Atom::Boolean(true)))
+}
+
 fn sub(v: &Vec<Eval>) -> EvalResult {
     if v.len() < 1 {
         return Err(Error::InvalidArguments)
@@ -181,6 +221,10 @@ fn try_built_ins(sym: &str, args: &Vec<Eval>, env: &Env) -> Option<EvalResult> {
         "+" => Some(add(args, env)),
         "-" => Some(sub(args)),
         "=" => Some(equals(args, env)),
+        ">=" => Some(cmp(args, env, GreaterThanOrEqual)),
+        ">" => Some(cmp(args, env, GreaterThan)),
+        "<=" => Some(cmp(args, env, LessThanOrEqual)),
+        "<" => Some(cmp(args, env, LessThan)),
         _ => None
     }
 }
