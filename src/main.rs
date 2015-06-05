@@ -207,7 +207,7 @@ fn equals(args: &Vec<Eval>, env: &Env) -> EvalResult {
         }
         Ok(Eval::Atom(Atom::Boolean(true)))
     } else {
-        Err(InvalidArguments)
+        Err(NotEnoughArguments)
     }
 }
 
@@ -268,7 +268,7 @@ fn get(args: Vec<Eval>, env: &Env) -> EvalResult {
         } else {
             Ok(Eval::Atom(Atom::Nil))
         }
-    } else { 
+    } else {
         Err(Error::InvalidArguments)
     }
 }
@@ -547,6 +547,40 @@ mod test {
         let x = teval("(if (= 1 1) true)");
 
         assert_eq!(Eval::Atom(Atom::Boolean(true)), x);
+    }
+
+    fn tassert(v: &str) {
+        assert_eq!(Eval::Atom(Atom::Boolean(true)), teval(v));
+    }
+
+    fn trefute(v: &str) {
+        assert_eq!(Eval::Atom(Atom::Boolean(false)), teval(v));
+    }
+
+    #[test]
+    fn comparisons() {
+        tassert("(= 1 1 1 1)");
+        trefute("(= 1 0 1 1)");
+        tassert("(< 1 5 10)");
+        trefute("(< 5 1 20)");
+        tassert("(<= 1 1 1 5)");
+        trefute("(<= 5 2 1 5)");
+        tassert("(> 5 3 2 1)");
+        trefute("(> 5 3 2 10)");
+        tassert("(>= 5 5 5 3)");
+        trefute("(>= 5 5 5 10)");
+    }
+
+    fn num(i: i64) -> Eval {
+        Eval::Atom(Atom::Integer(i))
+    }
+
+    #[test]
+    fn adds() {
+        assert_eq!(num(5), teval("(+ 2 3)"));
+        assert_eq!(num(25), teval("(+ 5 5 5 5 5)"));
+        assert_eq!(num(0), teval("(- 5 5)"));
+        assert_eq!(num(5), teval("(- 20 10 5)"));
     }
 
     #[test]
