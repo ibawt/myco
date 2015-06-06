@@ -98,17 +98,17 @@ impl Env {
     }
 }
 fn add(v: &Vec<Eval>, env: &Env) -> EvalResult {
-    let mut result = 0;
+    let mut result = Number::Integer(0);
 
-    for i in v {
-        match *i {
-            Eval::Atom(Atom::Integer(d)) => {
-                result += d
+    for i in v.iter() {
+        match i {
+            &Eval::Atom(Atom::Number(d)) => {
+                result = result + d;
             },
-            Eval::Atom(Atom::Symbol(ref s)) => {
+            &Eval::Atom(Atom::Symbol(ref s)) => {
                 let v = env.get(s);
                 match v {
-                    Some(&Eval::Atom(Atom::Integer(d))) => result += d,
+                    Some(&Eval::Atom(Atom::Number(d))) => result = result + d,
                     _ => return Err(UnexpectedType)
                 }
 
@@ -117,7 +117,7 @@ fn add(v: &Vec<Eval>, env: &Env) -> EvalResult {
         }
     }
 
-    Ok(Eval::Atom(Atom::Integer(result)))
+    Ok(Eval::Atom(Atom::Number(result)))
 }
 
 enum Comparison {
@@ -135,13 +135,13 @@ fn cmp(v: &Vec<Eval>, env: &Env, cmp: Comparison) -> EvalResult {
     }
 
     let initial = match v[0] {
-        Eval::Atom(Atom::Integer(a)) => a,
+        Eval::Atom(Atom::Number(a)) => a,
         _ => return Err(UnexpectedType)
     };
 
     for i in v.iter().skip(1) {
         match i {
-            &Eval::Atom(Atom::Integer(d)) => {
+            &Eval::Atom(Atom::Number(d)) => {
                 let b = match cmp {
                     LessThan => initial < d,
                     GreaterThan => initial > d,
@@ -166,18 +166,18 @@ fn sub(v: &Vec<Eval>) -> EvalResult {
     }
 
     let mut result = match v[0] {
-        Eval::Atom(Atom::Integer(d)) => d,
+        Eval::Atom(Atom::Number(d)) => d,
         _ => return Err(Error::UnexpectedType)
     };
 
     for i in v.iter().skip(1) {
         match *i {
-            Eval::Atom(Atom::Integer(d)) => result -= d,
+            Eval::Atom(Atom::Number(d)) => result = result - d,
             _ => return Err(Error::UnexpectedType)
         }
     }
 
-    Ok(Eval::Atom(Atom::Integer(result)))
+    Ok(Eval::Atom(Atom::Number(result)))
 }
 
 fn equals(args: &Vec<Eval>, env: &Env) -> EvalResult {
@@ -570,9 +570,10 @@ mod test {
         tassert("(>= 5 5 5 3)");
         trefute("(>= 5 5 5 10)");
     }
+    use super::atom::Number;
 
     fn num(i: i64) -> Eval {
-        Eval::Atom(Atom::Integer(i))
+        Eval::Atom(Atom::Number(Number::Integer(i)))
     }
 
     #[test]
@@ -581,6 +582,15 @@ mod test {
         assert_eq!(num(25), teval("(+ 5 5 5 5 5)"));
         assert_eq!(num(0), teval("(- 5 5)"));
         assert_eq!(num(5), teval("(- 20 10 5)"));
+    }
+
+    #[test]
+    fn simple_func() {
+        let mut env = default_env();
+        let def = eval(&tokenize("(def f (fn (r b) (+ r b)))").unwrap(), &mut env).unwrap();
+        let res = eval(&tokenize("(f 2 3)").unwrap(), &mut env).unwrap();
+        
+        assert_eq!(num(5), res);
     }
 
     #[test]
