@@ -1,5 +1,6 @@
 use errors::Error;
 use std::ops::*;
+use std::collections::*;
 
 #[derive(Debug, PartialOrd, PartialEq, Clone, Copy)]
 pub enum Number {
@@ -95,6 +96,7 @@ impl Div for Number {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Atom {
+    List(VecDeque<Atom>),
     Number(Number),
     Symbol(String),
     Boolean(bool),

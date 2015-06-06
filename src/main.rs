@@ -100,18 +100,10 @@ impl Env {
 fn add(v: &Vec<Eval>, env: &Env) -> EvalResult {
     let mut result = Number::Integer(0);
 
-    for i in v.iter() {
+    for i in resolve_symbols(v, env).iter() {
         match i {
             &Eval::Atom(Atom::Number(d)) => {
                 result = result + d;
-            },
-            &Eval::Atom(Atom::Symbol(ref s)) => {
-                let v = env.get(s);
-                match v {
-                    Some(&Eval::Atom(Atom::Number(d))) => result = result + d,
-                    _ => return Err(UnexpectedType)
-                }
-
             },
             _ => return Err(Error::UnexpectedType)
         }
@@ -134,12 +126,14 @@ fn cmp(v: &Vec<Eval>, env: &Env, cmp: Comparison) -> EvalResult {
         return Err(NotEnoughArguments)
     }
 
-    let initial = match v[0] {
+    let vv = resolve_symbols(v, env);
+
+    let initial = match vv[0] {
         Eval::Atom(Atom::Number(a)) => a,
         _ => return Err(UnexpectedType)
     };
 
-    for i in v.iter().skip(1) {
+    for i in vv.iter().skip(1) {
         match i {
             &Eval::Atom(Atom::Number(d)) => {
                 let b = match cmp {
@@ -160,17 +154,19 @@ fn cmp(v: &Vec<Eval>, env: &Env, cmp: Comparison) -> EvalResult {
     Ok(Eval::Atom(Atom::Boolean(true)))
 }
 
-fn sub(v: &Vec<Eval>) -> EvalResult {
+fn sub(v: &Vec<Eval>, env: &Env) -> EvalResult {
     if v.len() < 1 {
         return Err(Error::InvalidArguments)
     }
 
-    let mut result = match v[0] {
+    let vv = resolve_symbols(v, env);
+
+    let mut result = match vv[0] {
         Eval::Atom(Atom::Number(d)) => d,
         _ => return Err(Error::UnexpectedType)
     };
 
-    for i in v.iter().skip(1) {
+    for i in vv.iter().skip(1) {
         match *i {
             Eval::Atom(Atom::Number(d)) => result = result - d,
             _ => return Err(Error::UnexpectedType)
@@ -180,29 +176,66 @@ fn sub(v: &Vec<Eval>) -> EvalResult {
     Ok(Eval::Atom(Atom::Number(result)))
 }
 
+fn mul(v: &Vec<Eval>, env: &Env) -> EvalResult {
+    if v.len() < 2 {
+        return Err(NotEnoughArguments)
+    }
+
+    let vv = resolve_symbols(v, env);
+
+    let mut initial = match vv[0] {
+        Eval::Atom(Atom::Number(d)) => d,
+        _ => return Err(InvalidArguments)
+    };
+
+    for i in vv.iter().skip(1) {
+        match i {
+            &Eval::Atom(Atom::Number(d)) => initial = initial * d,
+            _ => return Err(InvalidArguments)
+        }
+    }
+    Ok(Eval::Atom(Atom::Number(initial)))
+}
+
+fn div(v: &Vec<Eval>, env: &Env) -> EvalResult {
+    if v.len() < 2 {
+        return Err(NotEnoughArguments)
+    }
+
+    let vv = resolve_symbols(v, env);
+
+    let mut initial = match vv[0] {
+        Eval::Atom(Atom::Number(d)) => d,
+        _ => return Err(InvalidArguments)
+    };
+
+    for i in vv.iter().skip(1) {
+        match i {
+            &Eval::Atom(Atom::Number(d)) => initial = initial / d,
+            _ => return Err(InvalidArguments)
+        }
+    }
+    Ok(Eval::Atom(Atom::Number(initial)))
+}
+
+fn resolve_symbols(v: &Vec<Eval>, env: &Env) -> Vec<Eval> {
+    v.iter()
+        .map(|x| match x {
+            &Eval::Atom(Atom::Symbol(ref s)) => {
+                match env.get(s) {
+                    Some(d) => d.clone(),
+                    _ => Eval::Atom(Atom::Nil)
+                }
+            },
+            _ => x.clone()
+        }).collect::<Vec<Eval>>()
+}
+
 fn equals(args: &Vec<Eval>, env: &Env) -> EvalResult {
-    if let Some(v) = args.first() {
+    if let Some(v) = resolve_symbols(args,env).first() {
         for i in args.iter().skip(1) {
-            match *i {
-                Eval::Atom(Atom::Symbol(ref s)) => {
-                    match env.get(s) {
-                        Some(d) => {
-                            if d != v {
-                                return Ok(Eval::Atom(Atom::Boolean(false)));
-                            }
-                        },
-                        None => {
-                            if v != &Eval::Atom(Atom::Nil) {
-                                return Ok(Eval::Atom(Atom::Boolean(false)));
-                            }
-                        }
-                    }
-                }
-                _ => {
-                    if v != i {
-                        return Ok(Eval::Atom(Atom::Boolean(false)))
-                    }
-                }
+            if v != i {
+                return Ok(Eval::Atom(Atom::Boolean(false)))
             }
         }
         Ok(Eval::Atom(Atom::Boolean(true)))
@@ -215,16 +248,76 @@ fn default_env() -> Env {
     Env{def_map: vec![HashMap::new()]}
 }
 
+fn first(args: &Vec<Eval>, env: &Env) -> EvalResult {
+    if let Some(p) = args.first() {
+        match p {
+            &Eval::Atom(Atom::List(ref list)) => {
+                if let Some(f) = list.front() {
+                    Ok(Eval::Atom(f.clone()))
+                } else {
+                    Err(InvalidArguments)
+                }
+            },
+            _ => Err(InvalidArguments)
+        }
+    } else {
+        Err(NotEnoughArguments)
+    }
+}
+
+use std::collections::VecDeque;
+
+fn rest(args: &Vec<Eval>, env: &Env) -> EvalResult {
+    if args.len() < 1 {
+        return Err(NotEnoughArguments)
+    }
+
+    match &args[0] {
+        &Eval::Atom(Atom::List(ref list)) => {
+            println!("list: {:?}", list);
+            if list.len() > 1 {
+                let mut out = VecDeque::with_capacity(list.len() - 1);
+
+                for i in list.iter().skip(1) {
+                    out.push_back(i.clone());
+                }
+                println!("out: {:?}", out);
+                Ok(Eval::Atom(Atom::List(out)))
+            } else {
+                Ok(Eval::Atom(Atom::List(list.clone())))
+            }
+        },
+        _ => Err(InvalidArguments)
+    }
+}
+
+fn list(args: &Vec<Eval>, env: &Env) -> EvalResult {
+    let mut out =  VecDeque::with_capacity(args.len());
+
+    for i in resolve_symbols(args, env) {
+        match i {
+            Eval::Atom(a) => out.push_back(a.clone()),
+            _ => return Err(InvalidArguments)
+        }
+    }
+    Ok(Eval::Atom(Atom::List(out)))
+}
+
 fn try_built_ins(sym: &str, args: &Vec<Eval>, env: &Env) -> Option<EvalResult> {
     match sym {
         "nil" => Some(Ok(Eval::Atom(Atom::Nil))),
         "+" => Some(add(args, env)),
-        "-" => Some(sub(args)),
+        "-" => Some(sub(args, env)),
         "=" => Some(equals(args, env)),
         ">=" => Some(cmp(args, env, GreaterThanOrEqual)),
         ">" => Some(cmp(args, env, GreaterThan)),
         "<=" => Some(cmp(args, env, LessThanOrEqual)),
         "<" => Some(cmp(args, env, LessThan)),
+        "*" => Some(mul(args, env)),
+        "/" => Some(div(args,env)),
+        "first" => Some(first(args,env)),
+        "rest" => Some(rest(args,env)),
+        "list" => Some(list(args,env)),
         _ => None
     }
 }
@@ -302,12 +395,7 @@ fn reduce_fn_params(l: &Vec<Node>) -> Result<Vec<Atom>,Error> {
 }
 
 fn collect_body(l: &Vec<Node>) -> Vec<Node> {
-    let mut v = vec![];
-
-    for i in l.iter().skip(2) {
-        v.push(i.clone());
-    }
-    v
+    l.iter().skip(2).map(|x| x.clone()).collect()
 }
 
 fn eval_node(atom: &Atom, list: &Vec<Node>, env: &mut Env) -> EvalResult {
@@ -450,9 +538,15 @@ mod test {
     use super::eval;
     use atom::Atom;
     use super::Eval;
+    use super::Env;
+    use super::EvalResult;
 
     fn teval(s: &str) -> Eval {
         eval(&tokenize(s).unwrap(), &mut default_env()).unwrap()
+    }
+
+    fn teval_env(s: &str, env: &mut Env) -> EvalResult {
+        eval(&tokenize(s).unwrap(), env)
     }
 
     fn make_atom_node(s: &str) -> Node {
@@ -580,16 +674,42 @@ mod test {
     fn adds() {
         assert_eq!(num(5), teval("(+ 2 3)"));
         assert_eq!(num(25), teval("(+ 5 5 5 5 5)"));
+    }
+
+    #[test]
+    fn subs() {
         assert_eq!(num(0), teval("(- 5 5)"));
         assert_eq!(num(5), teval("(- 20 10 5)"));
     }
 
     #[test]
+    fn muls() {
+        assert_eq!(num(0), teval("(* 5 5 5 0)"));
+        assert_eq!(num(5), teval("(* 1 5)"));
+        assert_eq!(num(-5), teval("(* -1 5)"));
+    }
+
+    #[test]
+    fn symbol_resolving() {
+        let mut env = default_env();
+
+        teval_env("(def foo 5)", &mut env).unwrap();
+
+        assert_eq!(num(0), teval_env("(- foo 5)", &mut env).unwrap());
+    }
+
+    #[test]
+    fn first_and_rest() {
+        assert_eq!(num(0), teval("(first (list 0 1 2))"));
+        assert_eq!(teval("(list 1 2)"), teval("(rest (list 0 1 2))"));
+    }
+    
+    #[test]
     fn simple_func() {
         let mut env = default_env();
-        let def = eval(&tokenize("(def f (fn (r b) (+ r b)))").unwrap(), &mut env).unwrap();
+        let _ = eval(&tokenize("(def f (fn (r b) (+ r b)))").unwrap(), &mut env).unwrap();
         let res = eval(&tokenize("(f 2 3)").unwrap(), &mut env).unwrap();
-        
+
         assert_eq!(num(5), res);
     }
 
