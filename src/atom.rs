@@ -97,6 +97,7 @@ impl Div for Number {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Atom {
     List(VecDeque<Atom>),
+    String(String),
     Number(Number),
     Symbol(String),
     Boolean(bool),

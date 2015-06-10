@@ -30,7 +30,7 @@ struct Procedure {
     body: Node,
 }
 
-fn eval_procedure(p: &Procedure, args: &Vec<Eval>, env: &mut Env) ->  EvalResult {
+fn eval_procedure(p: &Procedure, args: &[Eval], env: &mut Env) ->  EvalResult {
     try!(env.apply(&p.params, args));
 
     let res = eval(&p.body, env);
@@ -63,7 +63,7 @@ impl Env {
         }
     }
 
-    fn apply(&mut self, params: &Vec<Atom>, args: &Vec<Eval>) -> Result<(),Error> {
+    fn apply(&mut self, params: &[Atom], args: &[Eval]) -> Result<(),Error> {
         if params.len() != args.len() {
             return Err(InvalidArguments);
         }
@@ -97,7 +97,7 @@ impl Env {
         }
     }
 }
-fn add(v: &Vec<Eval>, env: &Env) -> EvalResult {
+fn add(v: &[Eval], env: &Env) -> EvalResult {
     let mut result = Number::Integer(0);
 
     for i in resolve_symbols(v, env).iter() {
@@ -121,7 +121,7 @@ enum Comparison {
 
 use Comparison::*;
 
-fn cmp(v: &Vec<Eval>, env: &Env, cmp: Comparison) -> EvalResult {
+fn cmp(v: &[Eval], env: &Env, cmp: Comparison) -> EvalResult {
     if v.len() < 2 {
         return Err(NotEnoughArguments)
     }
@@ -154,7 +154,7 @@ fn cmp(v: &Vec<Eval>, env: &Env, cmp: Comparison) -> EvalResult {
     Ok(Eval::Atom(Atom::Boolean(true)))
 }
 
-fn sub(v: &Vec<Eval>, env: &Env) -> EvalResult {
+fn sub(v: &[Eval], env: &Env) -> EvalResult {
     if v.len() < 1 {
         return Err(Error::InvalidArguments)
     }
@@ -176,7 +176,7 @@ fn sub(v: &Vec<Eval>, env: &Env) -> EvalResult {
     Ok(Eval::Atom(Atom::Number(result)))
 }
 
-fn mul(v: &Vec<Eval>, env: &Env) -> EvalResult {
+fn mul(v: &[Eval], env: &Env) -> EvalResult {
     if v.len() < 2 {
         return Err(NotEnoughArguments)
     }
@@ -197,7 +197,7 @@ fn mul(v: &Vec<Eval>, env: &Env) -> EvalResult {
     Ok(Eval::Atom(Atom::Number(initial)))
 }
 
-fn div(v: &Vec<Eval>, env: &Env) -> EvalResult {
+fn div(v: &[Eval], env: &Env) -> EvalResult {
     if v.len() < 2 {
         return Err(NotEnoughArguments)
     }
@@ -218,7 +218,7 @@ fn div(v: &Vec<Eval>, env: &Env) -> EvalResult {
     Ok(Eval::Atom(Atom::Number(initial)))
 }
 
-fn resolve_symbols(v: &Vec<Eval>, env: &Env) -> Vec<Eval> {
+fn resolve_symbols(v: &[Eval], env: &Env) -> Vec<Eval> {
     v.iter()
         .map(|x| match x {
             &Eval::Atom(Atom::Symbol(ref s)) => {
@@ -231,7 +231,7 @@ fn resolve_symbols(v: &Vec<Eval>, env: &Env) -> Vec<Eval> {
         }).collect::<Vec<Eval>>()
 }
 
-fn equals(args: &Vec<Eval>, env: &Env) -> EvalResult {
+fn equals(args: &[Eval], env: &Env) -> EvalResult {
     if let Some(v) = resolve_symbols(args,env).first() {
         for i in args.iter().skip(1) {
             if v != i {
@@ -248,8 +248,8 @@ fn default_env() -> Env {
     Env{def_map: vec![HashMap::new()]}
 }
 
-fn first(args: &Vec<Eval>, env: &Env) -> EvalResult {
-    if let Some(p) = args.first() {
+fn first(args: &[Eval], env: &Env) -> EvalResult {
+    if let Some(p) = resolve_symbols(args,env).first() {
         match p {
             &Eval::Atom(Atom::List(ref list)) => {
                 if let Some(f) = list.front() {
@@ -267,21 +267,19 @@ fn first(args: &Vec<Eval>, env: &Env) -> EvalResult {
 
 use std::collections::VecDeque;
 
-fn rest(args: &Vec<Eval>, env: &Env) -> EvalResult {
+fn rest(args: &[Eval], env: &Env) -> EvalResult {
     if args.len() < 1 {
         return Err(NotEnoughArguments)
     }
 
-    match &args[0] {
+    match &resolve_symbols(args,env)[0] {
         &Eval::Atom(Atom::List(ref list)) => {
-            println!("list: {:?}", list);
             if list.len() > 1 {
                 let mut out = VecDeque::with_capacity(list.len() - 1);
 
                 for i in list.iter().skip(1) {
                     out.push_back(i.clone());
                 }
-                println!("out: {:?}", out);
                 Ok(Eval::Atom(Atom::List(out)))
             } else {
                 Ok(Eval::Atom(Atom::List(list.clone())))
@@ -291,7 +289,7 @@ fn rest(args: &Vec<Eval>, env: &Env) -> EvalResult {
     }
 }
 
-fn list(args: &Vec<Eval>, env: &Env) -> EvalResult {
+fn list(args: &[Eval], env: &Env) -> EvalResult {
     let mut out =  VecDeque::with_capacity(args.len());
 
     for i in resolve_symbols(args, env) {
@@ -303,7 +301,7 @@ fn list(args: &Vec<Eval>, env: &Env) -> EvalResult {
     Ok(Eval::Atom(Atom::List(out)))
 }
 
-fn try_built_ins(sym: &str, args: &Vec<Eval>, env: &Env) -> Option<EvalResult> {
+fn try_built_ins(sym: &str, args: &[Eval], env: &Env) -> Option<EvalResult> {
     match sym {
         "nil" => Some(Ok(Eval::Atom(Atom::Nil))),
         "+" => Some(add(args, env)),
@@ -322,7 +320,7 @@ fn try_built_ins(sym: &str, args: &Vec<Eval>, env: &Env) -> Option<EvalResult> {
     }
 }
 
-fn define(args: Vec<Eval>, env: &mut Env) -> EvalResult {
+fn define(args: &[Eval], env: &mut Env) -> EvalResult {
     if args.len() != 2 {
         return Err(Error::InvalidArguments);
     }
@@ -334,23 +332,7 @@ fn define(args: Vec<Eval>, env: &mut Env) -> EvalResult {
     }
 }
 
-fn set(args: Vec<Eval>, env: &mut Env) -> EvalResult {
-    // FIXME: get rid of the clones
-    if args.len() != 2 {
-        return Err(InvalidArguments)
-    }
-
-    if let Eval::Atom(Atom::Symbol(ref key)) = args[0] {
-        // if env.def_map.contains_key(key) {
-        //     let entry = env.def_map.entry((*key).clone()).or_insert(Eval::Atom(Atom::Nil));
-        //     *entry = args[1].clone();
-        //     return Ok(args[1].clone())
-        // }
-    }
-    Err(InvalidArguments)
-}
-
-fn get(args: Vec<Eval>, env: &Env) -> EvalResult {
+fn get(args: &[Eval], env: &Env) -> EvalResult {
     if args.len() != 1 {
         return Err(Error::InvalidArguments)
     }
@@ -366,7 +348,7 @@ fn get(args: Vec<Eval>, env: &Env) -> EvalResult {
     }
 }
 
-fn eval_args(list: &Vec<Node>, env: &mut Env) -> Result<Vec<Eval>, Error> {
+fn eval_args(list: &[Node], env: &mut Env) -> Result<Vec<Eval>, Error> {
     let mut args = vec![];
 
     for i in list.iter().skip(1) {
@@ -376,11 +358,11 @@ fn eval_args(list: &Vec<Node>, env: &mut Env) -> Result<Vec<Eval>, Error> {
     Ok(args)
 }
 
-fn quote(v: &Vec<Node>) -> Result<Eval, Error> {
+fn quote(v: &[Node]) -> Result<Eval, Error> {
     Ok(Eval::Node(v[1].clone()))
 }
 
-fn reduce_fn_params(l: &Vec<Node>) -> Result<Vec<Atom>,Error> {
+fn reduce_fn_params(l: &[Node]) -> Result<Vec<Atom>,Error> {
     let mut v = vec![];
 
     for node in l {
@@ -394,17 +376,17 @@ fn reduce_fn_params(l: &Vec<Node>) -> Result<Vec<Atom>,Error> {
     Ok(v)
 }
 
-fn collect_body(l: &Vec<Node>) -> Vec<Node> {
+fn collect_body(l: &[Node]) -> Vec<Node> {
     l.iter().skip(2).map(|x| x.clone()).collect()
 }
 
-fn eval_node(atom: &Atom, list: &Vec<Node>, env: &mut Env) -> EvalResult {
+fn eval_node(atom: &Atom, list: &[Node], env: &mut Env) -> EvalResult {
     match atom {
         &Atom::Symbol(ref s) =>  {
             match s.as_ref() {
                 "def" => {
                     let args = try!(eval_args(&list, env));
-                    return define(args, env);
+                    return define(&args, env);
                 },
                 "fn" => {
                     let params = match list[1] {
@@ -423,11 +405,8 @@ fn eval_node(atom: &Atom, list: &Vec<Node>, env: &mut Env) -> EvalResult {
                 "quote" => {
                     return quote(&list);
                 },
-                "set!" => {
-                    return set( try!(eval_args(&list, env)), env);
-                },
                 "get" => {
-                    return get( try!(eval_args(&list, env)), env);
+                    return get( &try!(eval_args(&list, env)), env);
                 },
                 "if" => {
                     let predicate = try!(eval(&list[1], env));
@@ -703,7 +682,7 @@ mod test {
         assert_eq!(num(0), teval("(first (list 0 1 2))"));
         assert_eq!(teval("(list 1 2)"), teval("(rest (list 0 1 2))"));
     }
-    
+
     #[test]
     fn simple_func() {
         let mut env = default_env();
