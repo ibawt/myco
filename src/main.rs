@@ -2,9 +2,11 @@ extern crate regex;
 extern crate readline;
 
 mod errors;
+mod number;
 mod atom;
 mod parser;
 
+use number::*;
 use parser::*;
 use atom::*;
 use errors::Error;
@@ -465,7 +467,8 @@ fn eval(node: &Node, env: &mut Env) -> Result<Eval, Error> {
                             return Err(InvalidArguments)
                         }
                     }
-                }
+                },
+                _ => panic!("not ready")
             }
         },
         &Node::Atom(ref atom) => {
@@ -479,6 +482,10 @@ fn eval(node: &Node, env: &mut Env) -> Result<Eval, Error> {
                 _ => Ok(Eval::Atom(atom.clone()))
             }
         }
+        &Node::Quote => {
+            Err(NotImplemented)
+        },
+        _ => panic!("derp")
     }
 }
 
@@ -643,7 +650,7 @@ mod test {
         tassert("(>= 5 5 5 3)");
         trefute("(>= 5 5 5 10)");
     }
-    use super::atom::Number;
+    use super::number::Number;
 
     fn num(i: i64) -> Eval {
         Eval::Atom(Atom::Number(Number::Integer(i)))

@@ -1,6 +1,6 @@
 use atom::*;
 use errors::*;
-
+use number::*;
 use std::iter::*;
 use std::io::prelude::*;
 
@@ -12,7 +12,10 @@ pub fn tokenize(line: &str) -> ParseResult {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Node {
     Atom(Atom),
-    List(Vec<Node>)
+    List(Vec<Node>),
+    Quote,
+    SyntaxQuote,
+    Splice
 }
 
 pub type ParseResult = Result<Node, Error>;
@@ -22,13 +25,15 @@ use std::str::Chars;
 #[derive (Debug, PartialEq)]
 enum Token {
     Atom(Atom),
-    Open,
-    Close,
-    Quote,
+    Open,        // (
+    Close,       // )
+    Quote,       // '
+    SyntaxQuote, // `
+    Unquote,     // ~
+    Splice,      // ~@
 }
 
 use std::convert::From;
-
 
 impl Node {
     fn symbol(s: &str) -> Node {
@@ -75,7 +80,7 @@ fn read_string(iter: &mut Peekable<Chars>) -> Result<Option<Token>, Error> {
                 }
             },
             Some('"') => {
-                let t = Token::Atom(Atom::String(s.clone()));
+                let t = Token::Atom(Atom::String(s));
 
                 return Ok(Some(t))
             },
