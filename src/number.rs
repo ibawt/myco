@@ -6,7 +6,17 @@ pub enum Number {
 }
 
 use self::Number::*;
+use std::fmt;
 
+impl fmt::Display for Number {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            use self::Number::*;
+            match *self {
+                Integer(i) => write!(f, "{}", i),
+                Float(fl) => write!(f, "{}", fl)
+            }
+        }
+}
 impl Add for Number {
     type Output = Number;
 

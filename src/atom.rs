@@ -11,7 +11,33 @@ pub enum Atom {
     Boolean(bool),
     Nil
 }
+use std::fmt;
 
+impl fmt::Display for Atom {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Atom::*;
+        match *self {
+            List(ref list) => {
+                try!(write!(f, "("));
+                for a in list {
+                    try!(write!(f, "{} ", a));
+                }
+                write!(f, ")")
+            },
+            String(ref s) => {
+                write!(f, "\"{}\"", s)
+            },
+            Nil => {
+                write!(f, "nil")
+            },
+            Number(n) => {
+                write!(f, "{}", n)
+            },
+            Boolean(b) => write!(f, "{}", b),
+            Symbol(ref s) => write!(f, "{}", s)
+        }
+    }
+}
 pub type AtomResult = Result<Atom, Error>;
 
 impl Atom {

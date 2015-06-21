@@ -18,6 +18,27 @@ pub enum Node {
     Splice
 }
 
+use std::fmt;
+
+impl fmt::Display for Node {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Node::*;
+        match *self {
+            Atom(ref a) => write!(f, "{:?}", a),
+            List(ref list) => {
+                try!(write!(f, "("));
+                for n in list {
+                    try!(write!(f, "{:?}", n));
+                }
+                write!(f, ")")
+            },
+            Quote => write!(f, "'"),
+            SyntaxQuote => write!(f, "`"),
+            Splice => write!(f, "~@")
+        }
+    }
+}
+
 pub type ParseResult = Result<Node, Error>;
 
 use std::str::Chars;

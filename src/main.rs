@@ -26,6 +26,18 @@ enum Eval {
     Proc(Procedure)
 }
 
+use std::fmt;
+impl fmt::Display for Eval {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Eval::*;
+        match *self {
+            Atom(ref a) => write!(f, "{}", a),
+            Node(ref n) => write!(f, "{}", n),
+            Proc(ref p) => write!(f, "procedure")
+        }
+    }
+}
+
 #[derive (Debug, Clone, PartialEq)]
 struct Procedure {
     params: Vec<Atom>,
@@ -498,7 +510,7 @@ fn repl() {
             Some(s) => {
                 if let Ok(p) = parser::tokenize(&s) {
                     match eval(&p, &mut env) {
-                        Ok(r) => println!("{:?}", r),
+                        Ok(r) => println!("{}", r),
                         Err(e) => println!("Error in evaluation: {:?}", e)
                     }
                 } else {
@@ -697,6 +709,11 @@ mod test {
         let res = eval(&tokenize("(f 2 3)").unwrap(), &mut env).unwrap();
 
         assert_eq!(num(5), res);
+    }
+
+    #[test]
+    fn quoting() {
+        //assert_eq!("(a (+ 1 2) c)", "'(a (+ 1 2) c)"); 
     }
 
     #[test]
