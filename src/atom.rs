@@ -19,8 +19,11 @@ impl fmt::Display for Atom {
         match *self {
             List(ref list) => {
                 try!(write!(f, "("));
-                for a in list {
-                    try!(write!(f, "{} ", a));
+                if let Some(first) = list.front() {
+                    try!(write!(f, "{}", first));
+                    for a in list.iter().skip(1) {
+                        try!(write!(f, " {}", a));
+                    }
                 }
                 write!(f, ")")
             },

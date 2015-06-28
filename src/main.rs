@@ -47,7 +47,8 @@ struct Procedure {
 fn eval_procedure(p: &Procedure, args: &[Eval], env: &mut Env) ->  EvalResult {
     try!(env.apply(&p.params, args));
 
-    let res = eval(&p.body, env);
+    let body = SyntaxNode::Node(p.body.clone());
+    let res = eval(&body, env);
 
     env.pop();
 
@@ -362,7 +363,7 @@ fn get(args: &[Eval], env: &Env) -> EvalResult {
     }
 }
 
-fn eval_args(list: &[Node], env: &mut Env) -> Result<Vec<Eval>, Error> {
+fn eval_args(list: &[SyntaxNode], env: &mut Env) -> Result<Vec<Eval>, Error> {
     let mut args = vec![];
 
     for i in list.iter().skip(1) {
@@ -376,12 +377,12 @@ fn quote(v: &[Node]) -> Result<Eval, Error> {
     Ok(Eval::Node(v[1].clone()))
 }
 
-fn reduce_fn_params(l: &[Node]) -> Result<Vec<Atom>,Error> {
+fn reduce_fn_params(l: &[SyntaxNode]) -> Result<Vec<Atom>,Error> {
     let mut v = vec![];
 
     for node in l {
         match node {
-            &Node::Atom(ref a) => v.push(a.clone()),
+            &SyntaxNode::Node(Node::Atom(ref a)) => v.push(a.clone()),
             _ => {
                 return Err(InvalidArguments)
             }
@@ -390,11 +391,11 @@ fn reduce_fn_params(l: &[Node]) -> Result<Vec<Atom>,Error> {
     Ok(v)
 }
 
-fn collect_body(l: &[Node]) -> Vec<Node> {
+fn collect_body(l: &[SyntaxNode]) -> Vec<SyntaxNode> {
     l.iter().skip(2).map(|x| x.clone()).collect()
 }
 
-fn eval_node(atom: &Atom, list: &[Node], env: &mut Env) -> EvalResult {
+fn eval_node(atom: &Atom, list: &[SyntaxNode], env: &mut Env) -> EvalResult {
     match atom {
         &Atom::Symbol(ref s) =>  {
             match s.as_ref() {
@@ -404,7 +405,7 @@ fn eval_node(atom: &Atom, list: &[Node], env: &mut Env) -> EvalResult {
                 },
                 "fn" => {
                     let params = match list[1] {
-                        Node::List(ref l) => try!(reduce_fn_params(l)),
+                        SyntaxNode::Node(Node::List(ref l)) => try!(reduce_fn_params(l)),
                         _ => {
                             return Err(InvalidArguments)
                         }
@@ -417,7 +418,8 @@ fn eval_node(atom: &Atom, list: &[Node], env: &mut Env) -> EvalResult {
                     return Ok(Eval::Proc(prc))
                 },
                 "quote" => {
-                    return quote(&list);
+                    panic!("not done");
+                    //return quote(&list);
                 },
                 "get" => {
                     return get( &try!(eval_args(&list, env)), env);
@@ -462,42 +464,49 @@ fn eval_node(atom: &Atom, list: &[Node], env: &mut Env) -> EvalResult {
     }
 }
 
-fn eval(node: &Node, env: &mut Env) -> Result<Eval, Error> {
-    match node {
-        &Node::List(ref list) => {
-            match list[0] {
-                Node::Atom(ref atom) => {
-                    return eval_node(atom, list, env)
-               },
-                Node::List(_) => {
-                    let r = try!(eval(&list[0], env));
+fn eval(p: &SyntaxNode, env: &mut Env) -> Result<Eval, Error> {
+    match p {
+        &SyntaxNode::Node(ref node) => {
+            match node {
+                &Node::List(ref list) => {
+                    if list.is_empty() {
+                        return Err(InvalidArguments)
+                    }
+                    match list[0] {
+                        SyntaxNode::Node(Node::Atom(ref atom)) => {
+                            return eval_node(atom, list, env)
+                        },
+                        SyntaxNode::Node(Node::List(_)) => {
+                            let r = try!(eval(&list[0], env));
 
-                    match r {
-                        Eval::Atom(a) => return eval_node(&a, list, env),
-                        Eval::Proc(p) => return eval_procedure(&p, &try!(eval_args(&list, env)), env),
-                        _ => {
-                            return Err(InvalidArguments)
-                        }
+                            match r {
+                                Eval::Atom(a) => return eval_node(&a, list, env),
+                                Eval::Proc(p) => return eval_procedure(&p, &try!(eval_args(&list, env)), env),
+                                _ => {
+                                    return Err(InvalidArguments)
+                                }
+                            }
+                        },
+                        _ => panic!("not ready")
                     }
                 },
-                _ => panic!("not ready")
-            }
-        },
-        &Node::Atom(ref atom) => {
-            match atom {
-                &Atom::Symbol(ref s) => {
-                    match env.get(s) {
-                        Some(e) => return Ok(e.clone()),
-                        _ => return Ok(Eval::Atom(atom.clone()))
+                &Node::Atom(ref atom) => {
+                    match atom {
+                        &Atom::Symbol(ref s) => {
+                            match env.get(s) {
+                                Some(e) => return Ok(e.clone()),
+                                _ => return Ok(Eval::Atom(atom.clone()))
+                            }
+                        }
+                        _ => Ok(Eval::Atom(atom.clone()))
                     }
                 }
-                _ => Ok(Eval::Atom(atom.clone()))
             }
-        }
-        &Node::Quote => {
-            Err(NotImplemented)
         },
-        _ => panic!("derp")
+        &SyntaxNode::Quote(ref node) => {
+            Ok(Eval::Node(node.clone()))
+        }
+        _ => panic!("argh")
     }
 }
 

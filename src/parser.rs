@@ -12,11 +12,18 @@ pub fn tokenize(line: &str) -> ParseResult {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Node {
     Atom(Atom),
-    List(Vec<Node>),
-    Quote,
-    SyntaxQuote,
-    Splice
+    List(Vec<SyntaxNode>)
 }
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum SyntaxNode {
+    Node(Node),
+    Quote(Node),
+    QuasiQuote(Node),
+    Splice(Node)
+}
+
+pub type ParseResult = Result<SyntaxNode, Error>;
 
 use std::fmt;
 
@@ -31,15 +38,10 @@ impl fmt::Display for Node {
                     try!(write!(f, "{:?}", n));
                 }
                 write!(f, ")")
-            },
-            Quote => write!(f, "'"),
-            SyntaxQuote => write!(f, "`"),
-            Splice => write!(f, "~@")
+            }
         }
     }
 }
-
-pub type ParseResult = Result<Node, Error>;
 
 use std::str::Chars;
 
@@ -163,7 +165,7 @@ fn next(iter: &mut Peekable<Chars>) -> Result<Option<Token>, Error> {
 fn read_tokens(chars: &mut Peekable<Chars>) -> ParseResult {
     match next(chars) {
         Ok(Some(Token::Open)) => {
-            let mut node: Vec<Node> = vec![];
+            let mut node: Vec<SyntaxNode> = vec![];
 
             loop {
                 match chars.peek() {
@@ -181,12 +183,18 @@ fn read_tokens(chars: &mut Peekable<Chars>) -> ParseResult {
                 }
             }
 
-            return Ok(Node::List(node))
+            return Ok(SyntaxNode::Node(Node::List(node)))
         },
         Ok(Some(Token::Close)) => {
             return Err(Error::Parser)
         },
-        Ok(Some(Token::Atom(x))) => return Ok(Node::Atom(x)),
+        Ok(Some(Token::Quote)) => {
+            if let SyntaxNode::Node(node) = try!(read_tokens(chars)) {
+                return Ok(SyntaxNode::Quote(node))
+            }
+            ()
+        }
+        Ok(Some(Token::Atom(x))) => return Ok(SyntaxNode::Node(Node::Atom(x))),
         _ => ()
     }
     Err(Error::Parser)
