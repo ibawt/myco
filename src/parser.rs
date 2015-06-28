@@ -235,17 +235,17 @@ mod tests {
 
     #[test]
     fn naked_atoms() {
-        assert_eq!(Node::from(0), tokenize("0").unwrap());
-        assert_eq!(Node::from(512), tokenize("512").unwrap());
-        assert_eq!(Node::from(-512), tokenize("-512").unwrap());
-        assert_eq!(Node::from(5.0f64), tokenize("5.0").unwrap());
-        assert_eq!(Node::string("foo bar"), tokenize("\"foo bar\"").unwrap());
-        assert_eq!(Node::symbol("foo"), tokenize("foo").unwrap());
+        assert_eq!(SyntaxNode::Node(Node::from(0)), tokenize("0").unwrap());
+        assert_eq!(SyntaxNode::Node(Node::from(512)), tokenize("512").unwrap());
+        assert_eq!(SyntaxNode::Node(Node::from(-512)), tokenize("-512").unwrap());
+        assert_eq!(SyntaxNode::Node(Node::from(5.0f64)), tokenize("5.0").unwrap());
+        assert_eq!(SyntaxNode::Node(Node::string("foo bar")), tokenize("\"foo bar\"").unwrap());
+        assert_eq!(SyntaxNode::Node(Node::symbol("foo")), tokenize("foo").unwrap());
     }
 
     #[test]
     fn string_escaping() {
-        assert_eq!(Node::string("foo'bar"), tokenize("\"foo\\'bar\"").unwrap());
-        assert_eq!(Node::string("foo\"bar"), tokenize("\"foo\\\"bar\"").unwrap());
+        assert_eq!(SyntaxNode::Node(Node::string("foo'bar")), tokenize("\"foo\\'bar\"").unwrap());
+        assert_eq!(SyntaxNode::Node(Node::string("foo\"bar")), tokenize("\"foo\\\"bar\"").unwrap());
     }
 }

@@ -30,10 +30,10 @@ use std::fmt;
 impl fmt::Display for Eval {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Eval::*;
-        match *self {
-            Atom(ref a) => write!(f, "{}", a),
-            Node(ref n) => write!(f, "{}", n),
-            Proc(ref p) => write!(f, "procedure")
+        match self {
+            &Atom(ref a) => write!(f, "{}", a),
+            &Node(ref n) => write!(f, "{}", n),
+            &Proc(ref p) => write!(f, "procedure")
         }
     }
 }
@@ -182,8 +182,8 @@ fn sub(v: &[Eval], env: &Env) -> EvalResult {
     };
 
     for i in vv.iter().skip(1) {
-        match *i {
-            Eval::Atom(Atom::Number(d)) => result = result - d,
+        match i {
+            &Eval::Atom(Atom::Number(d)) => result = result - d,
             _ => return Err(Error::UnexpectedType)
         }
     }
@@ -577,20 +577,20 @@ mod test {
         eval(&tokenize(s).unwrap(), env)
     }
 
-    fn make_atom_node(s: &str) -> Node {
-        return Node::Atom(Atom::parse(s));
+    fn make_atom_node(s: &str) -> SyntaxNode {
+        return SyntaxNode::Node(Node::Atom(Atom::parse(s)));
     }
 
-    fn as_list(n: &Node) -> &Vec<Node> {
+    fn as_list(n: &SyntaxNode) -> &Vec<SyntaxNode> {
         match n {
-            &Node::List(ref l) => l,
+            &SyntaxNode::Node(Node::List(ref l)) => l,
             _ => panic!("don't get here!")
         }
     }
 
-    fn as_atom(n: &Node) -> &Atom {
+    fn as_atom(n: &SyntaxNode) -> &Atom {
         match n {
-            &Node::Atom(ref a) => a,
+            &SyntaxNode::Node(Node::Atom(ref a)) => a,
             _ => panic!("not here!")
         }
     }
@@ -607,7 +607,7 @@ mod test {
 
         assert_eq!(3, l.len());
 
-        let xx : Vec<Node> = vec![make_atom_node("+"), make_atom_node("1"), make_atom_node("2")];
+        let xx : Vec<SyntaxNode> = vec![make_atom_node("+"), make_atom_node("1"), make_atom_node("2")];
 
         for pair in xx.iter().zip(l.iter()) {
             assert_eq!(pair.0, pair.1);
