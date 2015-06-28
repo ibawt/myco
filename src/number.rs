@@ -17,6 +17,7 @@ impl fmt::Display for Number {
             }
         }
 }
+
 impl Add for Number {
     type Output = Number;
 

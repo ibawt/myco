@@ -3,7 +3,7 @@ pub enum Error {
     UnexpectedType,
     Parser,
     InvalidArguments,
-    //NotAFunction,
+    NotAFunction,
     NotEnoughArguments,
     NotImplemented
 }

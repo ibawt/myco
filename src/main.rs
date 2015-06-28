@@ -459,7 +459,7 @@ fn eval_node(atom: &Atom, list: &[SyntaxNode], env: &mut Env) -> EvalResult {
             Ok(Eval::Atom(Atom::Nil))
         },
         _ => {
-            Ok(Eval::Atom(atom.clone()))
+            Err(Error::NotAFunction)
         }
     }
 }
@@ -495,7 +495,7 @@ fn eval(p: &SyntaxNode, env: &mut Env) -> Result<Eval, Error> {
                         &Atom::Symbol(ref s) => {
                             match env.get(s) {
                                 Some(e) => return Ok(e.clone()),
-                                _ => return Ok(Eval::Atom(atom.clone()))
+                                _ => return Ok(Eval::Atom(Atom::Nil))
                             }
                         }
                         _ => Ok(Eval::Atom(atom.clone()))
@@ -504,6 +504,27 @@ fn eval(p: &SyntaxNode, env: &mut Env) -> Result<Eval, Error> {
             }
         },
         &SyntaxNode::Quote(ref node) => {
+            match node {
+                &Node::Atom(ref atom) => {
+                    return Ok(Eval::Atom(atom.clone()))
+                },
+                &Node::List(ref list) => {
+                    let mut out = VecDeque::with_capacity(list.len());
+                    for i in list {
+                        let n = try!(eval(i, env));
+
+                        match n {
+                            Eval::Atom(ref a) => {
+                                out.push_back(a.clone());
+                            }
+                            _ => {
+                                return Err(Error::InvalidArguments)
+                            }
+                        }
+                    }
+                    return Ok(Eval::Atom(Atom::List(out)))
+                }
+            }
             Ok(Eval::Node(node.clone()))
         }
         _ => panic!("argh")

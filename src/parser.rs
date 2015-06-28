@@ -27,15 +27,44 @@ pub type ParseResult = Result<SyntaxNode, Error>;
 
 use std::fmt;
 
+impl fmt::Display for SyntaxNode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::SyntaxNode::*;
+        match self {
+            &Node(ref node) => {
+                write!(f, "{}", node)
+            },
+            &Quote(ref node) => {
+                try!(write!(f, "'"));
+                write!(f, "{}", node)
+            },
+            &QuasiQuote(ref node) => {
+                try!(write!(f, "`"));
+                write!(f, "{}", node)
+            },
+            &Splice(ref node) => {
+                try!(write!(f, "~@"));
+                write!(f, "{}", node)
+            }
+        }
+    }
+}
+
 impl fmt::Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Node::*;
         match *self {
-            Atom(ref a) => write!(f, "{:?}", a),
+            Atom(ref a) => {
+                write!(f, "{}", a)
+            },
             List(ref list) => {
                 try!(write!(f, "("));
-                for n in list {
-                    try!(write!(f, "{:?}", n));
+                if let Some(first) = list.first() {
+                    try!(write!(f, "{}", first));
+
+                    for n in list.iter().skip(1) {
+                        try!(write!(f, " {}", n));
+                    }
                 }
                 write!(f, ")")
             }
