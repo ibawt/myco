@@ -220,33 +220,39 @@ pub fn eval(p: &SyntaxNode, env: &mut Env) -> Result<Expr, Error> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use parser::*;
+    use atom::Atom;
+    use env::Env;
+    use expr::*;
+
     #[test]
     fn if_special_form() {
-        let x = eval(&tokenize("(if (= 1 1) true false)").unwrap(), &mut default_env()).unwrap();
+        let x = eval(&tokenize("(if (= 1 1) true false)").unwrap(), &mut Env::new()).unwrap();
 
-        assert_eq!(Eval::Atom(Atom::Boolean(true)), x);
+        assert_eq!(Expr::Atom(Atom::Boolean(true)), x);
     }
 
     #[test]
     fn if_special_form_false() {
-        let x = eval(&tokenize("(if (= 1 2) true false)").unwrap(), &mut default_env()).unwrap();
+        let x = eval(&tokenize("(if (= 1 2) true false)").unwrap(), &mut Env::new()).unwrap();
 
-        assert_eq!(Eval::Atom(Atom::Boolean(false)), x);
+        assert_eq!(Expr::Atom(Atom::Boolean(false)), x);
     }
 
     #[test]
     fn if_no_else() {
         let x = teval("(if (= 1 1) true)");
 
-        assert_eq!(Eval::Atom(Atom::Boolean(true)), x);
+        assert_eq!(Expr::Atom(Atom::Boolean(true)), x);
     }
 
     fn tassert(v: &str) {
-        assert_eq!(Eval::Atom(Atom::Boolean(true)), teval(v));
+        assert_eq!(Expr::Atom(Atom::Boolean(true)), teval(v));
     }
 
     fn trefute(v: &str) {
-        assert_eq!(Eval::Atom(Atom::Boolean(false)), teval(v));
+        assert_eq!(Expr::Atom(Atom::Boolean(false)), teval(v));
     }
 
     #[test]
@@ -262,10 +268,10 @@ mod tests {
         tassert("(>= 5 5 5 3)");
         trefute("(>= 5 5 5 10)");
     }
-    use super::number::Number;
+    use number::Number;
 
-    fn num(i: i64) -> Eval {
-        Eval::Atom(Atom::Number(Number::Integer(i)))
+    fn num(i: i64) -> Expr {
+        Expr::Atom(Atom::Number(Number::Integer(i)))
     }
 
     #[test]
@@ -286,48 +292,18 @@ mod tests {
         assert_eq!(num(5), teval("(* 1 5)"));
         assert_eq!(num(-5), teval("(* -1 5)"));
     }
-    use parser::*;
-    use super::default_env;
-    use super::eval;
-    use atom::Atom;
-    use super::Eval;
-    use super::Env;
-    use super::EvalResult;
 
-    fn teval(s: &str) -> Eval {
-        eval(&tokenize(s).unwrap(), &mut default_env()).unwrap()
+    fn teval(s: &str) -> Expr {
+        eval(&tokenize(s).unwrap(), &mut Env::new()).unwrap()
     }
 
-    fn teval_env(s: &str, env: &mut Env) -> EvalResult {
+    fn teval_env(s: &str, env: &mut Env) -> ExprResult {
         eval(&tokenize(s).unwrap(), env)
     }
 
-    fn make_atom_node(s: &str) -> SyntaxNode {
-        return SyntaxNode::Node(Node::Atom(Atom::parse(s)));
-    }
-
-    fn as_list(n: &SyntaxNode) -> &Vec<SyntaxNode> {
-        match n {
-            &SyntaxNode::Node(Node::List(ref l)) => l,
-            _ => panic!("don't get here!")
-        }
-    }
-
-    fn as_atom(n: &SyntaxNode) -> &Atom {
-        match n {
-            &SyntaxNode::Node(Node::Atom(ref a)) => a,
-            _ => panic!("not here!")
-        }
-    }
-
-    fn atom(s: &str) -> Atom {
-        Atom::parse(s)
-    }
-
-
     #[test]
     fn symbol_resolving() {
-        let mut env = default_env();
+        let mut env = Env::new();
 
         teval_env("(def foo 5)", &mut env).unwrap();
 
@@ -342,7 +318,7 @@ mod tests {
 
     #[test]
     fn simple_func() {
-        let mut env = default_env();
+        let mut env = Env::new();
         let _ = eval(&tokenize("(def 'f (fn (r b) (+ r b)))").unwrap(), &mut env).unwrap();
         let res = eval(&tokenize("(f 2 3)").unwrap(), &mut env).unwrap();
 

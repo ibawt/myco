@@ -232,6 +232,30 @@ fn read_tokens(chars: &mut Peekable<Chars>) -> ParseResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use atom::*;
+
+    fn make_atom_node(s: &str) -> SyntaxNode {
+        return SyntaxNode::Node(Node::Atom(Atom::parse(s)));
+    }
+
+    fn as_list(n: &SyntaxNode) -> &Vec<SyntaxNode> {
+        match n {
+            &SyntaxNode::Node(Node::List(ref l)) => l,
+            _ => panic!("don't get here!")
+        }
+    }
+
+    fn as_atom(n: &SyntaxNode) -> &Atom {
+        match n {
+            &SyntaxNode::Node(Node::Atom(ref a)) => a,
+            _ => panic!("not here!")
+        }
+    }
+
+    fn atom(s: &str) -> Atom {
+        Atom::parse(s)
+    }
+
 
     #[test]
     fn naked_atoms() {

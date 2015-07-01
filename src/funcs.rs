@@ -58,22 +58,23 @@ fn list(args: &[Expr], env: &Env) -> ExprResult {
 }
 
 pub fn try_built_ins(sym: &str, args: &[Expr], env: &Env) -> Option<ExprResult> {
-    match sym {
-        "nil" => Some(Ok(Expr::Atom(Atom::Nil))),
-        "+" => Some(add(args, env)),
-        "-" => Some(sub(args, env)),
-        "=" => Some(equals(args, env)),
-        ">=" => Some(cmp(args, env, GreaterThanOrEqual)),
-        ">" => Some(cmp(args, env, GreaterThan)),
-        "<=" => Some(cmp(args, env, LessThanOrEqual)),
-        "<" => Some(cmp(args, env, LessThan)),
-        "*" => Some(mul(args, env)),
-        "/" => Some(div(args,env)),
-        "first" => Some(first(args,env)),
-        "rest" => Some(rest(args,env)),
-        "list" => Some(list(args,env)),
-        _ => None
-    }
+    let result = match sym {
+        "nil" => Ok(Expr::Atom(Atom::Nil)),
+        "+" => add(args, env),
+        "-" => sub(args, env),
+        "=" => equals(args, env),
+        ">=" => cmp(args, env, GreaterThanOrEqual),
+        ">" => cmp(args, env, GreaterThan),
+        "<=" => cmp(args, env, LessThanOrEqual),
+        "<" => cmp(args, env, LessThan),
+        "*" => mul(args, env),
+        "/" => div(args,env),
+        "first" => first(args,env),
+        "rest" => rest(args,env),
+        "list" => list(args,env),
+        _ => return None
+    };
+    Some(result)
 }
 fn equals(args: &[Expr], env: &Env) -> ExprResult {
     if let Some(v) = env.resolve_symbols(args).first() {
