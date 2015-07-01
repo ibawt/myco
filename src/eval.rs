@@ -1,3 +1,12 @@
+use expr::*;
+use funcs::*;
+use env::*;
+use parser::*;
+use atom::*;
+use procedure::*;
+use errors::*;
+use errors::Error::*;
+use std::collections::VecDeque;
 
 fn eval_procedure(p: &Procedure, args: &[Expr], env: &mut Env) ->  ExprResult {
     try!(env.apply(&p.params, args));
@@ -8,10 +17,6 @@ fn eval_procedure(p: &Procedure, args: &[Expr], env: &mut Env) ->  ExprResult {
     env.pop();
 
     res
-}
-
-fn default_env() -> Env {
-    Env{def_map: vec![HashMap::new()]}
 }
 
 fn define(args: &[Expr], env: &mut Env) -> ExprResult {

@@ -4,6 +4,15 @@ mod errors;
 mod number;
 mod atom;
 mod parser;
+mod expr;
+mod env;
+mod procedure;
+mod eval;
+mod funcs;
+
+use parser::{tokenize};
+use eval::{eval};
+use env::*;
 
 fn repl() {
     println!("Rust Lisp!");

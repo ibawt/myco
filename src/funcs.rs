@@ -1,5 +1,11 @@
+use expr::*;
+use env::*;
+use atom::*;
+use errors::Error::*;
+use number::*;
+
 fn first(args: &[Expr], env: &Env) -> ExprResult {
-    if let Some(p) = resolve_symbols(args,env).first() {
+    if let Some(p) = env.resolve_symbols(args).first() {
         match p {
             &Expr::Atom(Atom::List(ref list)) => {
                 if let Some(f) = list.front() {
@@ -22,7 +28,7 @@ fn rest(args: &[Expr], env: &Env) -> ExprResult {
         return Err(NotEnoughArguments)
     }
 
-    match &resolve_symbols(args,env)[0] {
+    match &env.resolve_symbols(args)[0] {
         &Expr::Atom(Atom::List(ref list)) => {
             if list.len() > 1 {
                 let mut out = VecDeque::with_capacity(list.len() - 1);
@@ -42,7 +48,7 @@ fn rest(args: &[Expr], env: &Env) -> ExprResult {
 fn list(args: &[Expr], env: &Env) -> ExprResult {
     let mut out =  VecDeque::with_capacity(args.len());
 
-    for i in resolve_symbols(args, env) {
+    for i in env.resolve_symbols(args) {
         match i {
             Expr::Atom(a) => out.push_back(a.clone()),
             _ => return Err(InvalidArguments)
@@ -70,7 +76,7 @@ pub fn try_built_ins(sym: &str, args: &[Expr], env: &Env) -> Option<ExprResult> 
     }
 }
 fn equals(args: &[Expr], env: &Env) -> ExprResult {
-    if let Some(v) = resolve_symbols(args,env).first() {
+    if let Some(v) = env.resolve_symbols(args).first() {
         for i in args.iter().skip(1) {
             if v != i {
                 return Ok(Expr::Atom(Atom::Boolean(false)))
@@ -85,12 +91,12 @@ fn equals(args: &[Expr], env: &Env) -> ExprResult {
 fn add(v: &[Expr], env: &Env) -> ExprResult {
     let mut result = Number::Integer(0);
 
-    for i in resolve_symbols(v, env).iter() {
+    for i in env.resolve_symbols(v).iter() {
         match i {
             &Expr::Atom(Atom::Number(d)) => {
                 result = result + d;
             },
-            _ => return Err(Error::UnexpectedType)
+            _ => return Err(UnexpectedType)
         }
     }
 
@@ -104,14 +110,14 @@ enum Comparison {
     GreaterThanOrEqual
 }
 
-use Comparison::*;
+use self::Comparison::*;
 
 fn cmp(v: &[Expr], env: &Env, cmp: Comparison) -> ExprResult {
     if v.len() < 2 {
         return Err(NotEnoughArguments)
     }
 
-    let vv = resolve_symbols(v, env);
+    let vv = env.resolve_symbols(v);
 
     let initial = match vv[0] {
         Expr::Atom(Atom::Number(a)) => a,
@@ -141,20 +147,20 @@ fn cmp(v: &[Expr], env: &Env, cmp: Comparison) -> ExprResult {
 
 fn sub(v: &[Expr], env: &Env) -> ExprResult {
     if v.len() < 1 {
-        return Err(Error::InvalidArguments)
+        return Err(InvalidArguments)
     }
 
-    let vv = resolve_symbols(v, env);
+    let vv = env.resolve_symbols(v);
 
     let mut result = match vv[0] {
         Expr::Atom(Atom::Number(d)) => d,
-        _ => return Err(Error::UnexpectedType)
+        _ => return Err(UnexpectedType)
     };
 
     for i in vv.iter().skip(1) {
         match i {
             &Expr::Atom(Atom::Number(d)) => result = result - d,
-            _ => return Err(Error::UnexpectedType)
+            _ => return Err(UnexpectedType)
         }
     }
 
@@ -166,7 +172,7 @@ fn mul(v: &[Expr], env: &Env) -> ExprResult {
         return Err(NotEnoughArguments)
     }
 
-    let vv = resolve_symbols(v, env);
+    let vv = env.resolve_symbols(v);
 
     let mut initial = match vv[0] {
         Expr::Atom(Atom::Number(d)) => d,
@@ -187,7 +193,7 @@ fn div(v: &[Expr], env: &Env) -> ExprResult {
         return Err(NotEnoughArguments)
     }
 
-    let vv = resolve_symbols(v, env);
+    let vv = env.resolve_symbols(v);
 
     let mut initial = match vv[0] {
         Expr::Atom(Atom::Number(d)) => d,

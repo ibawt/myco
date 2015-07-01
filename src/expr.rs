@@ -1,3 +1,8 @@
+use atom::*;
+use parser::*;
+use procedure::*;
+use errors::*;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Atom(Atom),
@@ -19,5 +24,3 @@ impl fmt::Display for Expr {
 }
 
 pub type ExprResult = Result<Expr, Error>;
-
-use std::collections::HashMap;

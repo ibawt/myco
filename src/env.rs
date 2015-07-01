@@ -1,10 +1,17 @@
+use std::collections::HashMap;
+
+use expr::*;
+use atom::*;
+use errors::*;
+use errors::Error::*;
+
 #[derive (Debug,Clone)]
 pub struct Env {
     def_map: Vec<HashMap<String, Expr>>,
 }
 
 impl Env {
-    fn new() -> Env {
+    pub fn new() -> Env {
         Env{ def_map: vec![HashMap::new()]}
     }
 
@@ -25,7 +32,7 @@ impl Env {
         }
     }
 
-    fn apply(&mut self, params: &[Atom], args: &[Expr]) -> Result<(),Error> {
+    pub fn apply(&mut self, params: &[Atom], args: &[Expr]) -> Result<(),Error> {
         if params.len() != args.len() {
             return Err(InvalidArguments);
         }
@@ -45,30 +52,31 @@ impl Env {
         Ok(())
     }
 
-    fn pop(&mut self) {
+    pub fn pop(&mut self) {
         self.def_map.pop();
     }
 
-    fn get(&self, key: &str) -> Option<&Expr> {
+    pub fn get(&self, key: &str) -> Option<&Expr> {
         self.find(key, self.def_map.len() - 1 )
     }
 
-    fn set(&mut self, key: String, value: Expr) {
+    pub fn set(&mut self, key: String, value: Expr) {
         if let Some(map) = self.def_map.last_mut() {
             map.insert(key, value);
         }
     }
+
+    pub fn resolve_symbols(&self, v: &[Expr]) -> Vec<Expr> {
+        v.iter()
+            .map(|x| match x {
+                &Expr::Atom(Atom::Symbol(ref s)) => {
+                    match self.get(s) {
+                        Some(d) => d.clone(),
+                        _ => Expr::Atom(Atom::Nil)
+                    }
+                },
+                _ => x.clone()
+            }).collect::<Vec<Expr>>()
+    }
 }
 
-fn resolve_symbols(v: &[Expr], env: &Env) -> Vec<Expr> {
-    v.iter()
-        .map(|x| match x {
-            &Expr::Atom(Atom::Symbol(ref s)) => {
-                match env.get(s) {
-                    Some(d) => d.clone(),
-                    _ => Expr::Atom(Atom::Nil)
-                }
-            },
-            _ => x.clone()
-        }).collect::<Vec<Expr>>()
-}
