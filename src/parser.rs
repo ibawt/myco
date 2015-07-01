@@ -248,4 +248,67 @@ mod tests {
         assert_eq!(SyntaxNode::Node(Node::string("foo'bar")), tokenize("\"foo\\'bar\"").unwrap());
         assert_eq!(SyntaxNode::Node(Node::string("foo\"bar")), tokenize("\"foo\\\"bar\"").unwrap());
     }
+
+    #[test]
+    fn simple_read_tokens() {
+        let x = tokenize("(+ 1 2)").unwrap();
+
+        let l = as_list(&x);
+
+        assert_eq!(3, l.len());
+
+        let xx : Vec<SyntaxNode> = vec![make_atom_node("+"), make_atom_node("1"), make_atom_node("2")];
+
+        for pair in xx.iter().zip(l.iter()) {
+            assert_eq!(pair.0, pair.1);
+        }
+    }
+
+    #[test]
+    fn nested_read_tokens() {
+        let x = tokenize("(+ 1 (* 2 2))").unwrap();
+
+        let l = as_list(&x);
+
+        assert_eq!( atom("+"), *as_atom(&l[0]));
+        assert_eq!( atom("1"), *as_atom(&l[1]));
+
+        let l2 = as_list(&l[2]);
+
+        assert_eq!( 3, l.len());
+        assert_eq!( atom("*"), *as_atom(&l2[0]));
+        assert_eq!( atom("2"), *as_atom(&l2[1]));
+        assert_eq!( atom("2"), *as_atom(&l2[2]));
+    }
+
+    #[test]
+    fn subexp_token_test() {
+        let x = tokenize("(+ 1 (+ 2 3) 4)").unwrap();
+
+        let l = as_list(&x);
+
+        assert_eq!( atom("+"), *as_atom(&l[0]));
+        assert_eq!( atom("1"), *as_atom(&l[1]));
+
+        let l2 = as_list(&l[2]);
+
+        assert_eq!( 3, l2.len());
+        assert_eq!( atom("+"), *as_atom(&l2[0]));
+        assert_eq!( atom("2"), *as_atom(&l2[1]));
+        assert_eq!( atom("3"), *as_atom(&l2[2]));
+
+        assert_eq!(atom("4"), *as_atom(&l[3]));
+    }
+
+    #[test]
+    #[should_panic]
+    fn unmatched_bracket() {
+        tokenize("(+ 1").unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn eof() {
+         tokenize("").unwrap();
+    }
 }
