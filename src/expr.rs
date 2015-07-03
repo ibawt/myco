@@ -18,7 +18,7 @@ impl fmt::Display for Expr {
         match self {
             &Atom(ref a) => write!(f, "{}", a),
             &Node(ref n) => write!(f, "{}", n),
-            &Proc(ref p) => write!(f, "procedure")
+            &Proc(_) => write!(f, "procedure")
         }
     }
 }

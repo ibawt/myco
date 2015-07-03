@@ -20,6 +20,7 @@ pub enum SyntaxNode {
     Node(Node),
     Quote(Node),
     QuasiQuote(Node),
+    Unquote(Node),
     Splice(Node)
 }
 
@@ -30,21 +31,25 @@ use std::fmt;
 impl fmt::Display for SyntaxNode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::SyntaxNode::*;
-        match self {
-            &Node(ref node) => {
+        match *self {
+            Node(ref node) => {
                 write!(f, "{}", node)
             },
-            &Quote(ref node) => {
+            Quote(ref node) => {
                 try!(write!(f, "'"));
                 write!(f, "{}", node)
             },
-            &QuasiQuote(ref node) => {
+            QuasiQuote(ref node) => {
                 try!(write!(f, "`"));
                 write!(f, "{}", node)
             },
-            &Splice(ref node) => {
+
+            Splice(ref node) => {
                 try!(write!(f, "~@"));
                 write!(f, "{}", node)
+            },
+            Unquote(ref node) => {
+                write!(f, "~{}", node)
             }
         }
     }
@@ -80,7 +85,7 @@ enum Token {
     Open,        // (
     Close,       // )
     Quote,       // '
-    SyntaxQuote, // `
+    QuasiQuote, // `
     Unquote,     // ~
     Splice,      // ~@
 }
@@ -222,6 +227,23 @@ fn read_tokens(chars: &mut Peekable<Chars>) -> ParseResult {
                 return Ok(SyntaxNode::Quote(node))
             }
             ()
+        },
+        Ok(Some(Token::QuasiQuote)) => {
+            if let SyntaxNode::Node(node) = try!(read_tokens(chars)) {
+                return Ok(SyntaxNode::QuasiQuote(node))
+            }
+            return Err(Error::Parser)
+        }
+        Ok(Some(Token::Unquote)) => {
+            if let SyntaxNode::Node(node) = try!(read_tokens(chars)) {
+                return Ok(SyntaxNode::Unquote(node))
+            }
+            return Err(Error::Parser)
+        },
+        Ok(Some(Token::Splice)) => {
+            if let SyntaxNode::Node(node) = try!(read_tokens(chars)) {
+                return Ok(SyntaxNode::Splice(node))
+            }
         }
         Ok(Some(Token::Atom(x))) => return Ok(SyntaxNode::Node(Node::Atom(x))),
         _ => ()

@@ -11,12 +11,15 @@ use std::collections::VecDeque;
 fn eval_procedure(p: &Procedure, args: &[Expr], env: &mut Env) ->  ExprResult {
     try!(env.apply(&p.params, args));
 
-    let body = SyntaxNode::Node(p.body.clone());
-    let res = eval(&body, env);
+    let mut res = Expr::Atom(Atom::Nil);
+
+    for p in p.body.iter() {
+        res = try!(eval(&p, env));
+    }
 
     env.pop();
 
-    res
+    Ok(res)
 }
 
 fn define(args: &[Expr], env: &mut Env) -> ExprResult {
@@ -65,8 +68,8 @@ fn reduce_fn_params(l: &[SyntaxNode]) -> Result<Vec<Atom>,Error> {
     let mut v = vec![];
 
     for node in l {
-        match node {
-            &SyntaxNode::Node(Node::Atom(ref a)) => v.push(a.clone()),
+        match *node {
+            SyntaxNode::Node(Node::Atom(ref a)) => v.push(a.clone()),
             _ => {
                 return Err(InvalidArguments)
             }
@@ -80,8 +83,8 @@ fn collect_body(l: &[SyntaxNode]) -> Vec<SyntaxNode> {
 }
 
 fn eval_node(atom: &Atom, list: &[SyntaxNode], env: &mut Env) -> ExprResult {
-    match atom {
-        &Atom::Symbol(ref s) =>  {
+    match *atom {
+        Atom::Symbol(ref s) =>  {
             match s.as_ref() {
                 "def" => {
                     let args = try!(eval_args(&list, env));
@@ -96,7 +99,7 @@ fn eval_node(atom: &Atom, list: &[SyntaxNode], env: &mut Env) -> ExprResult {
                     };
 
                     let prc = Procedure{ params: params,
-                                         body: Node::List(collect_body(list))
+                                         body: collect_body(list)
                     };
 
                     return Ok(Expr::Proc(prc))
@@ -137,30 +140,27 @@ fn eval_node(atom: &Atom, list: &[SyntaxNode], env: &mut Env) -> ExprResult {
             if let Some(&Expr::Proc(ref p)) = env.get(&s) {
                 let mut renv = env.clone();
                 let r = eval_procedure(p, &args, &mut renv);
-                println!("evaling procedure, r = {:?}", r);
                 return r
             }
 
             Ok(Expr::Atom(Atom::Nil))
         },
         _ => {
-            println!("Atom is {:?}", atom);
             Err(Error::NotAFunction)
         }
     }
 }
 
 pub fn eval(p: &SyntaxNode, env: &mut Env) -> Result<Expr, Error> {
-    match p {
-        &SyntaxNode::Node(ref node) => {
-            match node {
-                &Node::List(ref list) => {
+    match *p {
+        SyntaxNode::Node(ref node) => {
+            match *node {
+                Node::List(ref list) => {
                     if list.is_empty() {
                         return Err(InvalidArguments)
                     }
                     match list[0] {
                         SyntaxNode::Node(Node::Atom(ref atom)) => {
-                            println!("{:?} in here?", atom);
                             return eval_node(atom, list, env)
                         },
                         SyntaxNode::Node(Node::List(_)) => {
@@ -177,7 +177,7 @@ pub fn eval(p: &SyntaxNode, env: &mut Env) -> Result<Expr, Error> {
                         _ => panic!("not ready")
                     }
                 },
-                &Node::Atom(ref atom) => {
+                Node::Atom(ref atom) => {
                     match atom {
                         &Atom::Symbol(ref s) => {
                             match env.get(s) {
@@ -190,12 +190,12 @@ pub fn eval(p: &SyntaxNode, env: &mut Env) -> Result<Expr, Error> {
                 }
             }
         },
-        &SyntaxNode::Quote(ref node) => {
-            match node {
-                &Node::Atom(ref atom) => {
+        SyntaxNode::Quote(ref node) => {
+            match *node {
+                Node::Atom(ref atom) => {
                     return Ok(Expr::Atom(atom.clone()))
                 },
-                &Node::List(ref list) => {
+                Node::List(ref list) => {
                     let mut out = VecDeque::with_capacity(list.len());
                     for i in list {
                         let n = try!(eval(i, env));
@@ -305,7 +305,7 @@ mod tests {
     fn symbol_resolving() {
         let mut env = Env::new();
 
-        teval_env("(def foo 5)", &mut env).unwrap();
+        teval_env("(def 'foo 5)", &mut env).unwrap();
 
         assert_eq!(num(0), teval_env("(- foo 5)", &mut env).unwrap());
     }

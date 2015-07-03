@@ -19,7 +19,6 @@ impl fmt::Display for Error {
 use self::Error::*;
 
 impl error::Error for Error {
-
     fn description(&self) -> &str {
         match *self {
             UnexpectedType => "UnexpectedType",
