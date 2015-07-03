@@ -54,22 +54,37 @@ fn eval_args(list: &[SyntaxNode], env: &mut Env) -> Result<Vec<Expr>, Error> {
     list.iter().skip(1).map(|i| eval(i, env)).collect()
 }
 
-fn quote(v: &[Node]) -> Result<Expr, Error> {
-    Ok(Expr::Node(v[1].clone()))
+fn quote(node: &Node, env: &mut Env) -> Result<Expr, Error> {
+    match *node {
+        Node::Atom(ref atom) => {
+            return Ok(Expr::Atom(atom.clone()))
+        },
+        Node::List(ref list) => {
+            let mut out = VecDeque::with_capacity(list.len());
+            for i in list {
+                let n = try!(eval(i, env));
+
+                match n {
+                    Expr::Atom(ref a) => {
+                        out.push_back(a.clone());
+                    }
+                    _ => {
+                        return Err(Error::InvalidArguments)
+                    }
+                }
+            }
+            return Ok(Expr::Atom(Atom::List(out)))
+        }
+    }
+    Ok(Expr::Node(node.clone()))
 }
 
 fn reduce_fn_params(l: &[SyntaxNode]) -> Result<Vec<Atom>,Error> {
-    let mut v = vec![];
-
-    for node in l {
-        match *node {
-            SyntaxNode::Node(Node::Atom(ref a)) => v.push(a.clone()),
-            _ => {
-                return Err(InvalidArguments)
-            }
-        }
-    }
-    Ok(v)
+    l.iter().map(|node|
+                 match *node {
+                     SyntaxNode::Node(Node::Atom(ref a)) => Ok(a.clone()),
+                     _ => Err(InvalidArguments)
+                 }).collect()
 }
 
 fn collect_body(l: &[SyntaxNode]) -> Vec<SyntaxNode> {
@@ -99,8 +114,19 @@ fn eval_node(atom: &Atom, list: &[SyntaxNode], env: &mut Env) -> ExprResult {
                     return Ok(Expr::Proc(prc))
                 },
                 "quote" => {
-                    panic!("not done");
-                    //return quote(&list);
+                    if list.len() > 2 {
+                        return Err(InvalidArguments)
+                    }
+                    match list[1] {
+                        SyntaxNode::Node(ref node) => {
+                            return quote(node, env)
+                        }
+                        _ => {
+                            return Err(InvalidArguments)
+                        }
+                    }
+                    return Err(NotImplemented)
+                    //return quote(&list)
                 },
                 "get" => {
                     return get( &try!(eval_args(&list, env)), env);
@@ -185,29 +211,8 @@ pub fn eval(p: &SyntaxNode, env: &mut Env) -> Result<Expr, Error> {
             }
         },
         SyntaxNode::Quote(ref node) => {
-            match *node {
-                Node::Atom(ref atom) => {
-                    return Ok(Expr::Atom(atom.clone()))
-                },
-                Node::List(ref list) => {
-                    let mut out = VecDeque::with_capacity(list.len());
-                    for i in list {
-                        let n = try!(eval(i, env));
-
-                        match n {
-                            Expr::Atom(ref a) => {
-                                out.push_back(a.clone());
-                            }
-                            _ => {
-                                return Err(Error::InvalidArguments)
-                            }
-                        }
-                    }
-                    return Ok(Expr::Atom(Atom::List(out)))
-                }
-            }
-            Ok(Expr::Node(node.clone()))
-        }
+            quote(node, env)
+       }
         _ => panic!("argh")
     }
 }
@@ -320,7 +325,9 @@ mod tests {
     }
 
     #[test]
-    fn quoting() {
+    fn quote_func() {
+       assert_eq!(teval("'(1 2)"), teval("(quote (1 2))"));
+        //assert_eq!(Ok(Expr::Atom(Atom::Symbol("a".to_string()))), teval("'a"));
         //assert_eq!("(a (+ 1 2) c)", "'(a (+ 1 2) c)"); 
     }
 }
