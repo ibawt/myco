@@ -15,10 +15,10 @@ use std::fmt;
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Expr::*;
-        match self {
-            &Atom(ref a) => write!(f, "{}", a),
-            &Node(ref n) => write!(f, "{}", n),
-            &Proc(_) => write!(f, "procedure")
+        match *self {
+            Atom(ref a) => write!(f, "{}", a),
+            Node(ref n) => write!(f, "{}", n),
+            Proc(_) => write!(f, "procedure")
         }
     }
 }

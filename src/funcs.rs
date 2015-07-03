@@ -126,8 +126,8 @@ fn cmp(v: &[Expr], env: &Env, cmp: Comparison) -> ExprResult {
     };
 
     for i in vv.iter().skip(1) {
-        match i {
-            &Expr::Atom(Atom::Number(d)) => {
+        match *i {
+            Expr::Atom(Atom::Number(d)) => {
                 let b = match cmp {
                     LessThan => initial < d,
                     GreaterThan => initial > d,
@@ -159,8 +159,8 @@ fn sub(v: &[Expr], env: &Env) -> ExprResult {
     };
 
     for i in vv.iter().skip(1) {
-        match i {
-            &Expr::Atom(Atom::Number(d)) => result = result - d,
+        match *i {
+            Expr::Atom(Atom::Number(d)) => result = result - d,
             _ => return Err(UnexpectedType)
         }
     }
@@ -181,8 +181,8 @@ fn mul(v: &[Expr], env: &Env) -> ExprResult {
     };
 
     for i in vv.iter().skip(1) {
-        match i {
-            &Expr::Atom(Atom::Number(d)) => initial = initial * d,
+        match *i {
+            Expr::Atom(Atom::Number(d)) => initial = initial * d,
             _ => return Err(InvalidArguments)
         }
     }
@@ -202,8 +202,8 @@ fn div(v: &[Expr], env: &Env) -> ExprResult {
     };
 
     for i in vv.iter().skip(1) {
-        match i {
-            &Expr::Atom(Atom::Number(d)) => initial = initial / d,
+        match *i {
+            Expr::Atom(Atom::Number(d)) => initial = initial / d,
             _ => return Err(InvalidArguments)
         }
     }

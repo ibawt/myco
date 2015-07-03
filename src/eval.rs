@@ -51,13 +51,7 @@ fn get(args: &[Expr], env: &Env) -> ExprResult {
 }
 
 fn eval_args(list: &[SyntaxNode], env: &mut Env) -> Result<Vec<Expr>, Error> {
-    let mut args = vec![];
-
-    for i in list.iter().skip(1) {
-        let atom = try!(eval(i, env));
-        args.push(atom);
-    }
-    Ok(args)
+    list.iter().skip(1).map(|i| eval(i, env)).collect()
 }
 
 fn quote(v: &[Node]) -> Result<Expr, Error> {
@@ -178,8 +172,8 @@ pub fn eval(p: &SyntaxNode, env: &mut Env) -> Result<Expr, Error> {
                     }
                 },
                 Node::Atom(ref atom) => {
-                    match atom {
-                        &Atom::Symbol(ref s) => {
+                    match *atom {
+                        Atom::Symbol(ref s) => {
                             match env.get(s) {
                                 Some(e) => return Ok(e.clone()),
                                 _ => return Ok(Expr::Atom(Atom::Nil))
