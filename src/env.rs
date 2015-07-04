@@ -68,15 +68,15 @@ impl Env {
 
     pub fn resolve_symbols(&self, v: &[Expr]) -> Vec<Expr> {
         v.iter()
-            .map(|x| match x {
-                &Expr::Atom(Atom::Symbol(ref s)) => {
+            .map(|x| match *x {
+                Expr::Atom(Atom::Symbol(ref s)) => {
                     match self.get(s) {
                         Some(d) => d.clone(),
                         _ => Expr::Atom(Atom::Nil)
                     }
                 },
                 _ => x.clone()
-            }).collect::<Vec<Expr>>()
+            }).collect()
     }
 }
 

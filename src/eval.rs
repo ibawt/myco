@@ -11,15 +11,13 @@ use std::collections::VecDeque;
 fn eval_procedure(p: &Procedure, args: &[Expr], env: &mut Env) ->  ExprResult {
     try!(env.apply(&p.params, args));
 
-    let mut res = Expr::Atom(Atom::Nil);
-
-    for p in p.body.iter() {
-        res = try!(eval(&p, env));
-    }
+    let res = p.body.iter()
+        .map(|node| eval(&node, env))
+        .last().unwrap_or(Err(InvalidArguments));
 
     env.pop();
 
-    Ok(res)
+    res
 }
 
 fn define(args: &[Expr], env: &mut Env) -> ExprResult {
@@ -91,6 +89,17 @@ fn collect_body(l: &[SyntaxNode]) -> Vec<SyntaxNode> {
     l.iter().skip(2).map(|x| x.clone()).collect()
 }
 
+fn macroexpand(list: &[SyntaxNode], env: &Env) -> ExprResult {
+    Err(NotImplemented)
+}
+
+fn do_form(list: &[SyntaxNode], env: &mut Env) -> ExprResult {
+    list.iter()
+        .skip(1)
+        .map(|node| eval(&node, env))
+        .last().unwrap_or(Err(InvalidArguments))
+}
+
 fn eval_node(atom: &Atom, list: &[SyntaxNode], env: &mut Env) -> ExprResult {
     match *atom {
         Atom::Symbol(ref s) =>  {
@@ -98,6 +107,13 @@ fn eval_node(atom: &Atom, list: &[SyntaxNode], env: &mut Env) -> ExprResult {
                 "def" => {
                     let args = try!(eval_args(&list, env));
                     return define(&args, env);
+                },
+                "do" => {
+                    return do_form(list, env)
+                },
+                "macroexpand" => {
+                    return Err(NotImplemented)
+                    //return macroexpand(&list, env)
                 },
                 "fn" => {
                     let params = match list[1] {
@@ -126,7 +142,6 @@ fn eval_node(atom: &Atom, list: &[SyntaxNode], env: &mut Env) -> ExprResult {
                         }
                     }
                     return Err(NotImplemented)
-                    //return quote(&list)
                 },
                 "get" => {
                     return get( &try!(eval_args(&list, env)), env);
@@ -326,8 +341,12 @@ mod tests {
 
     #[test]
     fn quote_func() {
-       assert_eq!(teval("'(1 2)"), teval("(quote (1 2))"));
-        //assert_eq!(Ok(Expr::Atom(Atom::Symbol("a".to_string()))), teval("'a"));
-        //assert_eq!("(a (+ 1 2) c)", "'(a (+ 1 2) c)"); 
+        assert_eq!(teval("'(1 2)"), teval("(quote (1 2))"));
+        assert_eq!(teval("'a"), teval("(quote a)"));
+    }
+
+    #[test]
+    fn do_func() {
+        assert_eq!(teval("'4"), teval("(do (+ 1 2) (+ 2 2))"));
     }
 }
