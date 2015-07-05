@@ -23,7 +23,7 @@ fn repl() {
             Some(s) => {
                 if let Ok(p) = parser::tokenize(&s) {
                     match eval(&p, &mut env) {
-                        Ok(r) => println!("{}", r),
+                        Ok(r) => println!("{:?}", r),
                         Err(e) => println!("Error in evaluation: {:?}", e)
                     }
                 } else {

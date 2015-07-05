@@ -2,45 +2,56 @@ use errors::Error;
 use std::collections::*;
 use number::*;
 
+#[derive (Debug, Clone, PartialEq)]
+pub struct Procedure {
+    pub params: List,
+    pub body: List,
+}
+
+pub type List = Vec<Atom>;
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Atom {
-    List(VecDeque<Atom>),
+    List(List),
     String(String),
     Number(Number),
     Symbol(String),
     Boolean(bool),
+    Func(Procedure),
     Nil
 }
+
 use std::fmt;
 
-impl fmt::Display for Atom {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::Atom::*;
-        match *self {
-            List(ref list) => {
-                try!(write!(f, "("));
-                if let Some(first) = list.front() {
-                    try!(write!(f, "{}", first));
-                    for a in list.iter().skip(1) {
-                        try!(write!(f, " {}", a));
-                    }
-                }
-                write!(f, ")")
-            },
-            String(ref s) => {
-                write!(f, "\"{}\"", s)
-            },
-            Nil => {
-                write!(f, "nil")
-            },
-            Number(n) => {
-                write!(f, "{}", n)
-            },
-            Boolean(b) => write!(f, "{}", b),
-            Symbol(ref s) => write!(f, "{}", s)
-        }
-    }
-}
+// impl fmt::Display for Atom {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         use self::Atom::*;
+//         match *self {
+//             List(ref list) => {
+//                 try!(write!(f, "("));
+//                 if let Some(first) = list.front() {
+//                     try!(write!(f, "{}", first));
+//                     for a in list.iter().skip(1) {
+//                         try!(write!(f, " {}", a));
+//                     }
+//                 }
+//                 write!(f, ")")
+//             },
+//             String(ref s) => {
+//                 write!(f, "\"{}\"", s)
+//             },
+//             Nil => {
+//                 write!(f, "nil")
+//             },
+//             Number(n) => {
+//                 write!(f, "{}", n)
+//             },
+//             Boolean(b) => write!(f, "{}", b),
+//             Symbol(ref s) => write!(f, "{}", s)
+//         }
+//     }
+// }
+//
 pub type AtomResult = Result<Atom, Error>;
 
 impl Atom {

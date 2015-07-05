@@ -9,73 +9,57 @@ pub fn tokenize(line: &str) -> ParseResult {
     return read_tokens(&mut chars);
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum Node {
-    Atom(Atom),
-    List(Vec<SyntaxNode>)
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum SyntaxNode {
-    Node(Node),
-    Quote(Node),
-    QuasiQuote(Node),
-    Unquote(Node),
-    Splice(Node)
-}
-
-pub type ParseResult = Result<SyntaxNode, Error>;
+pub type ParseResult = Result<Atom, Error>;
 
 use std::fmt;
 
-impl fmt::Display for SyntaxNode {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::SyntaxNode::*;
-        match *self {
-            Node(ref node) => {
-                write!(f, "{}", node)
-            },
-            Quote(ref node) => {
-                try!(write!(f, "'"));
-                write!(f, "{}", node)
-            },
-            QuasiQuote(ref node) => {
-                try!(write!(f, "`"));
-                write!(f, "{}", node)
-            },
+// impl fmt::Display for Node {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         match *self {
+//             Node(ref node) => {
+//                 write!(f, "{}", node)
+//             },
+//             Quote(ref node) => {
+//                 try!(write!(f, "'"));
+//                 write!(f, "{}", node)
+//             },
+//             QuasiQuote(ref node) => {
+//                 try!(write!(f, "`"));
+//                 write!(f, "{}", node)
+//             },
 
-            Splice(ref node) => {
-                try!(write!(f, "~@"));
-                write!(f, "{}", node)
-            },
-            Unquote(ref node) => {
-                write!(f, "~{}", node)
-            }
-        }
-    }
-}
+//             Splice(ref node) => {
+//                 try!(write!(f, "~@"));
+//                 write!(f, "{}", node)
+//             },
+//             Unquote(ref node) => {
+//                 write!(f, "~{}", node)
+//             }
+//         }
+//     }
+// }
 
-impl fmt::Display for Node {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::Node::*;
-        match *self {
-            Atom(ref a) => {
-                write!(f, "{}", a)
-            },
-            List(ref list) => {
-                try!(write!(f, "("));
-                if let Some(first) = list.first() {
-                    try!(write!(f, "{}", first));
+// impl fmt::Display for Node {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         use self::Node::*;
+//         match *self {
+//             Atom(ref a) => {
+//                 write!(f, "{}", a)
+//             },
+//             List(ref list) => {
+//                 try!(write!(f, "("));
+//                 if let Some(first) = list.first() {
+//                     try!(write!(f, "{}", first));
 
-                    for n in list.iter().skip(1) {
-                        try!(write!(f, " {}", n));
-                    }
-                }
-                write!(f, ")")
-            }
-        }
-    }
-}
+//                     for n in list.iter().skip(1) {
+//                         try!(write!(f, " {}", n));
+//                     }
+//                 }
+//                 write!(f, ")")
+//             }
+//         }
+//     }
+// }
 
 use std::str::Chars;
 
@@ -91,39 +75,6 @@ enum Token {
 }
 
 use std::convert::From;
-
-impl Node {
-    fn symbol(s: &str) -> Node {
-        Node::Atom(Atom::Symbol(s.to_string()))
-    }
-
-    fn string(s: &str) -> Node {
-        Node::Atom(Atom::String(s.to_string()))
-    }
-
-    fn list(v: &[Atom]) -> Node {
-        use std::collections::*;
-        Node::Atom(Atom::List(v.iter().map(|x| x.clone()).collect::<VecDeque<Atom>>()))
-    }
-}
-
-impl From<i64> for Node {
-    fn from(i: i64) -> Node {
-        Node::Atom(Atom::Number(Number::Integer(i)))
-    }
-}
-
-impl From<f64> for Node {
-    fn from(f: f64) -> Node {
-        Node::Atom(Atom::Number(Number::Float(f)))
-    }
-}
-
-impl From<bool> for Node {
-    fn from(b: bool) -> Node {
-        Node::Atom(Atom::Boolean(b))
-    }
-}
 
 fn read_string(iter: &mut Peekable<Chars>) -> Result<Option<Token>, Error> {
     let mut s = String::new();
@@ -199,7 +150,7 @@ fn next(iter: &mut Peekable<Chars>) -> Result<Option<Token>, Error> {
 fn read_tokens(chars: &mut Peekable<Chars>) -> ParseResult {
     match next(chars) {
         Ok(Some(Token::Open)) => {
-            let mut node: Vec<SyntaxNode> = vec![];
+            let mut node = List::new();
 
             loop {
                 match chars.peek() {
@@ -217,35 +168,37 @@ fn read_tokens(chars: &mut Peekable<Chars>) -> ParseResult {
                 }
             }
 
-            return Ok(SyntaxNode::Node(Node::List(node)))
+            return Ok(Atom::List(node))
         },
         Ok(Some(Token::Close)) => {
             return Err(Error::Parser)
         },
         Ok(Some(Token::Quote)) => {
-            if let SyntaxNode::Node(node) = try!(read_tokens(chars)) {
-                return Ok(SyntaxNode::Quote(node))
-            }
-            ()
+            // if let Node::Node(node) = try!(read_tokens(chars)) {
+            //     return Ok(Node::Quote(node))
+            // }
+            return Err(Error::NotImplemented)
         },
         Ok(Some(Token::QuasiQuote)) => {
-            if let SyntaxNode::Node(node) = try!(read_tokens(chars)) {
-                return Ok(SyntaxNode::QuasiQuote(node))
-            }
-            return Err(Error::Parser)
+            // if let Node::Node(node) = try!(read_tokens(chars)) {
+            //     return Ok(Node::QuasiQuote(node))
+            // }
+            // return Err(Error::Parser)
+            return Err(Error::NotImplemented)
         }
         Ok(Some(Token::Unquote)) => {
-            if let SyntaxNode::Node(node) = try!(read_tokens(chars)) {
-                return Ok(SyntaxNode::Unquote(node))
-            }
+            // if let Node::Node(node) = try!(read_tokens(chars)) {
+            //     return Ok(Node::Unquote(node))
+            // }
             return Err(Error::Parser)
         },
         Ok(Some(Token::Splice)) => {
-            if let SyntaxNode::Node(node) = try!(read_tokens(chars)) {
-                return Ok(SyntaxNode::Splice(node))
-            }
+            // if let Node::Node(node) = try!(read_tokens(chars)) {
+            //     return Ok(Node::Splice(node))
+            // }
+            return Err(Error::NotImplemented)
         }
-        Ok(Some(Token::Atom(x))) => return Ok(SyntaxNode::Node(Node::Atom(x))),
+        Ok(Some(Token::Atom(x))) => return Ok(x),
         _ => ()
     }
     Err(Error::Parser)

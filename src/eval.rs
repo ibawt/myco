@@ -1,14 +1,12 @@
-use expr::*;
 use funcs::*;
 use env::*;
 use parser::*;
 use atom::*;
-use procedure::*;
 use errors::*;
 use errors::Error::*;
 use std::collections::VecDeque;
 
-fn eval_procedure(p: &Procedure, args: &[Expr], env: &mut Env) ->  ExprResult {
+fn eval_procedure(p: &Procedure, args: &[Atom], env: &mut Env) ->  AtomResult {
     try!(env.apply(&p.params, args));
 
     let res = p.body.iter()
@@ -20,87 +18,99 @@ fn eval_procedure(p: &Procedure, args: &[Expr], env: &mut Env) ->  ExprResult {
     res
 }
 
-fn define(args: &[Expr], env: &mut Env) -> ExprResult {
+fn eval_macro(p: &Procedure, args: &[Atom], env: &Env) -> AtomResult {
+    Err(NotImplemented)
+}
+
+fn define(args: &[Atom], env: &mut Env) -> AtomResult {
     if args.len() != 2 {
         return Err(Error::InvalidArguments);
     }
-    if let Expr::Atom(Atom::Symbol(ref key)) = args[0] {
+    if let Atom::Symbol(ref key) = args[0] {
         env.set(key.clone(), args[1].clone());
-        Ok(Expr::Atom(Atom::Nil))
+        Ok(Atom::Nil)
     } else {
         Err(Error::InvalidArguments)
     }
 }
-
-fn get(args: &[Expr], env: &Env) -> ExprResult {
+fn get(args: &[Atom], env: &Env) -> AtomResult {
     if args.len() != 1 {
         return Err(Error::InvalidArguments)
     }
 
-    if let Expr::Atom(Atom::Symbol(ref s)) = args[0] {
+    if let Atom::Symbol(ref s) = args[0] {
         if let Some(a) = env.get(s) {
             Ok(a.clone())
         } else {
-            Ok(Expr::Atom(Atom::Nil))
+            Ok(Atom::Nil)
         }
     } else {
         Err(Error::InvalidArguments)
     }
 }
 
-fn eval_args(list: &[SyntaxNode], env: &mut Env) -> Result<Vec<Expr>, Error> {
+fn eval_args(list: &[Atom], env: &mut Env) -> Result<Vec<Atom>, Error> {
     list.iter().skip(1).map(|i| eval(i, env)).collect()
 }
 
-fn quote(node: &Node, env: &mut Env) -> Result<Expr, Error> {
-    match *node {
-        Node::Atom(ref atom) => {
-            return Ok(Expr::Atom(atom.clone()))
-        },
-        Node::List(ref list) => {
-            let mut out = VecDeque::with_capacity(list.len());
-            for i in list {
-                let n = try!(eval(i, env));
+fn quote(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
+    Err(NotImplemented)
+    // match *node {
+    //     Atom::List(ref list) => {
+    //         let mut out = VecDeque::with_capacity(list.len());
+    //         for i in list {
+    //             let n = try!(eval(i, env));
 
-                match n {
-                    Expr::Atom(ref a) => {
-                        out.push_back(a.clone());
-                    }
-                    _ => {
-                        return Err(Error::InvalidArguments)
-                    }
-                }
-            }
-            return Ok(Expr::Atom(Atom::List(out)))
-        }
-    }
-    Ok(Expr::Node(node.clone()))
+    //             match n {
+    //                 Atom::Atom(ref a) => {
+    //                     out.push_back(a.clone());
+    //                 }
+    //                 _ => {
+    //                     return Err(Error::InvalidArguments)
+    //                 }
+    //             }
+    //         }
+    //         return Ok(Atom::Atom(Atom::List(out)))
+    //     },
+    //     _ => Ok(node.clone())
+    // }
 }
 
-fn reduce_fn_params(l: &[SyntaxNode]) -> Result<Vec<Atom>,Error> {
-    l.iter().map(|node|
-                 match *node {
-                     SyntaxNode::Node(Node::Atom(ref a)) => Ok(a.clone()),
-                     _ => Err(InvalidArguments)
-                 }).collect()
+fn reduce_fn_params(l: &[Atom]) -> Result<Vec<Atom>,Error> {
+    Ok(l.iter().map(|node|
+                 node.clone()
+                 ).collect())
 }
 
-fn collect_body(l: &[SyntaxNode]) -> Vec<SyntaxNode> {
+fn collect_body(l: &[Atom]) -> Vec<Atom> {
     l.iter().skip(2).map(|x| x.clone()).collect()
 }
 
-fn macroexpand(list: &[SyntaxNode], env: &Env) -> ExprResult {
+fn macroexpand(list: &[Atom], env: &Env) -> AtomResult {
     Err(NotImplemented)
 }
 
-fn do_form(list: &[SyntaxNode], env: &mut Env) -> ExprResult {
+fn do_form(list: &[Atom], env: &mut Env) -> AtomResult {
     list.iter()
         .skip(1)
         .map(|node| eval(&node, env))
         .last().unwrap_or(Err(InvalidArguments))
 }
 
-fn eval_node(atom: &Atom, list: &[SyntaxNode], env: &mut Env) -> ExprResult {
+fn make_proc(list: &[Atom]) -> Result<Procedure, Error> {
+    Err(NotImplemented)
+    // let params = match list[1] {
+    //     Atom::Atom(Atom::List(ref l)) => try!(reduce_fn_params(l)),
+    //     _ => {
+    //         return Err(InvalidArguments)
+    //     }
+    // };
+    // Ok(Procedure{ params: params,
+    //            body: collect_body(list)
+    // })
+}
+
+fn eval_node(atom: &Atom, list: &[Atom], env: &mut Env) -> AtomResult {
     match *atom {
         Atom::Symbol(ref s) =>  {
             match s.as_ref() {
@@ -111,36 +121,34 @@ fn eval_node(atom: &Atom, list: &[SyntaxNode], env: &mut Env) -> ExprResult {
                 "do" => {
                     return do_form(list, env)
                 },
+                "macro" => {
+                    return Err(NotImplemented)
+                    // if env.depth() > 1 {
+                    //     return Err(InvalidArguments)
+                    // }
+                    // return make_proc(&list)
+                    //     .map(|p| Atom::Macro(p))
+                }
                 "macroexpand" => {
                     return Err(NotImplemented)
-                    //return macroexpand(&list, env)
                 },
                 "fn" => {
-                    let params = match list[1] {
-                        SyntaxNode::Node(Node::List(ref l)) => try!(reduce_fn_params(l)),
-                        _ => {
-                            return Err(InvalidArguments)
-                        }
-                    };
-
-                    let prc = Procedure{ params: params,
-                                         body: collect_body(list)
-                    };
-
-                    return Ok(Expr::Proc(prc))
+                    return Err(NotImplemented)
+                    // return make_proc(&list)
+                    //     .map(|p| Atom::Proc(p))
                 },
                 "quote" => {
-                    if list.len() > 2 {
-                        return Err(InvalidArguments)
-                    }
-                    match list[1] {
-                        SyntaxNode::Node(ref node) => {
-                            return quote(node, env)
-                        }
-                        _ => {
-                            return Err(InvalidArguments)
-                        }
-                    }
+                    // if list.len() > 2 {
+                    //     return Err(InvalidArguments)
+                    // }
+                    // match list[1] {
+                    //     Atom::Atom(ref node) => {
+                    //         return quote(node, env)
+                    //     }
+                    //     _ => {
+                    //         return Err(InvalidArguments)
+                    //     }
+                    // }
                     return Err(NotImplemented)
                 },
                 "get" => {
@@ -150,8 +158,8 @@ fn eval_node(atom: &Atom, list: &[SyntaxNode], env: &mut Env) -> ExprResult {
                     let predicate = try!(eval(&list[1], env));
 
                     let truthy = match predicate {
-                        Expr::Atom(Atom::Boolean(b)) => b,
-                        Expr::Atom(Atom::Nil) => false,
+                        Atom::Boolean(b) => b,
+                        Atom::Nil => false,
                         _ => true
                     };
 
@@ -160,7 +168,7 @@ fn eval_node(atom: &Atom, list: &[SyntaxNode], env: &mut Env) -> ExprResult {
                     } else if list.len() > 2 {
                         return eval(&list[3], env);
                     } else {
-                        return Ok(Expr::Atom(Atom::Boolean(false)))
+                        return Ok(Atom::Boolean(false))
                     }
                 },
                 _ => ()
@@ -172,13 +180,13 @@ fn eval_node(atom: &Atom, list: &[SyntaxNode], env: &mut Env) -> ExprResult {
                 return r
             }
 
-            if let Some(&Expr::Proc(ref p)) = env.get(&s) {
-                let mut renv = env.clone();
-                let r = eval_procedure(p, &args, &mut renv);
-                return r
-            }
+            // if let Some(&Atom::Proc(ref p)) = env.get(&s) {
+            //     let mut renv = env.clone();
+            //     let r = eval_procedure(p, &args, &mut renv);
+            //     return r
+            // }
 
-            Ok(Expr::Atom(Atom::Nil))
+            Ok(Atom::Nil)
         },
         _ => {
             Err(Error::NotAFunction)
@@ -186,49 +194,38 @@ fn eval_node(atom: &Atom, list: &[SyntaxNode], env: &mut Env) -> ExprResult {
     }
 }
 
-pub fn eval(p: &SyntaxNode, env: &mut Env) -> Result<Expr, Error> {
-    match *p {
-        SyntaxNode::Node(ref node) => {
-            match *node {
-                Node::List(ref list) => {
-                    if list.is_empty() {
-                        return Err(InvalidArguments)
-                    }
-                    match list[0] {
-                        SyntaxNode::Node(Node::Atom(ref atom)) => {
-                            return eval_node(atom, list, env)
-                        },
-                        SyntaxNode::Node(Node::List(_)) => {
-                            let r = try!(eval(&list[0], env));
-
-                            match r {
-                                Expr::Atom(a) => return eval_node(&a, list, env),
-                                Expr::Proc(p) => return eval_procedure(&p, &try!(eval_args(&list, env)), env),
-                                _ => {
-                                    return Err(InvalidArguments)
-                                }
-                            }
-                        },
-                        _ => panic!("not ready")
-                    }
-                },
-                Node::Atom(ref atom) => {
-                    match *atom {
-                        Atom::Symbol(ref s) => {
-                            match env.get(s) {
-                                Some(e) => return Ok(e.clone()),
-                                _ => return Ok(Expr::Atom(Atom::Nil))
-                            }
-                        }
-                        _ => Ok(Expr::Atom(atom.clone()))
-                    }
-                }
+pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
+    match *node {
+        Atom::List(ref list) => {
+            if list.is_empty() {
+                return Err(InvalidArguments)
+            } else {
+                panic!("blag")
             }
+            // match list[0] {
+            //     Atom(ref atom) => {
+            //         return eval_node(atom, list, env)
+            //     },
+            //     Atom::Atom(Atom::List(_)) => {
+            //         let r = try!(eval(&list[0], env));
+            //         match r {
+            //             Atom::Atom(a) => return eval_node(&a, list, env),
+            //             Atom::Proc(p) => return eval_procedure(&p, &try!(eval_args(&list, env)), env),
+            //             _ => {
+            //                 return Err(InvalidArguments)
+            //             }
+            //         }
+            //     },
+            //     _ => panic!("not ready")
+            // }
         },
-        SyntaxNode::Quote(ref node) => {
-            quote(node, env)
-       }
-        _ => panic!("argh")
+        Atom::Symbol(ref s) => {
+            match env.get(s) {
+                Some(e) => return Ok(e.clone()),
+                _ => return Ok(Atom::Nil)
+            }
+        }
+        _ => Ok(node.clone())
     }
 }
 
@@ -244,7 +241,7 @@ mod tests {
     fn if_special_form() {
         let x = eval(&tokenize("(if (= 1 1) true false)").unwrap(), &mut Env::new()).unwrap();
 
-        assert_eq!(Expr::Atom(Atom::Boolean(true)), x);
+        assert_eq!(Atom::Atom(Atom::Boolean(true)), x);
     }
 
     #[test]
@@ -348,5 +345,13 @@ mod tests {
     #[test]
     fn do_func() {
         assert_eq!(teval("'4"), teval("(do (+ 1 2) (+ 2 2))"));
+    }
+
+    #[test]
+    fn simple_macro() {
+        let mut env = Env::new();
+
+        teval_env("(def 'm (macro () (+ 3 5))", &mut env).unwrap();
+        assert_eq!(teval("'(+ 3 5)"), teval_env("(m)", &mut env).unwrap());
     }
 }
