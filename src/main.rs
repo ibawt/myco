@@ -4,9 +4,7 @@ mod errors;
 mod number;
 mod atom;
 mod parser;
-mod expr;
 mod env;
-mod procedure;
 mod eval;
 mod funcs;
 

@@ -209,22 +209,19 @@ mod tests {
     use super::*;
     use atom::*;
 
-    fn make_atom_node(s: &str) -> SyntaxNode {
-        return SyntaxNode::Node(Node::Atom(Atom::parse(s)));
+    fn make_atom_node(s: &str) -> Atom {
+        Atom::parse(s)
     }
 
-    fn as_list(n: &SyntaxNode) -> &Vec<SyntaxNode> {
-        match n {
-            &SyntaxNode::Node(Node::List(ref l)) => l,
+    fn as_list(n: &Atom) -> &[Atom] {
+        match *n {
+            Atom::List(ref l) => l,
             _ => panic!("don't get here!")
         }
     }
 
-    fn as_atom(n: &SyntaxNode) -> &Atom {
-        match n {
-            &SyntaxNode::Node(Node::Atom(ref a)) => a,
-            _ => panic!("not here!")
-        }
+    fn as_atom(n: &Atom) -> &Atom {
+        n
     }
 
     fn atom(s: &str) -> Atom {
@@ -234,18 +231,18 @@ mod tests {
 
     #[test]
     fn naked_atoms() {
-        assert_eq!(SyntaxNode::Node(Node::from(0)), tokenize("0").unwrap());
-        assert_eq!(SyntaxNode::Node(Node::from(512)), tokenize("512").unwrap());
-        assert_eq!(SyntaxNode::Node(Node::from(-512)), tokenize("-512").unwrap());
-        assert_eq!(SyntaxNode::Node(Node::from(5.0f64)), tokenize("5.0").unwrap());
-        assert_eq!(SyntaxNode::Node(Node::string("foo bar")), tokenize("\"foo bar\"").unwrap());
-        assert_eq!(SyntaxNode::Node(Node::symbol("foo")), tokenize("foo").unwrap());
+        assert_eq!(Atom::from(0), tokenize("0").unwrap());
+        assert_eq!(Atom::from(512), tokenize("512").unwrap());
+        assert_eq!(Atom::from(-512), tokenize("-512").unwrap());
+        assert_eq!(Atom::from(5.0f64), tokenize("5.0").unwrap());
+        assert_eq!(Atom::string("foo bar"), tokenize("\"foo bar\"").unwrap());
+        assert_eq!(Atom::symbol("foo"), tokenize("foo").unwrap());
     }
 
     #[test]
     fn string_escaping() {
-        assert_eq!(SyntaxNode::Node(Node::string("foo'bar")), tokenize("\"foo\\'bar\"").unwrap());
-        assert_eq!(SyntaxNode::Node(Node::string("foo\"bar")), tokenize("\"foo\\\"bar\"").unwrap());
+        assert_eq!(Atom::string("foo'bar"), tokenize("\"foo\\'bar\"").unwrap());
+        assert_eq!(Atom::string("foo\"bar"), tokenize("\"foo\\\"bar\"").unwrap());
     }
 
     #[test]
@@ -256,7 +253,7 @@ mod tests {
 
         assert_eq!(3, l.len());
 
-        let xx : Vec<SyntaxNode> = vec![make_atom_node("+"), make_atom_node("1"), make_atom_node("2")];
+        let xx : Vec<Atom> = vec![make_atom_node("+"), make_atom_node("1"), make_atom_node("2")];
 
         for pair in xx.iter().zip(l.iter()) {
             assert_eq!(pair.0, pair.1);

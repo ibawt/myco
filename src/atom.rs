@@ -1,5 +1,4 @@
 use errors::Error;
-use std::collections::*;
 use number::*;
 
 #[derive (Debug, Clone, PartialEq)]
@@ -8,6 +7,11 @@ pub struct Procedure {
     pub body: List,
 }
 
+#[derive (Debug, Clone, PartialEq)]
+pub enum Function {
+    Native(Native),
+    Proc(Procedure)
+}
 pub type List = Vec<Atom>;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -17,11 +21,55 @@ pub enum Atom {
     Number(Number),
     Symbol(String),
     Boolean(bool),
-    Func(Procedure),
+    Function(Function),
     Nil
 }
 
+#[derive (Debug, PartialEq, Clone, Copy)]
+pub enum Native {
+    Add,
+    Sub,
+    Equal,
+    GreaterThanOrEqual,
+    GreaterThan,
+    LessThan,
+    LessThanOrEqual,
+    Mul,
+    Div,
+    First,
+    Rest
+}
+
 use std::fmt;
+use std::convert::From;
+
+impl From<bool> for Atom {
+    fn from(b: bool) -> Atom {
+        Atom::Boolean(b)
+    }
+}
+
+impl From<i64> for Atom {
+    fn from(i: i64) -> Atom {
+        Atom::Number(Number::Integer(i))
+    }
+}
+
+impl From<f64> for Atom {
+    fn from(f: f64) -> Atom {
+        Atom::Number(Number::Float(f))
+    }
+}
+
+impl Atom {
+    pub fn string(s: &str) -> Atom {
+        Atom::String(s.to_string())
+    }
+
+    pub fn symbol(s: &str) -> Atom {
+        Atom::Symbol(s.to_string())
+    }
+}
 
 // impl fmt::Display for Atom {
 //     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -54,8 +102,30 @@ use std::fmt;
 //
 pub type AtomResult = Result<Atom, Error>;
 
+fn find_native(t: &str) -> Option<Atom> {
+    use self::Native::*;
+    let native = match t {
+        "+" => Add,
+        "-" => Sub,
+        "=" => Equal,
+        ">" => GreaterThan,
+        ">=" => GreaterThanOrEqual,
+        "<=" => LessThanOrEqual,
+        "<" => LessThan,
+        "*" => Mul,
+        "/" => Div,
+        "first" => First,
+        "rest" => Rest,
+        _ => return None
+    };
+    Some(Atom::Function(Function::Native(native)))
+}
+
 impl Atom {
     pub fn parse(token: &str) -> Atom {
+        if let Some(native) = find_native(token) {
+            return native
+        }
         match token {
             "true" => return Atom::Boolean(true),
             "false" => return Atom::Boolean(false),

@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use expr::*;
 use atom::*;
 use errors::*;
 use errors::Error::*;
@@ -86,8 +85,8 @@ impl Env {
         self.def_map.pop();
     }
 
-    pub fn get(&self, key: &str) -> Option<&Atom> {
-        self.find(key, self.def_map.len() - 1 )
+    pub fn get(&self, key: &str) -> Option<Atom> {
+        self.find(key, self.def_map.len() - 1 ).map(|x| x.clone())
     }
 
     pub fn set(&mut self, key: String, value: Atom) {

@@ -1,4 +1,3 @@
-use expr::*;
 use env::*;
 use atom::*;
 use errors::Error::*;
@@ -45,6 +44,24 @@ fn list(args: &[Atom], env: &Env) -> AtomResult {
         }
     }
     return Err(NotImplemented)
+}
+
+
+pub fn eval_native(n: Native, args: &[Atom], env: &mut Env) -> AtomResult {
+    use atom::Native::*;
+    match n {
+        Add => add(args, env),
+        Sub => sub(args, env),
+        Equal => equals( args, env),
+        GreaterThanOrEqual => cmp(args, env, Comparison::GreaterThanOrEqual),
+        GreaterThan => cmp(args, env, Comparison::GreaterThan),
+        LessThanOrEqual => cmp(args, env, Comparison::LessThanOrEqual),
+        LessThan => cmp(args, env, Comparison::LessThan),
+        Mul => mul(args, env),
+        Div => div(args, env),
+        First => first(args, env),
+        Rest => rest(args, env)
+    }
 }
 
 pub fn try_built_ins(sym: &str, args: &[Atom], env: &Env) -> Option<AtomResult> {
