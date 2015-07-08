@@ -20,8 +20,6 @@ fn first(args: &[Atom], env: &Env) -> AtomResult {
     }
 }
 
-use std::collections::VecDeque;
-
 fn rest(args: &[Atom], env: &Env) -> AtomResult {
     if args.len() < 1 {
         return Err(NotEnoughArguments)
@@ -64,25 +62,6 @@ pub fn eval_native(n: Native, args: &[Atom], env: &mut Env) -> AtomResult {
     }
 }
 
-pub fn try_built_ins(sym: &str, args: &[Atom], env: &Env) -> Option<AtomResult> {
-    let result = match sym {
-        "nil" => Ok(Atom::Nil),
-        "+" => add(args, env),
-        "-" => sub(args, env),
-        "=" => equals(args, env),
-        ">=" => cmp(args, env, GreaterThanOrEqual),
-        ">" => cmp(args, env, GreaterThan),
-        "<=" => cmp(args, env, LessThanOrEqual),
-        "<" => cmp(args, env, LessThan),
-        "*" => mul(args, env),
-        "/" => div(args,env),
-        "first" => first(args,env),
-        "rest" => rest(args,env),
-        "list" => list(args,env),
-        _ => return None
-    };
-    Some(result)
-}
 fn equals(args: &[Atom], env: &Env) -> AtomResult {
     if let Some(v) = env.resolve_symbols(args).first() {
         for i in args.iter().skip(1) {

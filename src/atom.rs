@@ -1,6 +1,16 @@
 use errors::Error;
 use number::*;
 
+#[derive (Debug, Clone, PartialEq, Copy)]
+pub enum Form {
+    Def,
+    Do,
+    Macro,
+    Fn,
+    Quote,
+    If
+}
+
 #[derive (Debug, Clone, PartialEq)]
 pub struct Procedure {
     pub params: List,
@@ -22,6 +32,7 @@ pub enum Atom {
     Symbol(String),
     Boolean(bool),
     Function(Function),
+    Form(Form),
     Nil
 }
 
@@ -121,8 +132,25 @@ fn find_native(t: &str) -> Option<Atom> {
     Some(Atom::Function(Function::Native(native)))
 }
 
+fn find_form(t: &str) -> Option<Atom> {
+    use self::Form::*;
+    let form = match t {
+        "def" => Def,
+        "do" => Do,
+        "fn" => Fn,
+        "quote" => Quote,
+        "if" => If,
+        _ => return None
+    };
+    Some(Atom::Form(form))
+}
+
 impl Atom {
     pub fn parse(token: &str) -> Atom {
+        if let Some(form) = find_form(token) {
+            return form
+        }
+
         if let Some(native) = find_native(token) {
             return native
         }
