@@ -127,8 +127,7 @@ fn eval_special_forms(f: Form, list: &[Atom], env: &mut Env) -> AtomResult {
                         } else {
                             Ok(Atom::Boolean(false))
                         }
-                    }
-                         )
+                    })
             }
         },
     }
