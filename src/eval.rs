@@ -160,7 +160,7 @@ fn eval_node(atom: &Atom, list: &[Atom], env: &mut Env) -> AtomResult {
 
 pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
     match *node {
-        Atom::List(ref list) => {
+        Atom::List(ref list) if !list.is_empty() => {
             eval(&list[0], env).and_then(|first| eval_node(&first, list, env))
         },
         Atom::Symbol(ref s) => {
