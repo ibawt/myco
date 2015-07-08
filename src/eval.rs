@@ -34,27 +34,8 @@ fn define(args: &[Atom], env: &mut Env) -> AtomResult {
     }
 }
 
-fn quote(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
-    Err(NotImplemented)
-    // match *node {
-    //     Atom::List(ref list) => {
-    //         let mut out = VecDeque::with_capacity(list.len());
-    //         for i in list {
-    //             let n = try!(eval(i, env));
-
-    //             match n {
-    //                 Atom::Atom(ref a) => {
-    //                     out.push_back(a.clone());
-    //                 }
-    //                 _ => {
-    //                     return Err(Error::InvalidArguments)
-    //                 }
-    //             }
-    //         }
-    //         return Ok(Atom::Atom(Atom::List(out)))
-    //     },
-    //     _ => Ok(node.clone())
-    // }
+fn quote(list: &[Atom]) -> AtomResult {
+    list.first().map(|atom| atom.clone()).ok_or(InvalidArguments)
 }
 
 fn collect_body(l: &[Atom]) -> Vec<Atom> {
@@ -80,6 +61,28 @@ fn make_proc(list: &[Atom]) -> AtomResult {
     }
 }
 
+fn if_form(list: &[Atom], env: &mut Env) -> AtomResult {
+    if list.len() < 2 {
+        Err(InvalidArguments)
+    } else {
+        eval(&list[0], env)
+            .and_then(|p| {
+                let truthy = match p {
+                    Atom::Boolean(b) => b,
+                    Atom::Nil => false,
+                    _ => true
+                };
+                if truthy {
+                    eval(&list[1], env)
+                } else if list.len() > 2 {
+                    eval(&list[2], env)
+                } else {
+                    Ok(Atom::Boolean(false))
+                }
+            })
+    }
+}
+
 fn eval_special_forms(f: Form, list: &[Atom], env: &mut Env) -> AtomResult {
     use atom::Form::*;
     match f {
@@ -96,39 +99,10 @@ fn eval_special_forms(f: Form, list: &[Atom], env: &mut Env) -> AtomResult {
             make_proc(&list)
         },
         Quote => {
-            //if list.len() > 2 {
-            //     return Err(InvalidArguments)
-            // }
-            // match list[1] {
-            //     Atom::Atom(ref node) => {
-            //         return quote(node, env)
-            //     }
-            //     _ => {
-            //         return Err(InvalidArguments)
-            //     }
-            // }
-            Err(NotImplemented)
+            quote(&list[1..])
         },
         If => {
-            if list.len() < 2 {
-                 Err(InvalidArguments)
-            } else {
-                eval(&list[1], env)
-                    .and_then(|p| {
-                        let truthy = match p {
-                             Atom::Boolean(b) => b,
-                            Atom::Nil => false,
-                            _ => true
-                        };
-                        if truthy {
-                            eval(&list[2], env)
-                        } else if list.len() > 2 {
-                            eval(&list[3], env)
-                        } else {
-                            Ok(Atom::Boolean(false))
-                        }
-                    })
-            }
+            if_form(&list[1..], env)
         },
     }
 }
@@ -151,7 +125,6 @@ fn eval_node(atom: &Atom, list: &[Atom], env: &mut Env) -> AtomResult {
             }
         }
         _ => {
-            println!("{:?}", atom);
             Err(Error::NotAFunction)
         }
     }
@@ -163,10 +136,7 @@ pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
             eval(&list[0], env).and_then(|first| eval_node(&first, list, env))
         },
         Atom::Symbol(ref s) => {
-            match env.get(s) {
-                Some(e) => Ok(e),
-                _ => Ok(Atom::Nil)
-            }
+            Ok(env.get(s).unwrap_or(Atom::Nil))
         }
         _ => Ok(node.clone())
     }
@@ -283,11 +253,11 @@ mod tests {
         assert_eq!(num(5), res);
     }
 
-    // #[test]
-    // fn quote_func() {
-    //     assert_eq!(teval("'(1 2)"), teval("(quote (1 2))"));
-    //     assert_eq!(teval("'a"), teval("(quote a)"));
-    // }
+    #[test]
+    fn quote_func() {
+        assert_eq!(teval("'(1 2)"), teval("(quote (1 2))"));
+        assert_eq!(teval("'a"), teval("(quote a)"));
+    }
 
     #[test]
     fn do_func() {

@@ -145,33 +145,35 @@ fn find_form(t: &str) -> Option<Atom> {
     Some(Atom::Form(form))
 }
 
+fn find_special_atoms(t: &str) -> Option<Atom> {
+    let atom = match t {
+        "true" => Atom::Boolean(true),
+        "false" => Atom::Boolean(false),
+        "nil" =>  Atom::Nil,
+        _ => return None
+    };
+    Some(atom)
+}
+
+macro_rules! some {
+    ($e:expr) => (match $e { Some(e) => return e, None => ()})
+}
+
+fn default_parse(token: &str) -> Atom {
+    some!(token.parse::<i64>().ok().map(|n| Atom::Number(Number::Integer(n))));
+    token.parse::<f64>().ok()
+          .map_or_else(
+              || Atom::Symbol(token.to_string()),
+              |f| Atom::Number(Number::Float(f)))
+}
+
+
 impl Atom {
     pub fn parse(token: &str) -> Atom {
-        if let Some(form) = find_form(token) {
-            return form
-        }
-
-        if let Some(native) = find_native(token) {
-            return native
-        }
-        match token {
-            "true" => return Atom::Boolean(true),
-            "false" => return Atom::Boolean(false),
-            "nil" => return Atom::Nil,
-            _ => ()
-        }
-
-        let i = token.parse::<i64>();
-        match i {
-            Ok(v) => Atom::Number(Number::Integer(v)),
-            _ => {
-                let f = token.parse::<f64>();
-                match f {
-                    Ok(x) => Atom::Number(Number::Float(x)),
-                    _ => Atom::Symbol(token.to_string())
-                }
-            },
-        }
+        some!(find_form(token));
+        some!(find_native(token));
+        some!(find_special_atoms(token));
+        default_parse(token)
     }
 }
 

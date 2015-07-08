@@ -168,40 +168,39 @@ fn read_tokens(chars: &mut Peekable<Chars>) -> ParseResult {
                 }
             }
 
-            return Ok(Atom::List(node))
+            Ok(Atom::List(node))
         },
         Ok(Some(Token::Close)) => {
-            return Err(Error::Parser)
+            Err(Error::Parser)
         },
         Ok(Some(Token::Quote)) => {
-            // if let Node::Node(node) = try!(read_tokens(chars)) {
-            //     return Ok(Node::Quote(node))
-            // }
-            return Err(Error::NotImplemented)
+            let mut list = List::with_capacity(2);
+            list.push(Atom::Form(Form::Quote));
+            list.push(try!(read_tokens(chars)));
+            Ok(Atom::List(list))
         },
         Ok(Some(Token::QuasiQuote)) => {
             // if let Node::Node(node) = try!(read_tokens(chars)) {
             //     return Ok(Node::QuasiQuote(node))
             // }
             // return Err(Error::Parser)
-            return Err(Error::NotImplemented)
+            Err(Error::NotImplemented)
         }
         Ok(Some(Token::Unquote)) => {
             // if let Node::Node(node) = try!(read_tokens(chars)) {
             //     return Ok(Node::Unquote(node))
             // }
-            return Err(Error::Parser)
+            Err(Error::Parser)
         },
         Ok(Some(Token::Splice)) => {
             // if let Node::Node(node) = try!(read_tokens(chars)) {
             //     return Ok(Node::Splice(node))
             // }
-            return Err(Error::NotImplemented)
+            Err(Error::NotImplemented)
         }
         Ok(Some(Token::Atom(x))) => return Ok(x),
-        _ => ()
+        _ => Err(Error::Parser)
     }
-    Err(Error::Parser)
 }
 
 #[cfg(test)]
