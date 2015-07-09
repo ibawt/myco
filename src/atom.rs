@@ -8,7 +8,10 @@ pub enum Form {
     Macro,
     Fn,
     Quote,
-    If
+    If,
+    QuasiQuote,
+    Unquote,
+    Splice
 }
 
 #[derive (Debug, Clone, PartialEq)]

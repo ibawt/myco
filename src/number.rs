@@ -1,4 +1,5 @@
 use std::ops::*;
+
 #[derive(Debug, PartialOrd, PartialEq, Clone, Copy)]
 pub enum Number {
     Integer(i64),

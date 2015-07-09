@@ -83,6 +83,10 @@ fn if_form(list: &[Atom], env: &mut Env) -> AtomResult {
     }
 }
 
+fn quasi_quote(list: &[Atom], env: &mut Env) -> AtomResult {
+    Err(NotImplemented)
+}
+
 fn eval_special_forms(f: Form, list: &[Atom], env: &mut Env) -> AtomResult {
     use atom::Form::*;
     match f {
@@ -104,6 +108,15 @@ fn eval_special_forms(f: Form, list: &[Atom], env: &mut Env) -> AtomResult {
         If => {
             if_form(&list[1..], env)
         },
+        QuasiQuote => {
+            quasi_quote(&list[1..], env)
+        },
+        Unquote => {
+            Err(NotImplemented)
+        },
+        Splice => {
+            Err(NotImplemented)
+        }
     }
 }
 

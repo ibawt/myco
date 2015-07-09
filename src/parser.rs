@@ -162,17 +162,14 @@ fn read_tokens(chars: &mut Peekable<Chars>) -> ParseResult {
             let mut node = List::new();
 
             loop {
-                match chars.peek() {
-                    Some(&')') => {
+                match *try!(chars.peek().ok_or(Error::Parser)) {
+                    ')' => {
                         chars.next();
                         break
                     },
-                    Some(_) => {
+                    _ => {
                         let token = try!(read_tokens(chars));
                         node.push(token);
-                    },
-                    _ => {
-                        return Err(Error::Parser)
                     }
                 }
             }
@@ -186,19 +183,13 @@ fn read_tokens(chars: &mut Peekable<Chars>) -> ParseResult {
             make_quote_form(Form::Quote, chars)
         },
         Token::QuasiQuote => {
-            Err(Error::NotImplemented)
+            make_quote_form(Form::QuasiQuote, chars)
         }
         Token::Unquote => {
-            // if let Node::Node(node) = try!(read_tokens(chars)) {
-            //     return Ok(Node::Unquote(node))
-            // }
-            Err(Error::Parser)
+            make_quote_form(Form::Unquote, chars)
         },
         Token::Splice => {
-            // if let Node::Node(node) = try!(read_tokens(chars)) {
-            //     return Ok(Node::Splice(node))
-            // }
-            Err(Error::NotImplemented)
+            make_quote_form(Form::Splice, chars)
         }
         Token::Atom(x) => Ok(x),
     }
