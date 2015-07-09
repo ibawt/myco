@@ -147,9 +147,18 @@ fn next(iter: &mut Peekable<Chars>) -> Result<Option<Token>, Error> {
     }
 }
 
+fn make_quote_form(f: Form, chars: &mut Peekable<Chars> ) -> ParseResult {
+    let mut list = List::with_capacity(2);
+    list.push(Atom::Form(f));
+    list.push(try!(read_tokens(chars)));
+    Ok(Atom::List(list))
+}
+
 fn read_tokens(chars: &mut Peekable<Chars>) -> ParseResult {
-    match next(chars) {
-        Ok(Some(Token::Open)) => {
+    let token = try!(try!(next(chars)).ok_or(Error::Parser));
+
+    match token {
+        Token::Open => {
             let mut node = List::new();
 
             loop {
@@ -170,36 +179,28 @@ fn read_tokens(chars: &mut Peekable<Chars>) -> ParseResult {
 
             Ok(Atom::List(node))
         },
-        Ok(Some(Token::Close)) => {
+        Token::Close => {
             Err(Error::Parser)
         },
-        Ok(Some(Token::Quote)) => {
-            let mut list = List::with_capacity(2);
-            list.push(Atom::Form(Form::Quote));
-            list.push(try!(read_tokens(chars)));
-            Ok(Atom::List(list))
+        Token::Quote => {
+            make_quote_form(Form::Quote, chars)
         },
-        Ok(Some(Token::QuasiQuote)) => {
-            // if let Node::Node(node) = try!(read_tokens(chars)) {
-            //     return Ok(Node::QuasiQuote(node))
-            // }
-            // return Err(Error::Parser)
+        Token::QuasiQuote => {
             Err(Error::NotImplemented)
         }
-        Ok(Some(Token::Unquote)) => {
+        Token::Unquote => {
             // if let Node::Node(node) = try!(read_tokens(chars)) {
             //     return Ok(Node::Unquote(node))
             // }
             Err(Error::Parser)
         },
-        Ok(Some(Token::Splice)) => {
+        Token::Splice => {
             // if let Node::Node(node) = try!(read_tokens(chars)) {
             //     return Ok(Node::Splice(node))
             // }
             Err(Error::NotImplemented)
         }
-        Ok(Some(Token::Atom(x))) => return Ok(x),
-        _ => Err(Error::Parser)
+        Token::Atom(x) => Ok(x),
     }
 }
 
