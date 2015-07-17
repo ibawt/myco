@@ -11,7 +11,8 @@ pub enum Form {
     If,
     QuasiQuote,
     Unquote,
-    Splice
+    Splice,
+    MacroExpand
 }
 
 #[derive (Debug, Clone, PartialEq)]
@@ -23,7 +24,8 @@ pub struct Procedure {
 #[derive (Debug, Clone, PartialEq)]
 pub enum Function {
     Native(Native),
-    Proc(Procedure)
+    Proc(Procedure),
+    Macro(Procedure)
 }
 pub type List = Vec<Atom>;
 
@@ -51,7 +53,8 @@ pub enum Native {
     Mul,
     Div,
     First,
-    Rest
+    Rest,
+    Not
 }
 
 use std::fmt;
@@ -82,6 +85,13 @@ impl Atom {
 
     pub fn symbol(s: &str) -> Atom {
         Atom::Symbol(s.to_string())
+    }
+
+    pub fn is_pair(&self) -> bool {
+        match *self {
+            Atom::List(ref list) if !list.is_empty() => true,
+            _ => false
+        }
     }
 }
 
@@ -130,6 +140,7 @@ fn find_native(t: &str) -> Option<Atom> {
         "/" => Div,
         "first" => First,
         "rest" => Rest,
+        "not" => Not,
         _ => return None
     };
     Some(Atom::Function(Function::Native(native)))
@@ -143,6 +154,8 @@ fn find_form(t: &str) -> Option<Atom> {
         "fn" => Fn,
         "quote" => Quote,
         "if" => If,
+        "macroexpand" => MacroExpand,
+        "macro" => Macro,
         _ => return None
     };
     Some(Atom::Form(form))

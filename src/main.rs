@@ -9,7 +9,7 @@ mod eval;
 mod funcs;
 
 use parser::{tokenize};
-use eval::{eval};
+use eval::{eval, expand};
 use env::*;
 
 fn repl() {
@@ -19,13 +19,13 @@ fn repl() {
     loop {
         match readline::readline(">") {
             Some(s) => {
-                if let Ok(p) = parser::tokenize(&s) {
-                    match eval(&p, &mut env) {
-                        Ok(r) => println!("{:?}", r),
-                        Err(e) => println!("Error in evaluation: {:?}", e)
-                    }
-                } else {
-                    println!("Error in parsing");
+                let result = tokenize(&s)
+                    .and_then(|node| expand(&node, &mut env, 0))
+                    .and_then(|node| eval(&node, &mut env));
+
+                match result {
+                    Ok(r) => println!("{:?}", r),
+                    Err(e) => println!("Error in evaluation: {:?}", e)
                 }
             },
             None => {

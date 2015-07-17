@@ -44,6 +44,15 @@ fn list(args: &[Atom], env: &Env) -> AtomResult {
     return Err(NotImplemented)
 }
 
+fn not(args: &[Atom], env: &Env) -> AtomResult {
+    args.first().ok_or(NotEnoughArguments)
+        .map(|a|
+             Atom::from(match *a {
+                 Atom::Boolean(b) => !b,
+                 Atom::Nil => true,
+                 _ => false
+             }))
+}
 
 pub fn eval_native(n: Native, args: &[Atom], env: &mut Env) -> AtomResult {
     use atom::Native::*;
@@ -58,7 +67,8 @@ pub fn eval_native(n: Native, args: &[Atom], env: &mut Env) -> AtomResult {
         Mul => mul(args, env),
         Div => div(args, env),
         First => first(args, env),
-        Rest => rest(args, env)
+        Rest => rest(args, env),
+        Not => not(args, env)
     }
 }
 
