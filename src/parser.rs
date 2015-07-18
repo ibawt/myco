@@ -1,66 +1,26 @@
 use atom::*;
 use errors::*;
-
 use std::iter::*;
 use std::io::prelude::*;
 
 pub fn tokenize(line: &str) -> ParseResult {
     let mut chars = line.chars().peekable();
-    return read_tokens(&mut chars);
+    read_tokens(&mut chars)
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum Node {
-    Atom(Atom),
-    List(Vec<Node>)
-}
-
-pub type ParseResult = Result<Node, Error>;
+pub type ParseResult = Result<Atom, Error>;
 
 use std::str::Chars;
 
 #[derive (Debug, PartialEq)]
 enum Token {
     Atom(Atom),
-    Open,
-    Close,
-    Quote,
-}
-
-use std::convert::From;
-
-
-impl Node {
-    fn symbol(s: &str) -> Node {
-        Node::Atom(Atom::Symbol(s.to_string()))
-    }
-
-    fn string(s: &str) -> Node {
-        Node::Atom(Atom::String(s.to_string()))
-    }
-
-    fn list(v: &[Atom]) -> Node {
-        use std::collections::*;
-        Node::Atom(Atom::List(v.iter().map(|x| x.clone()).collect::<VecDeque<Atom>>()))
-    }
-}
-
-impl From<i64> for Node {
-    fn from(i: i64) -> Node {
-        Node::Atom(Atom::Number(Number::Integer(i)))
-    }
-}
-
-impl From<f64> for Node {
-    fn from(f: f64) -> Node {
-        Node::Atom(Atom::Number(Number::Float(f)))
-    }
-}
-
-impl From<bool> for Node {
-    fn from(b: bool) -> Node {
-        Node::Atom(Atom::Boolean(b))
-    }
+    Open,        // (
+    Close,       // )
+    Quote,       // '
+    QuasiQuote,  // `
+    Unquote,     // ~
+    Splice,      // ~@
 }
 
 fn read_string(iter: &mut Peekable<Chars>) -> Result<Option<Token>, Error> {
@@ -75,7 +35,7 @@ fn read_string(iter: &mut Peekable<Chars>) -> Result<Option<Token>, Error> {
                 }
             },
             Some('"') => {
-                let t = Token::Atom(Atom::String(s.clone()));
+                let t = Token::Atom(Atom::String(s));
 
                 return Ok(Some(t))
             },
@@ -89,11 +49,8 @@ fn read_atom(c: char, iter: &mut Peekable<Chars>) -> Result<Option<Token>,Error>
     let mut s = String::new();
     s.push(c);
     loop {
-        match iter.peek() {
-            Some(&')') =>  {
-                return Ok(Some(Token::Atom(Atom::parse(&s))))
-            },
-            _ => ()
+        if let Some(&')') = iter.peek() {
+            return Ok(Some(Token::Atom(Atom::parse(&s))))
         }
 
         if let Some(c) = iter.next() {
@@ -116,6 +73,16 @@ fn next(iter: &mut Peekable<Chars>) -> Result<Option<Token>, Error> {
                 '"' => return read_string(iter),
                 ')' => return Ok(Some(Token::Close)),
                 '\'' => return Ok(Some(Token::Quote)),
+                '`' => return Ok(Some(Token::QuasiQuote)),
+                '~' => {
+                    match *try!(iter.peek().ok_or(Error::Parser)) {
+                        '@' => {
+                            iter.next();
+                            return Ok(Some(Token::Splice))
+                        }
+                        _ => return Ok(Some(Token::Unquote))
+                    }
+                },
                 ';' =>  {
                     loop {
                         match iter.next() {
@@ -134,55 +101,155 @@ fn next(iter: &mut Peekable<Chars>) -> Result<Option<Token>, Error> {
     }
 }
 
+fn make_quote_form(f: Form, chars: &mut Peekable<Chars> ) -> ParseResult {
+    let mut list = List::with_capacity(2);
+    list.push(Atom::Form(f));
+    list.push(try!(read_tokens(chars)));
+    Ok(Atom::List(list))
+}
+
 fn read_tokens(chars: &mut Peekable<Chars>) -> ParseResult {
-    match next(chars) {
-        Ok(Some(Token::Open)) => {
-            let mut node: Vec<Node> = vec![];
+    let token = try!(try!(next(chars)).ok_or(Error::Parser));
+
+    match token {
+        Token::Open => {
+            let mut node = List::new();
 
             loop {
-                match chars.peek() {
-                    Some(&')') => {
+                match *try!(chars.peek().ok_or(Error::Parser)) {
+                    ')' => {
                         chars.next();
                         break
                     },
-                    Some(_) => {
+                    _ => {
                         let token = try!(read_tokens(chars));
                         node.push(token);
-                    },
-                    _ => {
-                        return Err(Error::Parser)
                     }
                 }
             }
 
-            return Ok(Node::List(node))
+            Ok(Atom::List(node))
         },
-        Ok(Some(Token::Close)) => {
-            return Err(Error::Parser)
+        Token::Close => {
+            Err(Error::Parser)
         },
-        Ok(Some(Token::Atom(x))) => return Ok(Node::Atom(x)),
-        _ => ()
+        Token::Quote => {
+            make_quote_form(Form::Quote, chars)
+        },
+        Token::QuasiQuote => {
+            make_quote_form(Form::QuasiQuote, chars)
+        }
+        Token::Unquote => {
+            make_quote_form(Form::Unquote, chars)
+        },
+        Token::Splice => {
+            make_quote_form(Form::Splice, chars)
+        }
+        Token::Atom(x) => Ok(x),
     }
-    Err(Error::Parser)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use atom::*;
+
+    fn make_atom_node(s: &str) -> Atom {
+        Atom::parse(s)
+    }
+
+    fn as_list(n: &Atom) -> &[Atom] {
+        match *n {
+            Atom::List(ref l) => l,
+            _ => panic!("don't get here!")
+        }
+    }
+
+    fn as_atom(n: &Atom) -> &Atom {
+        n
+    }
+
+    fn atom(s: &str) -> Atom {
+        Atom::parse(s)
+    }
+
 
     #[test]
     fn naked_atoms() {
-        assert_eq!(Node::from(0), tokenize("0").unwrap());
-        assert_eq!(Node::from(512), tokenize("512").unwrap());
-        assert_eq!(Node::from(-512), tokenize("-512").unwrap());
-        assert_eq!(Node::from(5.0f64), tokenize("5.0").unwrap());
-        assert_eq!(Node::string("foo bar"), tokenize("\"foo bar\"").unwrap());
-        assert_eq!(Node::symbol("foo"), tokenize("foo").unwrap());
+        assert_eq!(Atom::from(0), tokenize("0").unwrap());
+        assert_eq!(Atom::from(512), tokenize("512").unwrap());
+        assert_eq!(Atom::from(-512), tokenize("-512").unwrap());
+        assert_eq!(Atom::from(5.0f64), tokenize("5.0").unwrap());
+        assert_eq!(Atom::string("foo bar"), tokenize("\"foo bar\"").unwrap());
+        assert_eq!(Atom::symbol("foo"), tokenize("foo").unwrap());
     }
 
     #[test]
     fn string_escaping() {
-        assert_eq!(Node::string("foo'bar"), tokenize("\"foo\\'bar\"").unwrap());
-        assert_eq!(Node::string("foo\"bar"), tokenize("\"foo\\\"bar\"").unwrap());
+        assert_eq!(Atom::string("foo'bar"), tokenize("\"foo\\'bar\"").unwrap());
+        assert_eq!(Atom::string("foo\"bar"), tokenize("\"foo\\\"bar\"").unwrap());
+    }
+
+    #[test]
+    fn simple_read_tokens() {
+        let x = tokenize("(+ 1 2)").unwrap();
+
+        let l = as_list(&x);
+
+        assert_eq!(3, l.len());
+
+        let xx : Vec<Atom> = vec![make_atom_node("+"), make_atom_node("1"), make_atom_node("2")];
+
+        for pair in xx.iter().zip(l.iter()) {
+            assert_eq!(pair.0, pair.1);
+        }
+    }
+
+    #[test]
+    fn nested_read_tokens() {
+        let x = tokenize("(+ 1 (* 2 2))").unwrap();
+
+        let l = as_list(&x);
+
+        assert_eq!( atom("+"), *as_atom(&l[0]));
+        assert_eq!( atom("1"), *as_atom(&l[1]));
+
+        let l2 = as_list(&l[2]);
+
+        assert_eq!( 3, l.len());
+        assert_eq!( atom("*"), *as_atom(&l2[0]));
+        assert_eq!( atom("2"), *as_atom(&l2[1]));
+        assert_eq!( atom("2"), *as_atom(&l2[2]));
+    }
+
+    #[test]
+    fn subexp_token_test() {
+        let x = tokenize("(+ 1 (+ 2 3) 4)").unwrap();
+
+        let l = as_list(&x);
+
+        assert_eq!( atom("+"), *as_atom(&l[0]));
+        assert_eq!( atom("1"), *as_atom(&l[1]));
+
+        let l2 = as_list(&l[2]);
+
+        assert_eq!( 3, l2.len());
+        assert_eq!( atom("+"), *as_atom(&l2[0]));
+        assert_eq!( atom("2"), *as_atom(&l2[1]));
+        assert_eq!( atom("3"), *as_atom(&l2[2]));
+
+        assert_eq!(atom("4"), *as_atom(&l[3]));
+    }
+
+    #[test]
+    #[should_panic]
+    fn unmatched_bracket() {
+        tokenize("(+ 1").unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn eof() {
+         tokenize("").unwrap();
     }
 }

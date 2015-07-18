@@ -1,150 +1,208 @@
 use errors::Error;
-use std::ops::*;
-use std::collections::*;
+use number::*;
 
-#[derive(Debug, PartialOrd, PartialEq, Clone, Copy)]
-pub enum Number {
-    Integer(i64),
-    Float(f64)
+#[derive (Debug, Clone, PartialEq, Copy)]
+pub enum Form {
+    Def,
+    Do,
+    Macro,
+    Fn,
+    Quote,
+    If,
+    QuasiQuote,
+    Unquote,
+    Splice,
+    MacroExpand
 }
 
-use self::Number::*;
-
-impl Add for Number {
-    type Output = Number;
-
-    fn add(self, other: Number) -> Number {
-        match self {
-            Integer(i) => {
-                match other {
-                    Integer(j) => Integer(i + j),
-                    Float(j) => Float((i as f64) + j)
-                }
-            },
-            Float(i) => {
-                match other {
-                    Integer(j) => Float(i + (j as f64)),
-                    Float(j) => Float(i + j)
-                }
-            }
-        }
-    }
+#[derive (Debug, Clone, PartialEq)]
+pub struct Procedure {
+    pub params: List,
+    pub body: List,
 }
 
-impl Sub for Number {
-    type Output = Number;
-
-    fn sub(self, other: Number) -> Number {
-        match self {
-            Integer(i) => {
-                match other {
-                    Integer(j) => Integer(i - j),
-                    Float(j) => Float((i as f64) - j)
-                }
-            },
-            Float(i) => {
-                match other {
-                    Integer(j) => Float(i - (j as f64)),
-                    Float(j) => Float(i - j)
-                }
-            }
-        }
-    }
+#[derive (Debug, Clone, PartialEq)]
+pub enum Function {
+    Native(Native),
+    Proc(Procedure),
+    Macro(Procedure)
 }
-
-impl Mul for Number {
-    type Output = Number;
-
-    fn mul(self, other: Number) -> Number {
-        match self {
-            Integer(i) => {
-                match other {
-                    Integer(j) => Integer(i * j),
-                    Float(j) => Float((i as f64) * j)
-                }
-            },
-            Float(i) => {
-                match other {
-                    Integer(j) => Float(i * (j as f64)),
-                    Float(j) => Float(i * j)
-                }
-            }
-        }
-    }
-}
-
-impl Div for Number {
-    type Output = Number;
-
-    fn div(self, other: Number) -> Number {
-        match self {
-            Integer(i) => {
-                match other {
-                    Integer(j) => Integer(i / j),
-                    Float(j) => Float((i as f64) / j)
-                }
-            },
-            Float(i) => {
-                match other {
-                    Integer(j) => Float(i / (j as f64)),
-                    Float(j) => Float(i / j)
-                }
-            }
-        }
-    }
-}
+pub type List = Vec<Atom>;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Atom {
-    List(VecDeque<Atom>),
+    List(List),
     String(String),
     Number(Number),
     Symbol(String),
     Boolean(bool),
+    Function(Function),
+    Form(Form),
     Nil
+}
+
+#[derive (Debug, PartialEq, Clone, Copy)]
+pub enum Native {
+    Add,
+    Sub,
+    Equal,
+    GreaterThanOrEqual,
+    GreaterThan,
+    LessThan,
+    LessThanOrEqual,
+    Mul,
+    Div,
+    First,
+    Rest,
+    Not
+}
+
+use std::fmt;
+use std::convert::From;
+
+impl From<bool> for Atom {
+    fn from(b: bool) -> Atom {
+        Atom::Boolean(b)
+    }
+}
+
+impl From<i64> for Atom {
+    fn from(i: i64) -> Atom {
+        Atom::Number(Number::Integer(i))
+    }
+}
+
+impl From<f64> for Atom {
+    fn from(f: f64) -> Atom {
+        Atom::Number(Number::Float(f))
+    }
+}
+
+impl Atom {
+    pub fn string(s: &str) -> Atom {
+        Atom::String(s.to_string())
+    }
+
+    pub fn symbol(s: &str) -> Atom {
+        Atom::Symbol(s.to_string())
+    }
+
+    pub fn is_pair(&self) -> bool {
+        match *self {
+            Atom::List(ref list) if !list.is_empty() => true,
+            _ => false
+        }
+    }
+}
+
+impl fmt::Display for Atom {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Atom::*;
+        match *self {
+            List(ref list) => {
+                try!(write!(f, "("));
+                if let Some(first) = list.first() {
+                    try!(write!(f, "{}", first));
+                    for a in list.iter().skip(1) {
+                        try!(write!(f, " {}", a));
+                    }
+                }
+                write!(f, ")")
+            },
+            Form(form) => {
+                write!(f, "{:?}", form)
+            }
+            Function(ref func) => {
+                write!(f, "Function: {:?}", func)
+            }
+            String(ref s) => {
+                write!(f, "\"{}\"", s)
+            },
+            Nil => {
+                write!(f, "nil")
+            },
+            Number(n) => {
+                write!(f, "{}", n)
+            },
+            Boolean(b) => write!(f, "{}", b),
+            Symbol(ref s) => write!(f, "{}", s)
+        }
+    }
 }
 
 pub type AtomResult = Result<Atom, Error>;
 
+fn find_native(t: &str) -> Option<Atom> {
+    use self::Native::*;
+    let native = match t {
+        "+" => Add,
+        "-" => Sub,
+        "=" => Equal,
+        ">" => GreaterThan,
+        ">=" => GreaterThanOrEqual,
+        "<=" => LessThanOrEqual,
+        "<" => LessThan,
+        "*" => Mul,
+        "/" => Div,
+        "first" => First,
+        "rest" => Rest,
+        "not" => Not,
+        _ => return None
+    };
+    Some(Atom::Function(Function::Native(native)))
+}
+
+fn find_form(t: &str) -> Option<Atom> {
+    use self::Form::*;
+    let form = match t {
+        "def" => Def,
+        "do" => Do,
+        "fn" => Fn,
+        "quote" => Quote,
+        "if" => If,
+        "macroexpand" => MacroExpand,
+        "defmacro" => Macro,
+        _ => return None
+    };
+    Some(Atom::Form(form))
+}
+
+fn find_special_atoms(t: &str) -> Option<Atom> {
+    let atom = match t {
+        "true" => Atom::Boolean(true),
+        "false" => Atom::Boolean(false),
+        "nil" =>  Atom::Nil,
+        _ => return None
+    };
+    Some(atom)
+}
+
+macro_rules! some {
+    ($e:expr) => (match $e { Some(e) => return e, None => ()})
+}
+
+fn default_parse(token: &str) -> Atom {
+    some!(token.parse::<i64>().ok().map(|n| Atom::Number(Number::Integer(n))));
+    token.parse::<f64>().ok()
+          .map_or_else(
+              || Atom::Symbol(token.to_string()),
+              |f| Atom::Number(Number::Float(f)))
+}
+
+
 impl Atom {
     pub fn parse(token: &str) -> Atom {
-        match token {
-            "true" => return Atom::Boolean(true),
-            "false" => return Atom::Boolean(false),
-            "nil" => return Atom::Nil,
-            _ => ()
-        }
-
-        let i = token.parse::<i64>();
-        match i {
-            Ok(v) => Atom::Number(Number::Integer(v)),
-            _ => {
-                let f = token.parse::<f64>();
-                match f {
-                    Ok(x) => Atom::Number(Number::Float(x)),
-                    _ => Atom::Symbol(token.to_string())
-                }
-            },
-        }
+        some!(find_form(token));
+        some!(find_native(token));
+        some!(find_special_atoms(token));
+        default_parse(token)
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::Atom;
-    use super::Number::*;
-
-    #[test]
-    fn adds() {
-        assert_eq!(Integer(10), Integer(5) + Integer(5));
-        assert_eq!(Integer(15), Integer(5) + Integer(5) + Integer(5));
-    }
-
-    #[test]
-    fn subs() {
-        assert_eq!(Integer(0), Integer(5) - Integer(5));
-        assert_eq!(Integer(-10), Integer(0) - Integer(10));
-    }
+    use number::Number::*;
 
     #[test]
     fn atom_test() {
