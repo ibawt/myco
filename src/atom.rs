@@ -95,35 +95,41 @@ impl Atom {
     }
 }
 
-// impl fmt::Display for Atom {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//         use self::Atom::*;
-//         match *self {
-//             List(ref list) => {
-//                 try!(write!(f, "("));
-//                 if let Some(first) = list.front() {
-//                     try!(write!(f, "{}", first));
-//                     for a in list.iter().skip(1) {
-//                         try!(write!(f, " {}", a));
-//                     }
-//                 }
-//                 write!(f, ")")
-//             },
-//             String(ref s) => {
-//                 write!(f, "\"{}\"", s)
-//             },
-//             Nil => {
-//                 write!(f, "nil")
-//             },
-//             Number(n) => {
-//                 write!(f, "{}", n)
-//             },
-//             Boolean(b) => write!(f, "{}", b),
-//             Symbol(ref s) => write!(f, "{}", s)
-//         }
-//     }
-// }
-//
+impl fmt::Display for Atom {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Atom::*;
+        match *self {
+            List(ref list) => {
+                try!(write!(f, "("));
+                if let Some(first) = list.first() {
+                    try!(write!(f, "{}", first));
+                    for a in list.iter().skip(1) {
+                        try!(write!(f, " {}", a));
+                    }
+                }
+                write!(f, ")")
+            },
+            Form(form) => {
+                write!(f, "{:?}", form)
+            }
+            Function(ref func) => {
+                write!(f, "Function: {:?}", func)
+            }
+            String(ref s) => {
+                write!(f, "\"{}\"", s)
+            },
+            Nil => {
+                write!(f, "nil")
+            },
+            Number(n) => {
+                write!(f, "{}", n)
+            },
+            Boolean(b) => write!(f, "{}", b),
+            Symbol(ref s) => write!(f, "{}", s)
+        }
+    }
+}
+
 pub type AtomResult = Result<Atom, Error>;
 
 fn find_native(t: &str) -> Option<Atom> {
@@ -155,7 +161,7 @@ fn find_form(t: &str) -> Option<Atom> {
         "quote" => Quote,
         "if" => If,
         "macroexpand" => MacroExpand,
-        "macro" => Macro,
+        "defmacro" => Macro,
         _ => return None
     };
     Some(Atom::Form(form))

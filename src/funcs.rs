@@ -45,7 +45,7 @@ fn list(args: &[Atom], env: &Env) -> AtomResult {
 }
 
 fn not(args: &[Atom], env: &Env) -> AtomResult {
-    args.first().ok_or(NotEnoughArguments)
+    env.resolve_symbols(args).first().ok_or(NotEnoughArguments)
         .map(|a|
              Atom::from(match *a {
                  Atom::Boolean(b) => !b,

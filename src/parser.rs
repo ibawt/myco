@@ -1,17 +1,17 @@
 use atom::*;
 use errors::*;
-use number::*;
+//use number::*;
 use std::iter::*;
 use std::io::prelude::*;
 
 pub fn tokenize(line: &str) -> ParseResult {
     let mut chars = line.chars().peekable();
-    return read_tokens(&mut chars);
+    read_tokens(&mut chars)
 }
 
 pub type ParseResult = Result<Atom, Error>;
 
-use std::fmt;
+//use std::fmt;
 
 // impl fmt::Display for Node {
 //     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -74,7 +74,7 @@ enum Token {
     Splice,      // ~@
 }
 
-use std::convert::From;
+//use std::convert::From;
 
 fn read_string(iter: &mut Peekable<Chars>) -> Result<Option<Token>, Error> {
     let mut s = String::new();
@@ -129,6 +129,16 @@ fn next(iter: &mut Peekable<Chars>) -> Result<Option<Token>, Error> {
                 '"' => return read_string(iter),
                 ')' => return Ok(Some(Token::Close)),
                 '\'' => return Ok(Some(Token::Quote)),
+                '`' => return Ok(Some(Token::QuasiQuote)),
+                '~' => {
+                    match *try!(iter.peek().ok_or(Error::Parser)) {
+                        '@' => {
+                            iter.next();
+                            return Ok(Some(Token::Splice))
+                        }
+                        _ => return Ok(Some(Token::Unquote))
+                    }
+                },
                 ';' =>  {
                     loop {
                         match iter.next() {
