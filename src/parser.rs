@@ -1,6 +1,5 @@
 use atom::*;
 use errors::*;
-//use number::*;
 use std::iter::*;
 use std::io::prelude::*;
 
@@ -11,56 +10,6 @@ pub fn tokenize(line: &str) -> ParseResult {
 
 pub type ParseResult = Result<Atom, Error>;
 
-//use std::fmt;
-
-// impl fmt::Display for Node {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//         match *self {
-//             Node(ref node) => {
-//                 write!(f, "{}", node)
-//             },
-//             Quote(ref node) => {
-//                 try!(write!(f, "'"));
-//                 write!(f, "{}", node)
-//             },
-//             QuasiQuote(ref node) => {
-//                 try!(write!(f, "`"));
-//                 write!(f, "{}", node)
-//             },
-
-//             Splice(ref node) => {
-//                 try!(write!(f, "~@"));
-//                 write!(f, "{}", node)
-//             },
-//             Unquote(ref node) => {
-//                 write!(f, "~{}", node)
-//             }
-//         }
-//     }
-// }
-
-// impl fmt::Display for Node {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//         use self::Node::*;
-//         match *self {
-//             Atom(ref a) => {
-//                 write!(f, "{}", a)
-//             },
-//             List(ref list) => {
-//                 try!(write!(f, "("));
-//                 if let Some(first) = list.first() {
-//                     try!(write!(f, "{}", first));
-
-//                     for n in list.iter().skip(1) {
-//                         try!(write!(f, " {}", n));
-//                     }
-//                 }
-//                 write!(f, ")")
-//             }
-//         }
-//     }
-// }
-
 use std::str::Chars;
 
 #[derive (Debug, PartialEq)]
@@ -69,12 +18,10 @@ enum Token {
     Open,        // (
     Close,       // )
     Quote,       // '
-    QuasiQuote, // `
+    QuasiQuote,  // `
     Unquote,     // ~
     Splice,      // ~@
 }
-
-//use std::convert::From;
 
 fn read_string(iter: &mut Peekable<Chars>) -> Result<Option<Token>, Error> {
     let mut s = String::new();
@@ -102,11 +49,8 @@ fn read_atom(c: char, iter: &mut Peekable<Chars>) -> Result<Option<Token>,Error>
     let mut s = String::new();
     s.push(c);
     loop {
-        match iter.peek() {
-            Some(&')') =>  {
-                return Ok(Some(Token::Atom(Atom::parse(&s))))
-            },
-            _ => ()
+        if let Some(&')') = iter.peek() {
+            return Ok(Some(Token::Atom(Atom::parse(&s))))
         }
 
         if let Some(c) = iter.next() {
