@@ -17,16 +17,11 @@ fn eval_procedure(p: &Procedure, args: &[Atom], env: &mut Env) ->  AtomResult {
 }
 
 fn eval_macro(p: &Procedure, args: &[Atom], env: &mut Env) -> AtomResult {
-    //println!("about to eval: {:?}\n with args {:?}", p, args);
     try!(env.apply(&p.params, args));
     let res = p.body.iter()
-        .map(|node| {
-            //println!("res: {}", node);
-            eval(&node, env)
-        })
+        .map(|node| eval(&node, env))
         .last().unwrap_or(Err(InvalidArguments));
 
-    //println!("macro eval res: {:?}", res);
     env.pop();
 
     res
@@ -75,9 +70,6 @@ fn make_proc(list: &[Atom]) -> AtomResult {
 
 fn macro_form(params: &Atom, list: Vec<Atom>) -> AtomResult {
     if let Atom::List(ref p) = *params {
-        // println!("args: {:?}", p);
-        // println!("body: {:?}", list);
-
         Ok(Atom::Function(Function::Macro(Procedure{ params: p.clone(),
                                                      body: list})))
     } else {
@@ -117,8 +109,7 @@ fn eval_special_forms(f: Form, list: &[Atom], env: &mut Env) -> AtomResult {
             do_form(&list[1..], env)
         },
         Macro => {
-            panic!("ds");
-            //macro_form(list)
+            unreachable!();
         }
         Fn => {
             make_proc(&list)
@@ -165,7 +156,6 @@ fn eval_node(atom: &Atom, list: &[Atom], env: &mut Env) -> AtomResult {
 }
 
 pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
-    //println!("eval: {}", node);
     match *node {
         Atom::List(ref list) if !list.is_empty() => {
             eval(&list[0], env).and_then(|first| eval_node(&first, list, env))
@@ -178,7 +168,6 @@ pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
 }
 
 fn expand_quasiquote(atom: &Atom) -> AtomResult {
-    //println!("expand_quasiquote: {}", atom);
     if !atom.is_pair() { // ()
         return Ok(Atom::List(vec![Atom::Form(Form::Quote), atom.clone()]))
     }
@@ -206,10 +195,8 @@ fn expand_quasiquote(atom: &Atom) -> AtomResult {
             }
         }
         let v = Atom::List(try!(list.iter().map(|n| expand_quasiquote(&n)).collect()));
-        //println!("expanded list: {}", v);
         return Ok(v)
     } else {
-        println!("arg");
         Err(Error::Parser)
     }
 }
@@ -222,7 +209,7 @@ pub fn expand(node: &Atom, env: &mut Env, depth: i32) -> AtomResult {
                 .and_then(|n| expand_node(&n, &list[0..], env, depth + 1))
         },
         Atom::Symbol(ref sym) => {
-            Ok(env.get(sym).unwrap_or(Atom::Nil))
+            Ok(env.get(sym).unwrap_or(node.clone()))
         },
         _ => Ok(node.clone())
     }
@@ -234,7 +221,6 @@ pub fn expand_node(node: &Atom, list: &[Atom], env: &mut Env, depth: i32) -> Ato
             Ok(Atom::List(list.iter().map(|n| n.clone()).collect()))
         }
         Atom::Form(Form::Unquote) => {
-            //println!("unquote: {}", node);
             Ok(node.clone())
         },
         Atom::Form(Form::Macro) => {
@@ -251,10 +237,7 @@ pub fn expand_node(node: &Atom, list: &[Atom], env: &mut Env, depth: i32) -> Ato
         Atom::Function(ref func) => {
             match *func {
                 Function::Macro(ref m) => {
-                    // println!("eval_macro");
-                    eval_macro(m, &list[1..], env).and_then(|a| {
-                        // println!("and_then expand: {}", a);
-                        expand(&a, env, depth + 1)})
+                    eval_macro(m, &list[1..], env).and_then(|a| expand(&a, env, depth + 1))
                 },
                 _ => {
                     Ok(Atom::List(try!(list.iter().map(|n| expand(n, env, depth + 1)).collect())))
