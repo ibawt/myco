@@ -138,10 +138,12 @@ fn eval_node(atom: &Atom, list: &[Atom], env: &mut Env) -> AtomResult {
         Atom::Function(ref func) => {
             match *func {
                 Function::Proc(ref p) => {
-                    eval_procedure(p, list, env)
+                    //let args: Vec<Atom> = try!(list.iter().skip(1).map(|n| eval(&n, env)).collect());
+                    eval_procedure(p, &list, env)
                 }
                 Function::Native(native) => {
-                    eval_native(native, &list[1..], env)
+                    let args: Vec<Atom> = try!(list.iter().skip(1).map(|n| eval(&n, env)).collect());
+                    eval_native(native, &args, env)
                 },
                 Function::Macro(ref m) => {
                     eval_macro(m, &list[1..], env)
@@ -353,11 +355,11 @@ mod tests {
         assert_eq!(teval("3"), teval("((fn (a b) (+ a b)) 1 2)"));
     }
 
-    // #[test]
-    // fn first_and_rest() {
-    //     assert_eq!(num(0), teval("(first (list 0 1 2))"));
-    //     assert_eq!(teval("(list 1 2)"), teval("(rest (list 0 1 2))"));
-    // }
+    #[test]
+    fn first_and_rest() {
+        assert_eq!(num(0), teval("(first '(0 1 2))"));
+        assert_eq!(teval("'(1 2)"), teval("(rest '(0 1 2))"));
+    }
 
     #[test]
     fn simple_func() {

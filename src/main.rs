@@ -24,7 +24,7 @@ fn repl() {
                     .and_then(|node| eval(&node, &mut env));
 
                 match result {
-                    Ok(r) => println!("{:?}", r),
+                    Ok(r) => println!("{}", r),
                     Err(e) => println!("Error in evaluation: {:?}", e)
                 }
             },

@@ -5,7 +5,7 @@ use number::*;
 
 fn first(args: &[Atom], env: &Env) -> AtomResult {
     if let Some(p) = env.resolve_symbols(args).first() {
-        match *p{
+        match *p {
             Atom::List(ref list) => {
                 if let Some(f) = list.first() {
                     Ok(f.clone())
@@ -26,22 +26,15 @@ fn rest(args: &[Atom], env: &Env) -> AtomResult {
     }
 
     match env.resolve_symbols(args)[0] {
-        // Atom::List(ref list) => {
-        //    Ok(list.iter().skip(1).map(|x| x.clone()).collect())
-        // },
+        Atom::List(ref list) => {
+            Ok(Atom::List(list.iter().skip(1).map(|x| x.clone()).collect()))
+        },
         _ => Err(InvalidArguments)
     }
 }
 
 fn list(args: &[Atom], env: &Env) -> AtomResult {
-
-    for i in env.resolve_symbols(args) {
-        match i {
-            // Atom::Atom(a) => out.push_back(a.clone()),
-            _ => return Err(InvalidArguments)
-        }
-    }
-    return Err(NotImplemented)
+    Ok(Atom::List(env.resolve_symbols(args).iter().map(|n| n.clone()).collect()))
 }
 
 fn not(args: &[Atom], env: &Env) -> AtomResult {
@@ -68,7 +61,8 @@ pub fn eval_native(n: Native, args: &[Atom], env: &mut Env) -> AtomResult {
         Div => div(args, env),
         First => first(args, env),
         Rest => rest(args, env),
-        Not => not(args, env)
+        Not => not(args, env),
+        List => list(args, env)
     }
 }
 

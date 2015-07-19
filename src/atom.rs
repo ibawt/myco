@@ -54,7 +54,8 @@ pub enum Native {
     Div,
     First,
     Rest,
-    Not
+    Not,
+    List
 }
 
 use std::fmt;
@@ -147,6 +148,7 @@ fn find_native(t: &str) -> Option<Atom> {
         "first" => First,
         "rest" => Rest,
         "not" => Not,
+        "list" => List,
         _ => return None
     };
     Some(Atom::Function(Function::Native(native)))
