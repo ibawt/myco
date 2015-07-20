@@ -2,8 +2,8 @@
 name = "rust-lisp"
 version = "0.0.1"
 authors = ["Ian Quick <ian.quick@gmail.com>"]
-[dependencies]
-regex = "*"
+license = "Apache-2.0"
+homepage = "https://github.com/ibawt/rust-lisp"
 
 [dependencies.readline]
 git = "https://github.com/ibawt/rust-readline.git"

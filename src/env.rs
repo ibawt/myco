@@ -14,10 +14,6 @@ impl Env {
         Env{ def_map: vec![HashMap::new()]}
     }
 
-    pub fn depth(&self) -> usize {
-        self.def_map.len()
-    }
-
     fn find(&self, key: &str, i: usize) -> Option<&Atom> {
         let map = &self.def_map[i];
 
