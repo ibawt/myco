@@ -1,8 +1,35 @@
+//////////////////////////////////////////////////////////////////////////////
+// Copyright 2015 Ian Quick <ian.quick@gmail.com>                           //
+//                                                                          //
+// Licensed under the Apache License, Version 2.0 (the "License");          //
+// you may not use this file except in compliance with the License.         //
+// You may obtain a copy of the License at                                  //
+//                                                                          //
+//   http://www.apache.org/licenses/LICENSE-2.0                             //
+//                                                                          //
+// Unless required by applicable law or agreed to in writing, software      //
+// distributed under the License is distributed on an "AS IS" BASIS,        //
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. //
+// See the License for the specific language governing permissions and      //
+// limitations under the License.                                           //
+//////////////////////////////////////////////////////////////////////////////
 use funcs::*;
 use env::*;
 use atom::*;
 use errors::*;
 use errors::Error::*;
+use std::fmt::{Write};
+use std::string::*;
+
+fn print_list(list: &[Atom]) -> String {
+    let mut s = String::new();
+    write!(&mut s,"[").unwrap();
+    for i in list {
+        write!(&mut s, "{} ", i).unwrap();
+    }
+    write!(&mut s, "]").unwrap();
+    s
+}
 
 fn eval_procedure(p: &Procedure, args: &[Atom], env: &mut Env) ->  AtomResult {
     try!(env.apply(&p.params, &args[1..]));
@@ -17,11 +44,16 @@ fn eval_procedure(p: &Procedure, args: &[Atom], env: &mut Env) ->  AtomResult {
 }
 
 fn eval_macro(p: &Procedure, args: &[Atom], env: &mut Env) -> AtomResult {
-    try!(env.apply(&p.params, args));
+    println!("eval macro!, args: {}", print_list(args));
+    try!(env.apply(&p.params, &args));
     let res = p.body.iter()
-        .map(|node| eval(&node, env))
-        .last().unwrap_or(Err(InvalidArguments));
+        .inspect(|i| println!("evaling macro: {}", i))
+        .map(|node| eval(&node, env)
+             .and_then(|n| expand(&n, env, 0)))
+        .last().unwrap_or(Err(InvalidArguments))
 
+        .and_then(|a| expand(&a, env, 0));
+ 
     env.pop();
 
     res
@@ -142,9 +174,8 @@ fn eval_node(atom: &Atom, list: &[Atom], env: &mut Env) -> AtomResult {
                     eval_procedure(p, &list, env)
                 }
                 Function::Native(native) => {
-                    println!("native: {:?}", native);
                     let args: Vec<Atom> = try!(list.iter().skip(1).map(|n| eval(&n, env)).collect());
-                    println!("args: {:?}", args);
+                    println!("fn: {:?}, args: {}", native, print_list(&args));
                     eval_native(native, &args, env)
                 },
                 Function::Macro(_) => unreachable!()
@@ -161,13 +192,15 @@ pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
             eval(&list[0], env).and_then(|first| eval_node(&first, list, env))
         },
         Atom::Symbol(ref s) => {
-            Ok(env.get(s).unwrap_or(Atom::Nil))
+            let a = env.get(s).unwrap_or(Atom::Nil);
+            Ok(a)
         }
         _ => Ok(node.clone())
     }
 }
 
-fn expand_list(list: &[Atom]) -> AtomResult {
+fn expand_list(list: &[Atom], env: &mut Env) -> AtomResult {
+    println!("expand_list: {}", print_list(list));
     if let Atom::Form(Form::Unquote) = list[0] {
         // ~x
         return Ok(list[1].clone())
@@ -176,24 +209,32 @@ fn expand_list(list: &[Atom]) -> AtomResult {
     let mut out = vec![];
 
     for a in list {
-        println!("expand_list: {}", a);
         match *a {
             Atom::List(ref sublist) => {
                 match sublist[0] {
                     Atom::Form(Form::Splice) => {
-                        println!("splice!");
+                        println!("doing splice thangs");
                         // ((splice x) y)
                         for i in sublist.iter().skip(1) {
-                            out.push(i.clone())
+                            let a = env.resolve_atom(i);
+                            println!("a == {}", a);
+                            if let Atom::List(ss) = a {
+                                for j in ss {
+                                    out.push(j.clone());
+                                }
+                            } else {
+                                println!("resolving {} -> {}", i, a);
+                                out.push(env.resolve_atom(i));
+                            }
                         }
                     },
                     _ => {
-                        let out_atom = try!(expand_quasiquote(&a));
+                        let out_atom = try!(expand_quasiquote(&a, env));
                         out.push(out_atom);
                     }
                 }
             }
-            _ => out.push(try!(expand_quasiquote(&a)))
+            _ => out.push(try!(expand_quasiquote(&a, env)))
         }
     }
     let a = Atom::List(out);
@@ -201,19 +242,20 @@ fn expand_list(list: &[Atom]) -> AtomResult {
     Ok(a)
 }
 
-fn expand_quasiquote(atom: &Atom) -> AtomResult {
+fn expand_quasiquote(atom: &Atom, env: &mut Env) -> AtomResult {
     println!("exp_quasi: {}", atom);
     if !atom.is_pair() { // ()
         return Ok(Atom::List(vec![Atom::Form(Form::Quote), atom.clone()]))
     }
 
     if let Atom::List(ref list) = *atom {
-        expand_list(list)
+        expand_list(list, env)
     } else {
         Err(Error::Parser)
     }
 }
 pub fn expand(node: &Atom, env: &mut Env, depth: i32) -> AtomResult {
+    println!("[{}] expand: {}", depth, node);
     match *node {
         Atom::List(ref list) => {
             list.first().ok_or(Error::Parser)
@@ -221,13 +263,16 @@ pub fn expand(node: &Atom, env: &mut Env, depth: i32) -> AtomResult {
                 .and_then(|n| expand_node(&n, &list[0..], env, depth + 1))
         },
         Atom::Symbol(ref sym) => {
-            Ok(env.get(sym).unwrap_or(node.clone()))
+            let a = env.get(sym).unwrap_or(node.clone());
+            println!("resolving s: {} -> {}", sym, a);
+            Ok(a)
         },
         _ => Ok(node.clone())
     }
 }
 
 fn expand_node(node: &Atom, list: &[Atom], env: &mut Env, depth: i32) -> AtomResult {
+    println!("expand_node: {} - list: {}", node, print_list(list));
     match *node {
         Atom::Form(Form::Quote) => {
             Ok(Atom::List(list.iter().map(|n| n.clone()).collect()))
@@ -236,21 +281,20 @@ fn expand_node(node: &Atom, list: &[Atom], env: &mut Env, depth: i32) -> AtomRes
             Ok(node.clone())
         },
         Atom::Form(Form::Macro) => {
-            let exps: Vec<Atom> = try!(list.iter().skip(3).map(|n| expand(&n, env, depth + 1)).collect());
+            let exps: Vec<Atom> = list.iter().skip(3).map(|n| n.clone()).collect();
             let m = try!(macro_form(&list[2], exps));
 
             if let Atom::Symbol(ref k) = list[1] {
                 env.set(k.clone(), m);
                 Ok(Atom::Nil)
             } else {
-                println!("??");
                 Err(Error::InvalidArguments)
             }
         },
         Atom::Function(ref func) => {
             match *func {
                 Function::Macro(ref m) => {
-                    eval_macro(m, &list[1..], env).and_then(|a| expand(&a, env, depth + 1))
+                    eval_macro(m, &list[1..], env)
                 },
                 _ => {
                     Ok(Atom::List(try!(list.iter().map(|n| expand(n, env, depth + 1)).collect())))
@@ -258,7 +302,7 @@ fn expand_node(node: &Atom, list: &[Atom], env: &mut Env, depth: i32) -> AtomRes
             }
         },
         Atom::Form(Form::QuasiQuote) => {
-            expand_quasiquote(&list[1])
+            expand_quasiquote(&list[1], env)
         }
         _ => {
             Ok(Atom::List(try!(list.iter().map(|n| expand(n, env, depth + 1)).collect())))
@@ -347,8 +391,13 @@ mod tests {
     }
 
     fn teval_env(s: &str, env: &mut Env) -> AtomResult {
-        tokenize(s).and_then(|n| expand(&n, env, 0))
-            .and_then(|n| eval(&n, env))
+        tokenize(s).and_then(|n| {
+            println!("<-- tokenize: {}", n);
+            expand(&n, env, 0)
+        }).and_then(|n| {
+            println!("<-- expand: {}", n);
+            eval(&n, env)
+        })
     }
 
     #[test]
@@ -395,9 +444,14 @@ mod tests {
     fn splice_macro() {
         let mut env = Env::new();
 
-        teval_env("(defmacro foo (a) `(list ~@a))", &mut env).unwrap();
+        println!("making macro");
+        teval_env("(defmacro foo (& a) `(list ~@a))", &mut env).unwrap();
+        println!("invoking macro");
 
-        assert_eq!(teval("'(1 2)"), teval_env("(foo '(1 2))", &mut env).unwrap());
+        let r = teval_env("(foo 1 2)", &mut env).unwrap();
+
+        assert_eq!(teval("'(1 2)"), r);
+        //assert_eq!(teval("'(1 2)"), teval_env("(foo '(1 2))", &mut env).unwrap());
     }
 
     #[test]

@@ -35,11 +35,17 @@ fn repl() {
         match readline::readline(">") {
             Some(s) => {
                 let result = tokenize(&s)
-                    .and_then(|node| expand(&node, &mut env, 0))
-                    .and_then(|node| eval(&node, &mut env));
+                    .and_then(|node| {
+                        println!("<-- tokenize: {}", node);
+                        expand(&node, &mut env, 0)
+                    })
+                    .and_then(|node| {
+                        println!("<-- expand: {}", node);
+                        eval(&node, &mut env)
+                    });
 
                 match result {
-                    Ok(r) => println!("{}", r),
+                    Ok(r) => println!("== {} ==", r),
                     Err(e) => println!("Error in evaluation: {:?}", e)
                 }
             },
