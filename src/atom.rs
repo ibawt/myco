@@ -30,6 +30,26 @@ pub enum Form {
     MacroExpand
 }
 
+impl fmt::Display for Form {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Form::*;
+
+        let s = match *self {
+            Def => "def",
+            Do => "do",
+            Macro => "defmacro",
+            Fn => "fn",
+            Quote => "quote",
+            Unquote => "unquote",
+            Splice => "splice",
+            MacroExpand => "macroexpand",
+            If => "if",
+            QuasiQuote => "quasiquote"
+        };
+        write!(f, "{}", s)
+    }
+}
+
 #[derive (Debug, Clone, PartialEq)]
 pub struct Procedure {
     pub params: List,
@@ -42,6 +62,19 @@ pub enum Function {
     Proc(Procedure),
     Macro(Procedure)
 }
+
+impl fmt::Display for Function {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Function::*;
+
+        match *self {
+            Native(n) => write!(f, "{}", n),
+            Proc(_) => write!(f, "proc"),
+            Macro(_) => write!(f, "macro")
+        }
+    }
+}
+
 pub type List = Vec<Atom>;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -70,7 +103,35 @@ pub enum Native {
     First,
     Rest,
     Not,
-    List
+    List,
+    Cons,
+    Append,
+    Print
+}
+
+impl fmt::Display for Native {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Native::*;
+
+        match *self {
+            Add => write!(f, "+"),
+            Sub => write!(f, "-"),
+            Equal => write!(f, "="),
+            GreaterThanOrEqual => write!(f, ">="),
+            GreaterThan => write!(f, ">"),
+            LessThan => write!(f, "<"),
+            LessThanOrEqual => write!(f, "<="),
+            Mul => write!(f, "*"),
+            Div => write!(f, "/"),
+            First => write!(f, "first"),
+            Rest => write!(f, "rest"),
+            Not => write!(f, "not"),
+            List => write!(f, "list"),
+            Append => write!(f, "append"),
+            Cons => write!(f, "cons"),
+            Print => write!(f, "print")
+        }
+    }
 }
 
 use std::fmt;
@@ -126,10 +187,10 @@ impl fmt::Display for Atom {
                 write!(f, ")")
             },
             Form(form) => {
-                write!(f, "{:?}", form)
+                write!(f, "{}", form)
             }
             Function(ref func) => {
-                write!(f, "Function: {:?}", func)
+                write!(f, "{}", func)
             }
             String(ref s) => {
                 write!(f, "\"{}\"", s)
@@ -164,6 +225,9 @@ fn find_native(t: &str) -> Option<Atom> {
         "rest" => Rest,
         "not" => Not,
         "list" => List,
+        "append" => Append,
+        "cons" => Cons,
+        "print" => Print,
         _ => return None
     };
     Some(Atom::Function(Function::Native(native)))

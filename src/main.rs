@@ -36,11 +36,11 @@ fn repl() {
             Some(s) => {
                 let result = tokenize(&s)
                     .and_then(|node| {
-                        println!("<-- tokenize: {}", node);
+                        // println!("<-- tokenize: {}", node);
                         expand(&node, &mut env, 0)
                     })
                     .and_then(|node| {
-                        println!("<-- expand: {}", node);
+                        // println!("<-- expand: {}", node);
                         eval(&node, &mut env)
                     });
 

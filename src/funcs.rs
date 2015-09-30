@@ -18,6 +18,49 @@ use atom::*;
 use errors::Error::*;
 use number::*;
 
+fn cons(args: &[Atom], env: &Env) -> AtomResult {
+    if args.len() != 2 {
+        return Err(InvalidArguments)
+    }
+
+    match args[1] {
+        Atom::List(ref list) => {
+            let mut v = vec![args[0].clone()];
+            for i in list {
+                v.push(i.clone());
+            }
+            Ok(Atom::List(v))
+        }
+        _ => {
+            Err(InvalidArguments)
+        }
+    }
+}
+
+fn append(args: &[Atom], env: &Env) -> AtomResult {
+    if args.len() != 2 {
+        return Err(InvalidArguments)
+    }
+
+    let ref a = args[0];
+    let ref b = args[1];
+
+    match (a, b) {
+        (&Atom::List(ref a), &Atom::List(ref b)) => {
+            Ok(Atom::List(a.iter().chain(b.iter()).map(|n| n.clone()).collect()))
+        },
+        _ => Err(InvalidArguments)
+    }
+}
+
+fn print(args: &[Atom], env: &Env) -> AtomResult {
+    for i in env.resolve_symbols(args) {
+        println!("{} ", i);
+    }
+
+    Ok(Atom::Nil)
+}
+
 fn first(args: &[Atom], env: &Env) -> AtomResult {
     if let Some(p) = env.resolve_symbols(args).first() {
         match *p {
@@ -77,7 +120,10 @@ pub fn eval_native(n: Native, args: &[Atom], env: &mut Env) -> AtomResult {
         First => first(args, env),
         Rest => rest(args, env),
         Not => not(args, env),
-        List => list(args, env)
+        List => list(args, env),
+        Cons => cons(args, env),
+        Append => append(args, env),
+        Print => print(args, env)
     }
 }
 
