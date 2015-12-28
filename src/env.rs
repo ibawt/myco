@@ -13,40 +13,34 @@
 // See the License for the specific language governing permissions and      //
 // limitations under the License.                                           //
 //////////////////////////////////////////////////////////////////////////////
-use std::collections::HashMap;
-
 use atom::*;
-use errors::*;
+#[derive (Debug, Clone, PartialEq)]
+struct Entry {
+    key: String,
+    value: Atom
+}
 
 #[derive (Debug, Clone)]
 pub struct Env {
-    def_map: Vec<HashMap<String, Atom>>,
+    def_map: Vec<Vec<Entry>>
 }
 
 impl Env {
     pub fn new() -> Env {
-        Env{ def_map: vec![HashMap::new()]}
+        Env { def_map: vec![vec![]] }
     }
 
-    fn find(&self, key: &str, i: usize) -> Option<&Atom> {
-        let map = &self.def_map[i];
-
-        let val = map.get(key);
-        match val {
-            Some(_) => val,
-            None => {
-                if i > 0 {
-                    self.find(key, i - 1 )
-                } else {
-                    None
-                }
+    fn find(&self, key: &str) -> Option<&Atom> {
+        for env_map in self.def_map.iter().rev() {
+            if let Some(entry) = env_map.iter().find(|entry| entry.key == key ) {
+                return Some(&entry.value)
             }
         }
+        None
     }
 
-    pub fn apply(&mut self, params: &[Atom], args: &[Atom]) -> Result<(),Error> {
-        let mut arg_map = HashMap::new();
-        //println!("apply: args == {:?}", args);
+    pub fn apply(&mut self, params: &[Atom], args: &[Atom]) {
+        let mut arg_map = vec![];
         let mut params_iter = params.iter();
         let mut args_iter = args.iter();
 
@@ -54,20 +48,17 @@ impl Env {
             if sym == "&" {
                 if let Some(&Atom::Symbol(ref splat)) = params_iter.next() {
                     let vals = args_iter.map(|a| a.clone()).collect();
-                    arg_map.insert(splat.clone(), Atom::List(vals));
+                    arg_map.push(Entry { key: splat.clone(), value: Atom::List(vals) });
                     break;
                 }
             } else {
-                args_iter.next().and_then(|arg| {
-         //           println!("inserting symbol: {} for value {}", sym, arg);
-                    arg_map.insert(sym.clone(), arg.clone())
+                args_iter.next().map(|arg| {
+                    arg_map.push(Entry { key: sym.clone(), value: arg.clone() });
                 });
             }
         }
 
         self.def_map.push(arg_map);
-
-        Ok(())
     }
 
     pub fn pop(&mut self) {
@@ -75,12 +66,12 @@ impl Env {
     }
 
     pub fn get(&self, key: &str) -> Option<Atom> {
-        self.find(key, self.def_map.len() - 1 ).map(|x| x.clone())
+        self.find(key).map(|x| x.clone())
     }
 
     pub fn set(&mut self, key: String, value: Atom) {
-        if let Some(map) = self.def_map.last_mut() {
-            map.insert(key, value);
+        if let Some(v) = self.def_map.last_mut() {
+            v.push( Entry { key: key, value: value } );
         }
     }
 
@@ -108,11 +99,11 @@ mod tests {
         let params = vec![Atom::symbol("a"), Atom::symbol("b")];
         let args = vec![Atom::from(0), Atom::from(1)];
 
-        env.apply(&params, &args).unwrap();
+        env.apply(&params, &args);
 
         assert_eq!(Atom::from(0), env.get("a").unwrap());
 
-        env.apply(&params, &vec![Atom::from(5)]).unwrap();
+        env.apply(&params, &vec![Atom::from(5)]);
 
         assert_eq!(Atom::from(5), env.get("a").unwrap());
 
@@ -125,7 +116,7 @@ mod tests {
 
         let params = vec![Atom::symbol("&"), Atom::symbol("body")];
 
-        env.apply(&params, &vec![Atom::from(0), Atom::from(1), Atom::from(2)]).unwrap();
+        env.apply(&params, &vec![Atom::from(0), Atom::from(1), Atom::from(2)]);
 
         let body = env.get("body").unwrap();
 

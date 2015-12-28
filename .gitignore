@@ -1,2 +1,4 @@
 target
 Cargo.lock
+/oprofile_data
+/callgrind.out.*
