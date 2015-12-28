@@ -46,7 +46,7 @@ impl Env {
 
     pub fn apply(&mut self, params: &[Atom], args: &[Atom]) -> Result<(),Error> {
         let mut arg_map = HashMap::new();
-
+        //println!("apply: args == {:?}", args);
         let mut params_iter = params.iter();
         let mut args_iter = args.iter();
 
@@ -58,7 +58,10 @@ impl Env {
                     break;
                 }
             } else {
-                args_iter.next().and_then(|arg| arg_map.insert(sym.clone(), arg.clone()));
+                args_iter.next().and_then(|arg| {
+         //           println!("inserting symbol: {} for value {}", sym, arg);
+                    arg_map.insert(sym.clone(), arg.clone())
+                });
             }
         }
 

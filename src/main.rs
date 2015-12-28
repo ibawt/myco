@@ -34,6 +34,9 @@ fn repl() {
     loop {
         match readline::readline(">") {
             Some(s) => {
+                if s == "quit" {
+                    return;
+                }
                 let result = tokenize(&s)
                     .and_then(|node| {
                         // println!("<-- tokenize: {}", node);
@@ -45,7 +48,7 @@ fn repl() {
                     });
 
                 match result {
-                    Ok(r) => println!("== {} ==", r),
+                    Ok(r) => println!("{}", r),
                     Err(e) => println!("Error in evaluation: {:?}", e)
                 }
             },

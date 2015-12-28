@@ -156,10 +156,12 @@ impl From<f64> for Atom {
 }
 
 impl Atom {
+    #[allow(dead_code)]
     pub fn string(s: &str) -> Atom {
         Atom::String(s.to_string())
     }
 
+    #[allow(dead_code)]
     pub fn symbol(s: &str) -> Atom {
         Atom::Symbol(s.to_string())
     }

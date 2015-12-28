@@ -18,7 +18,7 @@ use atom::*;
 use errors::Error::*;
 use number::*;
 
-fn cons(args: &[Atom], env: &Env) -> AtomResult {
+fn cons(args: &[Atom], _: &Env) -> AtomResult {
     if args.len() != 2 {
         return Err(InvalidArguments)
     }
@@ -37,7 +37,7 @@ fn cons(args: &[Atom], env: &Env) -> AtomResult {
     }
 }
 
-fn append(args: &[Atom], env: &Env) -> AtomResult {
+fn append(args: &[Atom], _: &Env) -> AtomResult {
     if args.len() != 2 {
         return Err(InvalidArguments)
     }
@@ -148,7 +148,10 @@ fn add(v: &[Atom], env: &Env) -> AtomResult {
             Atom::Number(d) => {
                 result = result + d;
             },
-            _ => return Err(UnexpectedType)
+            _ => {
+                // println!("I got a {:?} instead of a number!", i);
+                return Err(UnexpectedType)
+            }
         }
     }
 
@@ -170,10 +173,13 @@ fn cmp(v: &[Atom], env: &Env, cmp: Comparison) -> AtomResult {
     }
 
     let vv = env.resolve_symbols(v);
-
+    // println!("vv = {:?}", vv);
     let initial = match vv[0] {
         Atom::Number(a) => a,
-        _ => return Err(UnexpectedType)
+        _ => {
+            // println!("top of cmp");
+            return Err(UnexpectedType)
+        }
     };
 
     for i in vv.iter().skip(1) {
@@ -190,7 +196,10 @@ fn cmp(v: &[Atom], env: &Env, cmp: Comparison) -> AtomResult {
                     return Ok(Atom::Boolean(false))
                 }
             },
-            _ => return Err(UnexpectedType)
+            _ => {
+                // println!("wayyyy over here");
+                return Err(UnexpectedType)
+            }
         }
     }
 
@@ -206,13 +215,19 @@ fn sub(v: &[Atom], env: &Env) -> AtomResult {
 
     let mut result = match vv[0] {
         Atom::Number(d) => d,
-        _ => return Err(UnexpectedType)
+        _ => {
+            // println!("over here");
+            return Err(UnexpectedType)
+        }
     };
 
     for i in vv.iter().skip(1) {
         match *i {
             Atom::Number(d) => result = result - d,
-            _ => return Err(UnexpectedType)
+            _ => {
+                // println!("right here");
+                return Err(UnexpectedType)
+            }
         }
     }
 

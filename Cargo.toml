@@ -7,4 +7,4 @@ homepage = "https://github.com/ibawt/rust-lisp"
 
 [dependencies.readline]
 git = "https://github.com/ibawt/rust-readline.git"
-rev = "266a87153a550720724b909e3029f0598ad664fd"
+rev = "things"

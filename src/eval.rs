@@ -21,6 +21,7 @@ use errors::Error::*;
 use std::fmt::{Write};
 use std::string::*;
 
+#[allow(dead_code)]
 fn print_list(list: &[Atom]) -> String {
     let mut s = String::new();
     write!(&mut s,"[").unwrap();
@@ -36,7 +37,7 @@ fn print_list(list: &[Atom]) -> String {
 }
 
 fn eval_procedure(p: &Procedure, args: &[Atom], env: &mut Env) ->  AtomResult {
-    try!(env.apply(&p.params, &args[1..]));
+    try!(env.apply(&p.params, args));
 
     let res = p.body.iter()
         .map(|node| eval(&node, env))
@@ -48,13 +49,10 @@ fn eval_procedure(p: &Procedure, args: &[Atom], env: &mut Env) ->  AtomResult {
 }
 
 fn eval_macro(p: &Procedure, args: &[Atom], env: &mut Env) -> AtomResult {
-    //println!("eval macro!, args: {}", print_list(args));
-    try!(env.apply(&p.params, &args));
+    try!(env.apply(&p.params, args));
     let res = p.body.iter()
-     //   .inspect(|i| println!("evaling macro: {}", i))
         .map(|node| eval(&node, env))
         .last().unwrap_or(Err(InvalidArguments))
-
         .and_then(|a| expand(&a, env, 0));
 
     env.pop();
@@ -177,7 +175,8 @@ fn eval_node(atom: &Atom, list: &[Atom], env: &mut Env) -> AtomResult {
         Atom::Function(ref func) => {
             match *func {
                 Function::Proc(ref p) => {
-                    eval_procedure(p, &list, env)
+                    let args: Vec<Atom> = try!(list.iter().skip(1).map(|n| eval(&n, env)).collect());
+                    eval_procedure(p, &args, env)
                 }
                 Function::Native(native) => {
                     let args: Vec<Atom> = try!(list.iter().skip(1).map(|n| eval(&n, env)).collect());
@@ -449,9 +448,7 @@ mod tests {
     fn splice_macro() {
         let mut env = Env::new();
 
-        println!("making macro");
         teval_env("(defmacro foo (& a) `(list ~@a))", &mut env).unwrap();
-        println!("invoking macro");
 
         let r = teval_env("(foo 1 2)", &mut env).unwrap();
 
@@ -463,7 +460,6 @@ mod tests {
     fn back_tick_simple_list() {
         assert_eq!(teval("'(1 2)"), teval("`(1 2)"));
     }
-
     // #[test]
     //  fn simple_macro() {
     //      let mut env = Env::new();
@@ -482,5 +478,15 @@ mod tests {
         let mut env = Env::new();
         teval_env("(defmacro unless (p a b) `(if (not ~p) ~a ~b))", &mut env).unwrap();
         assert_eq!(teval("3"), teval_env("(unless false 3 5)", &mut env).unwrap());
+    }
+
+    #[test]
+    fn recursive_fibonacci() {
+        let mut env = Env::new();
+        teval_env("(def fibonacci (fn (n) (if (<= n 2) 1 (+ (fibonacci (- n 1)) (fibonacci (- n 2))))))", &mut env).unwrap();
+
+        assert_eq!(teval("1"), teval_env("(fibonacci 0)", &mut env).unwrap());
+        assert_eq!(teval("2"), teval_env("(fibonacci 3)", &mut env).unwrap());
+        assert_eq!(teval("55"), teval_env("(fibonacci 10)", &mut env).unwrap());
     }
 }
