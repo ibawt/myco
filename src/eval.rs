@@ -37,7 +37,7 @@ fn print_list(list: &[Atom]) -> String {
 }
 
 fn eval_procedure(p: &Procedure, args: &[Atom], env: &mut Env) ->  AtomResult {
-    try!(env.apply(&p.params, args));
+    env.apply(&p.params, args);
 
     let res = p.body.iter()
         .map(|node| eval(&node, env))
@@ -49,7 +49,7 @@ fn eval_procedure(p: &Procedure, args: &[Atom], env: &mut Env) ->  AtomResult {
 }
 
 fn eval_macro(p: &Procedure, args: &[Atom], env: &mut Env) -> AtomResult {
-    try!(env.apply(&p.params, args));
+    env.apply(&p.params, args);
     let res = p.body.iter()
         .map(|node| eval(&node, env))
         .last().unwrap_or(Err(InvalidArguments))

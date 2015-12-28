@@ -5,6 +5,12 @@ authors = ["Ian Quick <ian.quick@gmail.com>"]
 license = "Apache-2.0"
 homepage = "https://github.com/ibawt/rust-lisp"
 
+[dependencies]
+smallvec = "0.1"
+
 [dependencies.readline]
 git = "https://github.com/ibawt/rust-readline.git"
 rev = "things"
+
+[profile.release]
+debug=true

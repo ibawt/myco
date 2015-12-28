@@ -14,6 +14,7 @@
 // limitations under the License.                                           //
 //////////////////////////////////////////////////////////////////////////////
 extern crate readline;
+extern crate smallvec;
 
 mod errors;
 mod number;
