@@ -1,5 +1,6 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Error {
+    EoF,
     UnexpectedType,
     Parser,
     InvalidArguments,
@@ -21,6 +22,7 @@ use self::Error::*;
 impl error::Error for Error {
     fn description(&self) -> &str {
         match *self {
+            EoF => "End of File",
             UnexpectedType => "UnexpectedType",
             Parser => "Parser",
             InvalidArguments => "InvalidArguments",

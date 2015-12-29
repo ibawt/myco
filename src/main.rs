@@ -1,8 +1,10 @@
 extern crate readline;
-extern crate smallvec;
+#[macro_use]
+extern crate lazy_static;
 
 mod errors;
 mod number;
+mod symbol;
 mod atom;
 mod parser;
 mod env;
@@ -13,29 +15,39 @@ use parser::{tokenize};
 use eval::{eval, expand};
 use env::*;
 
+use errors::Error;
+
 fn repl() {
     println!("Rust Lisp!");
     let mut env = Env::new();
 
+    let mut lines: String = String::new();
+
     loop {
-        match readline::readline(">") {
+        let prompt = if lines.is_empty() { ">" } else  { "" };
+
+        match readline::readline(prompt) {
             Some(s) => {
                 if s == "quit" {
                     return;
                 }
-                let result = tokenize(&s)
-                    .and_then(|node| {
-                        // println!("<-- tokenize: {}", node);
-                        expand(&node, &mut env, 0)
-                    })
-                    .and_then(|node| {
-                        // println!("<-- expand: {}", node);
-                        eval(&node, &mut env)
-                    });
+                lines.push_str(&s);
+
+                let result = tokenize(&lines)
+                    .and_then(|node| expand(&node, &mut env, 0))
+                    .and_then(|node| eval(&node, &mut env));
 
                 match result {
-                    Ok(r) => println!("{}", r),
-                    Err(e) => println!("Error in evaluation: {:?}", e)
+                    Ok(r) => {
+                        println!("{}", r);
+                        lines.clear();
+                    },
+                    Err(Error::EoF) => {
+                    },
+                    Err(e) => {
+                        println!("Error in evaluation: {:?}", e);
+                        lines.clear();
+                    }
                 }
             },
             None => {

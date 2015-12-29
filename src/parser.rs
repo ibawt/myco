@@ -31,7 +31,7 @@ fn read_string(iter: &mut Peekable<Chars>) -> Result<Option<Token>, Error> {
                 if let Some(escaped) = iter.next() {
                     s.push(escaped);
                 } else {
-                    return Err(Error::Parser)
+                    return Err(Error::EoF)
                 }
             },
             Some('"') => {
@@ -40,7 +40,7 @@ fn read_string(iter: &mut Peekable<Chars>) -> Result<Option<Token>, Error> {
                 return Ok(Some(t))
             },
             Some(c) => s.push(c),
-            None => return Err(Error::Parser)
+            None => return Err(Error::EoF)
         }
     }
 }
@@ -75,7 +75,7 @@ fn next(iter: &mut Peekable<Chars>) -> Result<Option<Token>, Error> {
                 '\'' => return Ok(Some(Token::Quote)),
                 '`' => return Ok(Some(Token::QuasiQuote)),
                 '~' => {
-                    match *try!(iter.peek().ok_or(Error::Parser)) {
+                    match *try!(iter.peek().ok_or(Error::EoF)) {
                         '@' => {
                             iter.next();
                             return Ok(Some(Token::Splice))
@@ -116,11 +116,14 @@ fn read_tokens(chars: &mut Peekable<Chars>) -> ParseResult {
             let mut node = List::new();
 
             loop {
-                match *try!(chars.peek().ok_or(Error::Parser)) {
-                    ')' => {
+                match chars.peek() {
+                    Some(&')') => {
                         chars.next();
                         break
                     },
+                    None => {
+                        return Err(Error::EoF)
+                    }
                     _ => {
                         let token = try!(read_tokens(chars));
                         node.push(token);
@@ -153,6 +156,7 @@ fn read_tokens(chars: &mut Peekable<Chars>) -> ParseResult {
 mod tests {
     use super::*;
     use atom::*;
+    use errors::*;
 
     fn make_atom_node(s: &str) -> Atom {
         Atom::parse(s)
@@ -251,5 +255,10 @@ mod tests {
     #[should_panic]
     fn eof() {
          tokenize("").unwrap();
+    }
+
+    #[test]
+    fn incomplete_expression() {
+        assert_eq!(tokenize("(if foo"), Err(Error::EoF));
     }
 }
