@@ -147,7 +147,7 @@ fn eval_special_forms(f: Form, list: &[Atom], env: &mut Env) -> AtomResult {
 }
 
 fn eval_node(atom: &Atom, list: &[Atom], env: &mut Env) -> AtomResult {
-    // println!("eval_node: {}", atom);
+    println!("eval_node: {}", atom);
     match *atom {
         Atom::List(_) => {
             eval(atom, env)
@@ -186,7 +186,7 @@ fn eval_node(atom: &Atom, list: &[Atom], env: &mut Env) -> AtomResult {
 }
 
 pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
-    // println!("eval: {}", node);
+    println!("eval: {}", node);
     match *node {
         Atom::List(ref list) if !list.is_empty() => {
             eval(&list[0], env).and_then(|first| eval_node(&first, list, env))
@@ -200,7 +200,7 @@ pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
 }
 
 fn expand_list(list: &[Atom], env: &mut Env) -> AtomResult {
-    // println!("expand_list: {}", print_list(list));
+    println!("expand_list: {}", print_list(list));
     if let Atom::Form(Form::Unquote) = list[0] {
         // ~x
         return eval(&list[1], env)
@@ -231,7 +231,7 @@ fn expand_list(list: &[Atom], env: &mut Env) -> AtomResult {
 }
 
 fn expand_quasiquote(atom: &Atom, env: &mut Env) -> AtomResult {
-    // println!("exp_quasi: {}", atom);
+    println!("exp_quasi: {}", atom);
     if !atom.is_pair() {
         return Ok(Atom::List(vec![Atom::Form(Form::Quote), atom.clone()]))
     }
@@ -244,7 +244,7 @@ fn expand_quasiquote(atom: &Atom, env: &mut Env) -> AtomResult {
 }
 pub fn expand(node: &Atom, env: &mut Env, depth: i32) -> AtomResult {
 
-    // println!("[{}] expand: {}", depth, node);
+    println!("[{}] expand: {}", depth, node);
     match *node {
         Atom::List(ref list) => {
             list.first().ok_or(Error::Parser)
@@ -261,7 +261,7 @@ pub fn expand(node: &Atom, env: &mut Env, depth: i32) -> AtomResult {
 }
 
 fn expand_node(node: &Atom, list: &[Atom], env: &mut Env, depth: i32) -> AtomResult {
-    // println!("expand_node: {} - list: {}", node, print_list(list));
+    println!("expand_node: {} - list: {}", node, print_list(list));
     match *node {
         Atom::Form(Form::Quote) => {
             Ok(Atom::List(list.iter().map(|n| n.clone()).collect()))

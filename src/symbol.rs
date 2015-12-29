@@ -70,7 +70,7 @@ impl AsRef<str> for InternedStr {
 
 impl fmt::Display for InternedStr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self.as_ref())
+        write!(f, "{}", self.as_ref())
     }
 }
 
