@@ -1,7 +1,9 @@
 use atom::*;
+use symbol;
+
 #[derive (Debug, Clone, PartialEq)]
 struct Entry {
-    key: String,
+    key: symbol::InternedStr,
     value: Atom
 }
 
@@ -17,7 +19,7 @@ impl Env {
 
     fn find(&self, key: &str) -> Option<&Atom> {
         for env_map in self.def_map.iter().rev() {
-            if let Some(entry) = env_map.iter().find(|entry| entry.key == key ) {
+            if let Some(entry) = env_map.iter().find(|entry| entry.key.as_ref() == key ) {
                 return Some(&entry.value)
             }
         }
@@ -30,7 +32,7 @@ impl Env {
         let mut args_iter = args.iter();
 
         while let Some(&Atom::Symbol(ref sym)) = params_iter.next() {
-            if sym == "&" {
+            if sym.as_ref() == "&" {
                 if let Some(&Atom::Symbol(ref splat)) = params_iter.next() {
                     let vals = args_iter.map(|a| a.clone()).collect();
                     arg_map.push(Entry { key: splat.clone(), value: Atom::List(vals) });
@@ -54,7 +56,7 @@ impl Env {
         self.find(key).map(|x| x.clone())
     }
 
-    pub fn set(&mut self, key: String, value: Atom) {
+    pub fn set(&mut self, key: symbol::InternedStr, value: Atom) {
         if let Some(v) = self.def_map.last_mut() {
             v.push( Entry { key: key, value: value } );
         }

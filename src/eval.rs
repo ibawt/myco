@@ -45,6 +45,7 @@ fn eval_macro(p: &Procedure, args: &[Atom], env: &mut Env) -> AtomResult {
     res
 }
 
+
 fn define(args: &[Atom], env: &mut Env) -> AtomResult {
     if args.len() != 2 {
         return Err(Error::InvalidArguments);

@@ -1,5 +1,6 @@
 use errors::Error;
 use number::*;
+use symbol;
 
 #[derive (Debug, Clone, PartialEq, Copy)]
 pub enum Form {
@@ -67,7 +68,7 @@ pub enum Atom {
     List(List),
     String(String),
     Number(Number),
-    Symbol(String),
+    Symbol(symbol::InternedStr),
     Boolean(bool),
     Function(Function),
     Form(Form),
@@ -148,7 +149,7 @@ impl Atom {
 
     #[allow(dead_code)]
     pub fn symbol(s: &str) -> Atom {
-        Atom::Symbol(s.to_string())
+        Atom::Symbol(symbol::intern(s))
     }
 
     pub fn is_pair(&self) -> bool {
@@ -253,7 +254,7 @@ fn default_parse(token: &str) -> Atom {
     some!(token.parse::<i64>().ok().map(|n| Atom::Number(Number::Integer(n))));
     token.parse::<f64>().ok()
           .map_or_else(
-              || Atom::Symbol(token.to_string()),
+              || Atom::Symbol(symbol::intern(token)),
               |f| Atom::Number(Number::Float(f)))
 }
 
@@ -275,7 +276,7 @@ mod test {
     #[test]
     fn atom_test() {
         assert_eq!(Atom::Number(Integer(32)), Atom::parse("32"));
-        assert_eq!(Atom::Symbol("symbol".to_string()), Atom::parse("symbol"));
+        assert_eq!(Atom::symbol("symbol"), Atom::parse("symbol"));
         assert_eq!(Atom::Boolean(true), Atom::parse("true"));
         assert_eq!(Atom::Boolean(false), Atom::parse("false"));
         assert_eq!(Atom::Nil, Atom::parse("nil"));
