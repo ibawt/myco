@@ -154,7 +154,7 @@ impl Atom {
 
     pub fn is_pair(&self) -> bool {
         match *self {
-            Atom::List(ref list) if !list.is_empty() => true,
+            Atom::List(ref list) => !list.is_empty(),
             _ => false
         }
     }

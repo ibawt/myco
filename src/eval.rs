@@ -203,24 +203,28 @@ fn expand_list(list: &[Atom], env: &mut Env) -> AtomResult {
     println!("expand_list: {}", print_list(list));
     if let Atom::Form(Form::Unquote) = list[0] {
         // ~x
-        return eval(&list[1], env)
+        assert!(list.len() == 2);
+        return expand(&list[1], env, 0)
     }
 
-    match list[0] {
-        Atom::List(ref sublist) => {
-            match sublist[0] {
-                Atom::Form(Form::Splice) => {
-                    // println!("doing splice thangs");
+    if list[0].is_pair() {
+        match list[0] {
+            Atom::List(ref sublist) => {
+                match sublist[0] {
+                    Atom::Form(Form::Splice) => {
+                        // println!("doing splice thangs");
+                        assert!(sublist.len() == 2);
 
-                    let v = vec![Atom::Function(Function::Native(Native::Append)),
-                                 try!(expand(&sublist[1], env, 0)),
-                                 try!(expand_quasiquote(&Atom::List(sublist.iter().skip(2).map(|n| n.clone()).collect()), env))];
-                    return Ok(Atom::List(v))
-                },
-                _ => ()
+                        let v = vec![Atom::Function(Function::Native(Native::Append)),
+                                     try!(expand(&sublist[1], env, 0)),
+                                     try!(expand_quasiquote(&Atom::List(sublist.iter().skip(2).map(|n| n.clone()).collect()), env))];
+                        return Ok(Atom::List(v))
+                    },
+                    _ => ()
+                }
             }
+            _ => ()
         }
-        _ => ()
     }
 
     let v = vec![Atom::Function(Function::Native(Native::Cons)),
@@ -237,13 +241,16 @@ fn expand_quasiquote(atom: &Atom, env: &mut Env) -> AtomResult {
     }
 
     if let Atom::List(ref list) = *atom {
+        if let Atom::Form(Form::Splice) = list[0] {
+            println!("can't splice here!");
+            return Err(Error::Parser)
+        }
         expand_list(list, env)
     } else {
         Err(Error::Parser)
     }
 }
 pub fn expand(node: &Atom, env: &mut Env, depth: i32) -> AtomResult {
-
     println!("[{}] expand: {}", depth, node);
     match *node {
         Atom::List(ref list) => {
