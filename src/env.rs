@@ -1,5 +1,6 @@
 use atom::*;
 use symbol;
+use std::fmt;
 
 #[derive (Debug, Clone, PartialEq)]
 struct Entry {
@@ -10,6 +11,25 @@ struct Entry {
 #[derive (Debug, Clone)]
 pub struct Env {
     def_map: Vec<Vec<Entry>>
+}
+
+impl fmt::Display for Env {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        try!(write!(f, "Env:"));
+        let mut level = self.def_map.len();
+
+        for i in self.def_map.iter().rev() { 
+            try!(write!(f, "Level: {}", level));
+
+            for entry in i.iter() {
+                try!(write!(f, " {} = {},", entry.key, entry.value));
+            }
+
+            level -= 1;
+            try!(write!(f, "\n"));
+        }
+        write!(f, "Env done")
+    }
 }
 
 impl Env {
@@ -35,11 +55,13 @@ impl Env {
             if sym.as_ref() == "&" {
                 if let Some(&Atom::Symbol(ref splat)) = params_iter.next() {
                     let vals = args_iter.map(|a| a.clone()).collect();
+                    println!("pushing splat: {} = {:?}", splat, vals);
                     arg_map.push(Entry { key: splat.clone(), value: Atom::List(vals) });
                     break;
                 }
             } else {
                 args_iter.next().map(|arg| {
+                    println!("pushing {} = {} to env", sym, arg);
                     arg_map.push(Entry { key: sym.clone(), value: arg.clone() });
                 });
             }
