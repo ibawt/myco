@@ -219,11 +219,10 @@ fn expand_list(list: &[Atom], env: &mut Env) -> AtomResult {
                             println!("doing splice thangs");
                             assert!(sublist.len() == 2);
                             let first = try!(expand(&sublist[1], env, 0));
-                            
                             if let Atom::List(mut list) = first {
                                 out.append(&mut list);
                                 continue;
-                            } 
+                            }
                         },
                         _ => ()
                     }
