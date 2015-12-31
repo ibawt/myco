@@ -180,7 +180,7 @@ fn eval_node(atom: &Atom, list: &[Atom], env: &mut Env) -> AtomResult {
             Ok(Atom::List(v))
         }
         _ => {
-            // println!("not a function: {}", atom);
+            println!("not a function: {:?}", atom);
             Err(Error::NotAFunction)
         }
     }
@@ -208,74 +208,35 @@ fn expand_list(list: &[Atom], env: &mut Env) -> AtomResult {
         return expand(&list[1], env, 0)
     }
 
-    if list[0].is_pair() {
-        match list[0] {
-            Atom::List(ref sublist) => {
-                match sublist[0] {
-                    Atom::Form(Form::Splice) => {
-                        println!("doing splice thangs");
-                        assert!(sublist.len() == 2);
-                        // let first = try!(expand(&sublist[1], env, 0));
-                        // let rest = try!(expand_quasiquote(&Atom::List(sublist.iter().skip(2).map(|n| n.clone()).collect()), env));
+    let mut out = Vec::with_capacity(list.len());
 
-                        let mut first = vec![sublist[1].clone()];
-
-                        let rest = try!(expand_quasiquote(&Atom::List(list.iter().skip(1).map(|n| n.clone()).collect()), env));
-
-                        println!("first = {:?}", first);
-                        println!("rest = {:?}", rest);
-
-                        match rest {
-                            Atom::List(mut list) => {
-                                first.append(&mut list);
-                            }
-                            _ => {
-                                first.push(rest);
-                            }
-                        }
-                        return Ok(Atom::List(first))
-                        //     Atom::List(mut first_list) => {
-                        //         match rest {
-                        //             Atom::List(mut rest_list) => {
-                        //                 //first_list.append(&mut rest_list);
-                        //                 println!("spliced expand_list returning {:?}", first_list);
-                        //                 return Ok(Atom::List(first_list))
-                        //             },
-                        //             _ => { panic!("derp")
-                        //             }
-                        //         }
-                        //     },
-                        //     _ => panic!("not a list")
-                        // }
-                        // // let v = vec![Atom::Function(Function::Native(Native::Append)),
-                        // //              try!(expand(&sublist[1], env, 0)),
-                        // //              try!(expand_quasiquote(&Atom::List(sublist.iter().skip(2).map(|n| n.clone()).collect()), env))];
-                        // panic!("idk what to do really")
-                    },
-                    _ => ()
+    for i in list {
+        if i.is_pair() {
+            match *i {
+                Atom::List(ref sublist) => {
+                    match sublist[0] {
+                        Atom::Form(Form::Splice) => {
+                            println!("doing splice thangs");
+                            assert!(sublist.len() == 2);
+                            let first = try!(expand(&sublist[1], env, 0));
+                            
+                            if let Atom::List(mut list) = first {
+                                out.append(&mut list);
+                                continue;
+                            } 
+                        },
+                        _ => ()
+                    }
                 }
+                _ => ()
             }
-            _ => ()
         }
+
+        let v = try!(expand_quasiquote(i, env));
+        out.push(v);
     }
 
-    let first = try!(expand_quasiquote(&list[0], env));
-    let rest = try!(expand_quasiquote(&Atom::List(list.iter().skip(1).map(|n| n.clone()).collect()), env));
-
-    let mut v = vec![first];
-    match rest {
-        Atom::List(list) => {
-            for i in list {
-                v.push(i);
-            }
-        },
-        _ => {
-            v.push(rest);
-        }
-    }
-    println!("expand_list returning a {}", print_list(&v));
-
-    Ok(Atom::List(v))
+    Ok(Atom::List(out))
 }
 
 fn expand_quasiquote(atom: &Atom, env: &mut Env) -> AtomResult {
@@ -294,6 +255,7 @@ fn expand_quasiquote(atom: &Atom, env: &mut Env) -> AtomResult {
         unreachable!("not here!")
     }
 }
+
 pub fn expand(node: &Atom, env: &mut Env, depth: i32) -> AtomResult {
     println!("[{}] expand: {}", depth, node);
     match *node {
@@ -302,7 +264,7 @@ pub fn expand(node: &Atom, env: &mut Env, depth: i32) -> AtomResult {
                 println!("in this expandy");
                 Error::Parser})
                 .and_then(|n| expand(n, env, depth + 1))
-                .and_then(|n| expand_node(&n, &list[0..], env, depth + 1))
+                .and_then(|n| expand_node(&n, list, env, depth + 1))
         },
         Atom::Symbol(ref sym) => {
             let a = env.get(sym).unwrap_or(node.clone());
@@ -338,7 +300,6 @@ fn expand_node(node: &Atom, list: &[Atom], env: &mut Env, depth: i32) -> AtomRes
             match *func {
                 Function::Macro(ref m) => {
                     eval_macro(m, &list[1..], env).and_then(|a| expand(&a, env, depth + 1))
-                        .and_then(|a| Ok(Atom::List(vec![a]))) // I think this is wrong
                 },
                 _ => {
                     Ok(Atom::List(try!(list.iter().map(|n| expand(n, env, depth + 1)).collect())))
