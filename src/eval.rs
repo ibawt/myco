@@ -180,23 +180,6 @@ fn eval_node(atom: &Atom, list: &[Atom], env: &mut Env) -> AtomResult {
     }
 }
 
-fn apply(f: &Atom, args: &[Atom], env: &mut Env) -> Result<Atom, Error> {
-    match *f {
-        Atom::Function(ref func) => {
-            match *func {
-                Function::Proc(ref p) => {
-                    eval_procedure(p, args, env)
-                }
-                Function::Native(native) => {
-                    eval_native(native, &args, env)
-                },
-                Function::Macro(_) => unreachable!()
-            }
-        },
-        _ => Err(Error::NotAFunction)
-    }
-}
-
 pub fn eval_node2(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
     match *node {
         Atom::Symbol(sym) => {
@@ -216,18 +199,36 @@ pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
     println!("eval: {}", node);
     let list = match *node {
         Atom::List(ref list) => list,
-        _ => return eval_node2(node, env) 
+        _ => return eval_node2(node, env)
     };
 
     if list.is_empty() {
         return Ok(Atom::Nil)
     }
 
-    Ok(Atom::Nil)
+    match list[0] {
+        Atom::Form(f) => {
+            eval_special_forms(f, list, env)
+        },
+        Atom::Function(ref func) => {
+            let args: Vec<Atom> = try!(list.iter().skip(1).map(|n| eval(&n, env)).collect());
+            match *func {
+                Function::Proc(ref p) => {
+                    eval_procedure(p, &args, env)
+                },
+                Function::Native(native) => {
+                    eval_native(native, &args, env)
+                },
+                _ => {
+                    panic!("no macros here!")
+                }
+            }
+        },
+        _ => Err(Error::NotAFunction)
+    }
     // let (first_atom, args) = match *node {
     //     Atom::List(ref list) if !list.is_empty() => {
     //         match list[0] {
-                
     //         }
     //     },
     //     _ => return Err(Error::Parser)
