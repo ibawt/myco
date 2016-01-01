@@ -180,17 +180,32 @@ fn eval_node(atom: &Atom, list: &[Atom], env: &mut Env) -> AtomResult {
     }
 }
 
+pub fn eval_node2(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
+    match *node {
+        Atom::Symbol(sym) => {
+            match env.get(sym) {
+                Some(v) => Ok(v),
+                None => Atom::Nil
+            }
+        },
+        Atom::List(ref list) => {
+            let 
+        },
+        _ => Ok(node.clone())
+    }
+}
+
 pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
     println!("eval: {}", node);
     match *node {
-        Atom::List(ref list) if !list.is_empty() => {
-            eval(&list[0], env).and_then(|first| eval_node(&first, list, env))
-        },
-        Atom::Symbol(ref s) => {
-            let a = env.get(s).unwrap_or(Atom::Nil);
-            Ok(a)
+        Atom::List(ref list) => (),
+        _ => return eval_node2(node, env) 
+    }
+
+    match *try!(eval_node2(node, env)) {
+        Atom::List(ref args) => {
+            apply(args)
         }
-        _ => Ok(node.clone())
     }
 }
 
@@ -203,7 +218,6 @@ fn expand_list(list: &[Atom], env: &mut Env) -> AtomResult {
     }
 
     let mut out = Vec::with_capacity(list.len());
-
     for i in list {
         if i.is_pair() {
             match *i {
