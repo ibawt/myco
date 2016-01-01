@@ -180,16 +180,33 @@ fn eval_node(atom: &Atom, list: &[Atom], env: &mut Env) -> AtomResult {
     }
 }
 
+fn apply(f: &Atom, args: &[Atom], env: &mut Env) -> Result<Atom, Error> {
+    match *f {
+        Atom::Function(ref func) => {
+            match *func {
+                Function::Proc(ref p) => {
+                    eval_procedure(p, args, env)
+                }
+                Function::Native(native) => {
+                    eval_native(native, &args, env)
+                },
+                Function::Macro(_) => unreachable!()
+            }
+        },
+        _ => Err(Error::NotAFunction)
+    }
+}
+
 pub fn eval_node2(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
     match *node {
         Atom::Symbol(sym) => {
-            match env.get(sym) {
+            match env.get(sym.as_ref()) {
                 Some(v) => Ok(v),
-                None => Atom::Nil
+                None => Ok(Atom::Nil)
             }
         },
         Atom::List(ref list) => {
-            let 
+            Ok(Atom::List(try!(list.iter().map(|n| eval(&n, env)).collect())))
         },
         _ => Ok(node.clone())
     }
@@ -197,16 +214,31 @@ pub fn eval_node2(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
 
 pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
     println!("eval: {}", node);
-    match *node {
-        Atom::List(ref list) => (),
+    let list = match *node {
+        Atom::List(ref list) => list,
         _ => return eval_node2(node, env) 
+    };
+
+    if list.is_empty() {
+        return Ok(Atom::Nil)
     }
 
-    match *try!(eval_node2(node, env)) {
-        Atom::List(ref args) => {
-            apply(args)
-        }
-    }
+    Ok(Atom::Nil)
+    // let (first_atom, args) = match *node {
+    //     Atom::List(ref list) if !list.is_empty() => {
+    //         match list[0] {
+                
+    //         }
+    //     },
+    //     _ => return Err(Error::Parser)
+    // }
+    // match try!(eval_node2(node, env)) {
+    //     Atom::List(ref args) => {
+    //         apply(&args[0], &args[1..], env)
+    //     },
+    //     _ => unreachable!("eval_loop shouldn't get here") 
+    // }
+
 }
 
 fn expand_list(list: &[Atom], env: &mut Env) -> AtomResult {
