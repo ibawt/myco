@@ -62,6 +62,7 @@ fn define(args: &[Atom], env: &mut Env) -> AtomResult {
 }
 
 fn quote(list: &[Atom]) -> AtomResult {
+    println!("quote is returning {}", print_list(list));
     list.first().map(|atom| atom.clone()).ok_or(InvalidArguments)
 }
 
@@ -167,17 +168,10 @@ fn eval_node(atom: &Atom, list: &[Atom], env: &mut Env) -> AtomResult {
                 }
                 Function::Native(native) => {
                     let args: Vec<Atom> = try!(list.iter().skip(1).map(|n| eval(&n, env)).collect());
-                    // println!("fn: {:?}, args: {}", native, print_list(&args));
                     eval_native(native, &args, env)
                 },
                 Function::Macro(_) => unreachable!()
             }
-        }
-        Atom::Number(_) => {
-            // FIXME: I don't tihnk this is right either
-            let v = list.iter().map(|n| n.clone()).collect();
-
-            Ok(Atom::List(v))
         }
         _ => {
             println!("not a function: {:?}", atom);

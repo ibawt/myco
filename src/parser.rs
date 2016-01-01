@@ -5,16 +5,17 @@ use std::io::prelude::*;
 
 pub fn tokenize(line: &str) -> ParseResult {
     let mut chars = line.chars().peekable();
-    let mut out: Vec<Atom> = vec![];
-    while let Some(_) = chars.peek() {
-        out.push(try!(read_tokens(&mut chars)));
-    }
+    read_tokens(&mut chars)
+    // let mut out: Vec<Atom> = vec![];
+    // while let Some(_) = chars.peek() {
+    //     out.push(try!(read_tokens(&mut chars)));
+    // }
 
-    if out.len() == 1 {
-        Ok(out[0].clone())
-    } else {
-        Ok(Atom::List(out))
-    }
+    // if out.len() == 1 {
+    //     Ok(out[0].clone())
+    // } else {
+    //     Ok(Atom::List(out))
+    // }
 }
 
 pub type ParseResult = Result<Atom, Error>;
