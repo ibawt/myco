@@ -212,7 +212,7 @@ fn expand_list(list: &[Atom], env: &mut Env) -> AtomResult {
                         Atom::Form(Form::Splice) => {
                             println!("doing splice thangs");
                             assert!(sublist.len() == 2);
-                            let first = try!(expand(&sublist[1], env, 0));
+                            let first = try!(eval(&sublist[1], env));
                             if let Atom::List(mut list) = first {
                                 out.append(&mut list);
                                 continue;
@@ -465,7 +465,12 @@ mod tests {
 
     //      assert_eq!(teval("8"), teval_env("(m)", &mut env).unwrap());
     //      assert_eq!(teval("8"), teval_env("(mm)", &mut env).unwrap());
-    //  }
+
+    #[test]
+    fn back_tick_subst() {
+        assert_eq!(teval("'(1 3)"), teval("`(1 ~@(+ 1 2))"));
+    }
+
 
     #[test]
     fn more_complex_macro() {
@@ -482,5 +487,11 @@ mod tests {
         assert_eq!(teval("1"), teval_env("(fibonacci 0)", &mut env).unwrap());
         assert_eq!(teval("2"), teval_env("(fibonacci 3)", &mut env).unwrap());
         assert_eq!(teval("55"), teval_env("(fibonacci 10)", &mut env).unwrap());
+    }
+
+    #[test]
+    #[should_panic]
+    fn numbers_arent_functions() {
+        teval("(1 1)");
     }
 }
