@@ -1,13 +1,35 @@
 use atom::*;
+use symbol;
+use std::fmt;
+
 #[derive (Debug, Clone, PartialEq)]
 struct Entry {
-    key: String,
+    key: symbol::InternedStr,
     value: Atom
 }
 
 #[derive (Debug, Clone)]
 pub struct Env {
     def_map: Vec<Vec<Entry>>
+}
+
+impl fmt::Display for Env {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        try!(write!(f, "Env:"));
+        let mut level = self.def_map.len();
+
+        for i in self.def_map.iter().rev() { 
+            try!(write!(f, "Level: {}", level));
+
+            for entry in i.iter() {
+                try!(write!(f, " {} = {},", entry.key, entry.value));
+            }
+
+            level -= 1;
+            try!(write!(f, "\n"));
+        }
+        write!(f, "Env done")
+    }
 }
 
 impl Env {
@@ -17,7 +39,7 @@ impl Env {
 
     fn find(&self, key: &str) -> Option<&Atom> {
         for env_map in self.def_map.iter().rev() {
-            if let Some(entry) = env_map.iter().find(|entry| entry.key == key ) {
+            if let Some(entry) = env_map.iter().find(|entry| entry.key.as_ref() == key ) {
                 return Some(&entry.value)
             }
         }
@@ -30,7 +52,7 @@ impl Env {
         let mut args_iter = args.iter();
 
         while let Some(&Atom::Symbol(ref sym)) = params_iter.next() {
-            if sym == "&" {
+            if sym.as_ref() == "&" {
                 if let Some(&Atom::Symbol(ref splat)) = params_iter.next() {
                     let vals = args_iter.map(|a| a.clone()).collect();
                     arg_map.push(Entry { key: splat.clone(), value: Atom::List(vals) });
@@ -54,7 +76,7 @@ impl Env {
         self.find(key).map(|x| x.clone())
     }
 
-    pub fn set(&mut self, key: String, value: Atom) {
+    pub fn set(&mut self, key: symbol::InternedStr, value: Atom) {
         if let Some(v) = self.def_map.last_mut() {
             v.push( Entry { key: key, value: value } );
         }
