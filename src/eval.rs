@@ -61,7 +61,6 @@ fn define(args: &[Atom], env: &mut Env) -> AtomResult {
 }
 
 fn quote(list: &[Atom]) -> AtomResult {
-    println!("quote is returning {}", print_list(list));
     list.first().map(|atom| atom.clone()).ok_or(InvalidArguments)
 }
 
@@ -242,8 +241,6 @@ fn macro_expand(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
 }
 
 pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
-    println!("eval: {}", node);
-
     let pre_list = match *node {
         Atom::List(ref list) => list,
         _ => return eval_node(node, env)

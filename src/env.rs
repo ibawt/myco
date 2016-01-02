@@ -55,13 +55,11 @@ impl Env {
             if sym.as_ref() == "&" {
                 if let Some(&Atom::Symbol(ref splat)) = params_iter.next() {
                     let vals = args_iter.map(|a| a.clone()).collect();
-                    println!("pushing splat: {} = {:?}", splat, vals);
                     arg_map.push(Entry { key: splat.clone(), value: Atom::List(vals) });
                     break;
                 }
             } else {
                 args_iter.next().map(|arg| {
-                    println!("pushing {} = {} to env", sym, arg);
                     arg_map.push(Entry { key: sym.clone(), value: arg.clone() });
                 });
             }
