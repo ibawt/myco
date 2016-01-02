@@ -13,7 +13,7 @@ mod funcs;
 mod base_lib;
 
 use parser::{tokenize};
-use eval::{eval, expand};
+use eval::{eval};
 use env::*;
 use errors::Error;
 
@@ -36,7 +36,6 @@ fn repl() {
                 lines.push_str(&s);
 
                 let result = tokenize(&lines)
-                    .and_then(|node| expand(&node, &mut env, 0))
                     .and_then(|node| eval(&node, &mut env));
 
                 match result {
