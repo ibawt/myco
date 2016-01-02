@@ -148,39 +148,7 @@ fn eval_special_forms(f: Form, list: &[Atom], env: &mut Env) -> AtomResult {
     }
 }
 
-fn eval_node(atom: &Atom, list: &[Atom], env: &mut Env) -> AtomResult {
-    println!("eval_node: {}", atom);
-    match *atom {
-        Atom::List(_) => {
-            eval(atom, env)
-        },
-        Atom::Form(Form::QuasiQuote) => Ok(Atom::List(list.iter().map(|n| n.clone()).collect())),
-        Atom::Symbol(_) =>  {
-            let args: Vec<Atom> = try!(list.iter().map(|n| eval(n, env)).collect());
-            eval_node(&args[0], &args, env)
-        },
-        Atom::Form(f) => eval_special_forms(f, list, env),
-        Atom::Function(ref func) => {
-            match *func {
-                Function::Proc(ref p) => {
-                    let args: Vec<Atom> = try!(list.iter().skip(1).map(|n| eval(&n, env)).collect());
-                    eval_procedure(p, &args, env)
-                }
-                Function::Native(native) => {
-                    let args: Vec<Atom> = try!(list.iter().skip(1).map(|n| eval(&n, env)).collect());
-                    eval_native(native, &args, env)
-                },
-                Function::Macro(_) => unreachable!()
-            }
-        }
-        _ => {
-            println!("not a function: {:?}", atom);
-            Err(Error::NotAFunction)
-        }
-    }
-}
-
-pub fn eval_node2(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
+pub fn eval_node(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
     match *node {
         Atom::Symbol(sym) => {
             match env.get(sym.as_ref()) {
@@ -199,47 +167,42 @@ pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
     println!("eval: {}", node);
     let list = match *node {
         Atom::List(ref list) => list,
-        _ => return eval_node2(node, env)
+        _ => return eval_node(node, env)
     };
-
     if list.is_empty() {
         return Ok(Atom::Nil)
     }
 
+    match *try!(list.first().ok_or(Error::Parser)) {
+        Atom::Symbol(_) | Atom::List(_) => {
+            let value = try!(eval(&list[0], env));
+            let mut vec = list.clone(); 
+            vec[0] = value;
+            return eval(&Atom::List(vec), env)
+        },
+        _ => ()
+    }
+
     match list[0] {
         Atom::Form(f) => {
-            eval_special_forms(f, list, env)
+            return eval_special_forms(f, list, env)
         },
         Atom::Function(ref func) => {
             let args: Vec<Atom> = try!(list.iter().skip(1).map(|n| eval(&n, env)).collect());
             match *func {
                 Function::Proc(ref p) => {
-                    eval_procedure(p, &args, env)
+                    return eval_procedure(p, &args, env)
                 },
                 Function::Native(native) => {
-                    eval_native(native, &args, env)
+                    return eval_native(native, &args, env)
                 },
                 _ => {
                     panic!("no macros here!")
                 }
             }
         },
-        _ => Err(Error::NotAFunction)
+        _ => return Err(Error::NotAFunction)
     }
-    // let (first_atom, args) = match *node {
-    //     Atom::List(ref list) if !list.is_empty() => {
-    //         match list[0] {
-    //         }
-    //     },
-    //     _ => return Err(Error::Parser)
-    // }
-    // match try!(eval_node2(node, env)) {
-    //     Atom::List(ref args) => {
-    //         apply(&args[0], &args[1..], env)
-    //     },
-    //     _ => unreachable!("eval_loop shouldn't get here") 
-    // }
-
 }
 
 fn expand_list(list: &[Atom], env: &mut Env) -> AtomResult {
@@ -291,6 +254,7 @@ fn expand_quasiquote(atom: &Atom, env: &mut Env) -> AtomResult {
             return Err(Error::Parser)
         }
         expand_list(list, env)
+
     } else {
         unreachable!("not here!")
     }
@@ -437,10 +401,8 @@ mod tests {
 
     fn teval_env(s: &str, env: &mut Env) -> AtomResult {
         tokenize(s).and_then(|n| {
-            println!("<-- tokenize: {}", n);
             expand(&n, env, 0)
         }).and_then(|n| {
-            println!("<-- expand: {}", n);
             eval(&n, env)
         })
     }
