@@ -72,12 +72,6 @@ fn macroexpand(_: &[Atom], _: &Env) -> AtomResult {
     Err(NotImplemented)
 }
 
-fn do_form(list: &[Atom], env: &mut Env) -> AtomResult {
-    list.iter()
-        .map(|node| eval(node, env))
-        .last().unwrap_or(Err(InvalidArguments))
-}
-
 fn make_proc(list: &[Atom]) -> AtomResult {
     if let Atom::List(ref p) = list[1] {
         Ok(Atom::Function(Function::Proc(Procedure{ params: p.clone(),
@@ -178,18 +172,11 @@ fn eval_special_forms(f: Form, list: &[Atom], env: &mut Env) -> AtomResult {
         Def => {
             define(&list[1..], env)
         },
-        Do => {
-            do_form(&list[1..], env)
-        },
         Macro => {
             macro_form(&list[1..], env)
         }
         Fn => {
             make_proc(&list)
-        },
-        QuasiQuote => {
-            expand_quasiquote(&list[1], env)
-                .and_then(|n| eval(&n, env))
         },
         Quote => {
             quote(&list[1..])
@@ -241,11 +228,11 @@ fn macro_expand(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
 }
 
 pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
-    let mut cur_node = node.clone(); // blech
+    let mut cur_node = node.clone(); // FIXME: shitty clone 
     let mut cur_env = env;
 
     loop {
-        let pre_list = match cur_node.clone() {
+        let pre_list = match cur_node.clone() { // FIXME: shitty clone
             Atom::List(list) => list,
             _ => return eval_node(&cur_node, cur_env)
         };
@@ -271,6 +258,18 @@ pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
         match list[0] {
             Atom::Form(f) => {
                 match f {
+                    Form::Do => {
+                        if list.len() == 1 {
+                            return Ok(Atom::Nil)
+                        }
+                        for node in &list[1..list.len()-1] {
+                            try!(eval(node, cur_env));
+                        }
+                        cur_node = try!(eval(&list[list.len()-1], cur_env));
+                    }
+                    Form::QuasiQuote => {
+                        cur_node = try!(expand_quasiquote(&list[1], cur_env));
+                    },
                     Form::If => {
                         let condition = match try!(eval(&list[1], cur_env)) {
                             Atom::Boolean(b) => b,
@@ -280,10 +279,8 @@ pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
 
                         if condition {
                             cur_node = list[2].clone();
-                            continue;
-                        } else if list.len() > 3 {
+                        } else if list.len() > 2 {
                             cur_node = list[3].clone();
-                            continue;
                         } else {
                             return Ok(Atom::Boolean(false))
                         }
@@ -435,6 +432,7 @@ mod tests {
 
     #[test]
     fn do_func() {
+        assert_eq!(teval("()"), teval("(do)"));
         assert_eq!(teval("4"), teval("(do (+ 1 2) (+ 2 2))"));
     }
 
