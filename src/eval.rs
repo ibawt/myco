@@ -133,6 +133,46 @@ fn if_form(list: &[Atom], env: &mut Env) -> AtomResult {
     }
 }
 
+fn expand_quasiquote(node: &Atom, env: &mut Env) -> AtomResult {
+    if !node.is_pair() {
+        return Ok(Atom::List(vec![Atom::Form(Form::Quote), node.clone()]))
+    }
+
+    match *node {
+        Atom::List(ref list) => {
+            match list[0] {
+                Atom::Form(Form::Unquote) => {
+                    return Ok(list[1].clone())
+                },
+                _ => ()
+            }
+
+            if list[0].is_pair() {
+                match list[0] {
+                    Atom::List(ref sublist) => {
+                        match sublist[0] {
+                            Atom::Form(Form::Splice) => {
+                                let append = Atom::Function(Function::Native(Native::Append));
+                                let rest = list[1..].iter().map(|n| n.clone()).collect();
+                                return Ok(Atom::List(vec![append, sublist[1].clone(),
+                                                          Atom::List(rest)]))
+                            },
+                            _ => ()
+                        }
+                    },
+                    _ => ()
+                }
+            }
+
+            let rest = list[1..].iter().map(|n| n.clone()).collect();
+            return Ok(Atom::List(vec![Atom::Function(Function::Native(Native::Cons)),
+                                      try!(expand_quasiquote(&list[0], env)),
+                                      try!(expand_quasiquote(&Atom::List(rest), env))]))
+        },
+        _ => unreachable!()
+    }
+}
+
 fn eval_special_forms(f: Form, list: &[Atom], env: &mut Env) -> AtomResult {
     use atom::Form::*;
     match f {
@@ -147,6 +187,10 @@ fn eval_special_forms(f: Form, list: &[Atom], env: &mut Env) -> AtomResult {
         }
         Fn => {
             make_proc(&list)
+        },
+        QuasiQuote => {
+            expand_quasiquote(&list[1], env)
+                .and_then(|n| eval(&n, env))
         },
         Quote => {
             quote(&list[1..])
