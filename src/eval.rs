@@ -241,48 +241,74 @@ fn macro_expand(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
 }
 
 pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
-    let pre_list = match *node {
-        Atom::List(ref list) => list,
-        _ => return eval_node(node, env)
-    };
+    let mut cur_node = node.clone(); // blech
+    let mut cur_env = env;
 
-    if pre_list.is_empty() {
-        return Ok(Atom::Nil)
-    }
+    loop {
+        let pre_list = match cur_node.clone() {
+            Atom::List(list) => list,
+            _ => return eval_node(&cur_node, cur_env)
+        };
 
-    let expanded_node = try!(macro_expand(node, env));
-    let mut list = match expanded_node {
-        Atom::List(l) => l,
-        _ => return Ok(expanded_node)
-    };
-    
-    match list[0] {
-        Atom::Symbol(_) | Atom::List(_) => {
-            list[0] = try!(eval(&list[0], env));
-            return eval(&Atom::List(list), env)
-        },
-        _ => ()
-    }
+        if pre_list.is_empty() {
+            return Ok(Atom::Nil)
+        }
 
-    match list[0] {
-        Atom::Form(f) => {
-            return eval_special_forms(f, &list, env)
-        },
-        Atom::Function(ref func) => {
-            let args: Vec<Atom> = try!(list.iter().skip(1).map(|n| eval(&n, env)).collect());
-            match *func {
-                Function::Proc(ref p) => {
-                    return eval_procedure(p, &args, env)
-                },
-                Function::Native(native) => {
-                    return eval_native(native, &args, env)
-                },
-                _ => {
-                    panic!("no macros here!")
+        let expanded_node = try!(macro_expand(&cur_node, cur_env));
+        let mut list = match expanded_node {
+            Atom::List(l) => l,
+            _ => return Ok(expanded_node)
+        };
+        
+        match list[0] {
+            Atom::Symbol(_) | Atom::List(_) => {
+                list[0] = try!(eval(&list[0], cur_env));
+                return eval(&Atom::List(list), cur_env)
+            },
+            _ => ()
+        }
+
+        match list[0] {
+            Atom::Form(f) => {
+                match f {
+                    Form::If => {
+                        let condition = match try!(eval(&list[1], cur_env)) {
+                            Atom::Boolean(b) => b,
+                            Atom::Nil => false,
+                            _ => true
+                        };
+
+                        if condition {
+                            cur_node = list[2].clone();
+                            continue;
+                        } else if list.len() > 3 {
+                            cur_node = list[3].clone();
+                            continue;
+                        } else {
+                            return Ok(Atom::Boolean(false))
+                        }
+                    },
+                    _ => {
+                        return eval_special_forms(f, &list, cur_env)
+                    }
                 }
-            }
-        },
-        _ => return Err(Error::NotAFunction)
+            },
+            Atom::Function(ref func) => {
+                let args: Vec<Atom> = try!(list.iter().skip(1).map(|n| eval(&n, cur_env)).collect());
+                match *func {
+                    Function::Proc(ref p) => {
+                        return eval_procedure(p, &args, cur_env)
+                    },
+                    Function::Native(native) => {
+                        return eval_native(native, &args, cur_env)
+                    },
+                    _ => {
+                        panic!("no macros here!")
+                    }
+                }
+            },
+            _ => return Err(Error::NotAFunction)
+        }
     }
 }
 
