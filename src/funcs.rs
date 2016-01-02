@@ -34,7 +34,15 @@ fn append(args: &[Atom], _: &Env) -> AtomResult {
         (&Atom::List(ref a), &Atom::List(ref b)) => {
             Ok(Atom::List(a.iter().chain(b.iter()).map(|n| n.clone()).collect()))
         },
-        _ => Err(InvalidArguments)
+        (&Atom::List(ref a), &Atom::Nil) => {
+            Ok(Atom::List(a.iter().map(|n| n.clone()).collect()))
+        }
+        (_, &Atom::Nil) => {
+            Ok(Atom::List(vec![a.clone()]))
+        }
+        _ => {
+            Err(InvalidArguments)
+        }
     }
 }
 
