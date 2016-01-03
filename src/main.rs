@@ -1,6 +1,7 @@
 extern crate readline;
 #[macro_use]
 extern crate lazy_static;
+extern crate smallvec;
 
 mod errors;
 mod number;

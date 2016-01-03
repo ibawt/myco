@@ -11,6 +11,7 @@ rev = "things"
 
 [dependencies]
 lazy_static = "0.1"
+smallvec = "0.1"
 
 [profile.release]
 debug=true

@@ -48,8 +48,9 @@ fn append(args: &[Atom], _: &Env) -> AtomResult {
 
 fn print(args: &[Atom], _: &Env) -> AtomResult {
     for i in args {
-        println!("{} ", i);
+        print!("{} ", i);
     }
+    print!("\n");
 
     Ok(Atom::Nil)
 }

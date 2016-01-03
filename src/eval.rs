@@ -5,6 +5,7 @@ use errors::*;
 use errors::Error::*;
 use std::fmt::{Write};
 use std::string::*;
+use smallvec::SmallVec;
 
 #[allow(dead_code)]
 fn print_list(list: &[Atom]) -> String {
@@ -19,16 +20,6 @@ fn print_list(list: &[Atom]) -> String {
     }
     write!(&mut s, "]").unwrap();
     s
-}
-
-fn eval_procedure(p: &Procedure, args: &[Atom], env: &mut Env) ->  AtomResult {
-    let mut e = env.bind(&p.params, args);
-
-    let res = p.body.iter()
-        .map(|node| eval(&node, &mut e))
-        .last().unwrap_or(Err(InvalidArguments));
-
-    res
 }
 
 fn eval_macro(p: &Procedure, args: &[Atom], env: &mut Env) -> AtomResult {
@@ -97,35 +88,15 @@ fn macro_form(args: &[Atom], env: &mut Env) -> AtomResult {
         _ => return Err(InvalidArguments)
     };
 
-    let body = args[2..].iter().map(|n| n.clone()).collect();
+    let p = Procedure {
+        body: args[2..].iter().map(|n| n.clone()).collect(),
+        params: params,
+        closures: Env::new(Some(env.clone()))
+    };
 
-    let closure_env = Env::new(Some(env.clone()));
-
-    env.set(name, Atom::Function(Function::Macro(Procedure{ params: params, body: body, closures: closure_env})));
+    env.set(name, Atom::Function(Function::Macro(p)));
 
     Ok(Atom::Symbol(name))
-}
-
-fn if_form(list: &[Atom], env: &mut Env) -> AtomResult {
-    if list.len() < 2 {
-        Err(InvalidArguments)
-    } else {
-        eval(&list[0], env)
-            .and_then(|p| {
-                let truthy = match p {
-                    Atom::Boolean(b) => b,
-                    Atom::Nil => false,
-                    _ => true
-                };
-                if truthy {
-                    eval(&list[1], env)
-                } else if list.len() > 2 {
-                    eval(&list[2], env)
-                } else {
-                    Ok(Atom::Boolean(false))
-                }
-            })
-    }
 }
 
 fn expand_quasiquote(node: &Atom, env: &mut Env) -> AtomResult {
@@ -183,9 +154,6 @@ fn eval_special_forms(f: Form, list: &[Atom], env: &mut Env) -> AtomResult {
         Quote => {
             quote(&list[1..])
         },
-        If => {
-            if_form(&list[1..], env)
-        },
         MacroExpand => {
             macroexpand(&list[1..], env)
         },
@@ -230,7 +198,8 @@ fn macro_expand(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
 }
 
 pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
-    let mut cur_node = node.clone(); // FIXME: shitty clone 
+//    println!("eval: {}", node);
+    let mut cur_node = node.clone(); // FIXME: shitty clone
     let mut cur_env = env;
 
     loop {
@@ -253,7 +222,6 @@ pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
         match list[0] {
             Atom::Symbol(_) | Atom::List(_) => {
                 list[0] = try!(eval(&list[0], cur_env));
-                return eval(&Atom::List(list), cur_env)
             },
             _ => ()
         }
@@ -265,10 +233,12 @@ pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
                         if list.len() == 1 {
                             return Ok(Atom::Nil)
                         }
-                        for node in &list[1..list.len()-1] {
-                            try!(eval(node, cur_env));
+                        if list.len() > 3 {
+                            for node in &list[1..list.len()-2] {
+                                try!(eval(node, cur_env));
+                            }
                         }
-                        cur_node = try!(eval(&list[list.len()-1], cur_env));
+                        cur_node = list[list.len()-1].clone();
                     },
                     Form::QuasiQuote => {
                         cur_node = try!(expand_quasiquote(&list[1], cur_env));
@@ -294,7 +264,7 @@ pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
                 }
             },
             Atom::Function(ref func) => {
-                let args: Vec<Atom> = try!(list.iter().skip(1).map(|n| eval(&n, cur_env)).collect());
+                let args: SmallVec<[Atom;4]> = try!(list.iter().skip(1).map(|n| eval(&n, cur_env)).collect());
                 match *func {
                     Function::Proc(ref p) => {
                         *cur_env = Env::new(Some(p.closures.clone())).bind(&p.params, &args);
@@ -495,5 +465,15 @@ mod tests {
     #[should_panic]
     fn numbers_arent_functions() {
         teval("(1 1)");
+    }
+
+    #[test]
+    fn tailcall_function() {
+        let mut env = Env::new(None);
+
+        teval_env("(def sum2 (fn (n acc) (if (= n 0) acc (sum2 (- n 1) (+ n acc)))))", &mut env).unwrap();
+
+        assert_eq!(teval_env("(sum2 10 0)", &mut env).unwrap(), teval("55"));
+        assert_eq!(teval_env("(sum2 10000 0)", &mut env).unwrap(), teval("50005000"));
     }
 }
