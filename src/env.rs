@@ -51,7 +51,7 @@ impl Env {
     }
 
     pub fn bind(&mut self, params: &[Atom], args: &[Atom]) -> Env {
-        let mut arg_map = vec![];
+        let mut arg_map = Vec::with_capacity(params.len());
         let mut params_iter = params.iter();
         let mut args_iter = args.iter();
 

@@ -37,7 +37,7 @@ fn eval_macro(p: &Procedure, args: &[Atom], env: &mut Env) -> AtomResult {
     let res = p.body.iter()
         .map(|node| eval(&node, &mut e))
         .last().unwrap_or(Err(InvalidArguments));
-        
+
     res
 }
 
@@ -60,18 +60,21 @@ fn quote(list: &[Atom]) -> AtomResult {
     list.first().map(|atom| atom.clone()).ok_or(InvalidArguments)
 }
 
-fn collect_body(l: &[Atom]) -> Vec<Atom> {
-    l.iter().skip(2).map(|x| x.clone()).collect()
-}
-
 fn macroexpand(_: &[Atom], _: &Env) -> AtomResult {
     Err(NotImplemented)
 }
 
 fn make_proc(list: &[Atom], env: &Env) -> AtomResult {
     if let Atom::List(ref p) = list[1] {
+        let mut body = Vec::with_capacity(list.len());
+        body.push(Atom::Form(Form::Do));
+
+        for i in list.iter().skip(2) {
+            body.push(i.clone());
+        }
+
         Ok(Atom::Function(Function::Proc(Procedure{ params: p.clone(),
-                                                    body: collect_body(list),
+                                                    body: body,
                                                     closures: Env::new(Some(env.clone()))})))
     } else {
         Err(InvalidArguments)
@@ -82,7 +85,7 @@ fn macro_form(args: &[Atom], env: &mut Env) -> AtomResult {
     if args.len() < 3 {
         return Err(InvalidArguments)
     }
-    
+
     let name = match args[0] {
         Atom::Symbol(name) => name,
         _ => return Err(InvalidArguments)
@@ -218,7 +221,7 @@ fn macro_expand(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
                     return macro_expand(&try!(eval_macro(m, &list[1..], env)), env)
                 }
                 _ => ()
-            } 
+            }
         },
         _ => ()
     }
@@ -231,13 +234,14 @@ pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
     let mut cur_env = env;
 
     loop {
-        let pre_list = match cur_node.clone() { // FIXME: shitty clone
-            Atom::List(list) => list,
+        match cur_node {
+            Atom::List(ref list) => {
+                if list.is_empty() {
+                    return Ok(Atom::Nil)
+                }
+                ()
+            },
             _ => return eval_node(&cur_node, cur_env)
-        };
-
-        if pre_list.is_empty() {
-            return Ok(Atom::Nil)
         }
 
         let expanded_node = try!(macro_expand(&cur_node, cur_env));
@@ -245,7 +249,7 @@ pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
             Atom::List(l) => l,
             _ => return Ok(expanded_node)
         };
-        
+
         match list[0] {
             Atom::Symbol(_) | Atom::List(_) => {
                 list[0] = try!(eval(&list[0], cur_env));
@@ -265,7 +269,7 @@ pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
                             try!(eval(node, cur_env));
                         }
                         cur_node = try!(eval(&list[list.len()-1], cur_env));
-                    }
+                    },
                     Form::QuasiQuote => {
                         cur_node = try!(expand_quasiquote(&list[1], cur_env));
                     },
@@ -293,13 +297,8 @@ pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
                 let args: Vec<Atom> = try!(list.iter().skip(1).map(|n| eval(&n, cur_env)).collect());
                 match *func {
                     Function::Proc(ref p) => {
-                        // cur_env.apply(&p.params, &list[1..]);
-                        // let mut v = vec![Atom::Form(Form::Do)];
-                        // for d in &p.body {
-                        //     v.push(d.clone());
-                        // }
-                        // cur_node = Atom::List(v);
-                        return eval_procedure(p, &args, cur_env)
+                        *cur_env = Env::new(Some(p.closures.clone())).bind(&p.params, &args);
+                        cur_node = Atom::List(p.body.clone());
                     },
                     Function::Native(native) => {
                         return eval_native(native, &args, cur_env)

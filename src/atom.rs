@@ -2,7 +2,6 @@ use errors::Error;
 use number::*;
 use symbol;
 use env::Env;
-
 #[derive (Debug, Clone, PartialEq, Copy)]
 pub enum Form {
     Def,
