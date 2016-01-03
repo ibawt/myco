@@ -107,15 +107,15 @@ mod tests {
 
     #[test]
     fn splat() {
-        // let mut env = Env::new(None);
+        let mut env = Env::new(None);
 
-        // let params = vec![Atom::symbol("&"), Atom::symbol("body")];
+        let params = vec![Atom::symbol("&"), Atom::symbol("body")];
 
-        // env.apply(&params, &vec![Atom::from(0), Atom::from(1), Atom::from(2)]);
+        let e = env.bind(&params, &vec![Atom::from(0), Atom::from(1), Atom::from(2)]);
 
-        // let body = env.get("body").unwrap();
+        let body = e.get("body").unwrap();
 
-        // assert_eq!(Atom::List(vec![Atom::from(0), Atom::from(1), Atom::from(2)]), body);
+        assert_eq!(Atom::List(vec![Atom::from(0), Atom::from(1), Atom::from(2)]), body);
     }
 
 }
