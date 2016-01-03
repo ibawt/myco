@@ -25,16 +25,6 @@ pub fn tokenize(line: &str) -> ParseResult {
     }
 
     Ok(Atom::List(v))
-    // let mut out: Vec<Atom> = vec![];
-    // while let Some(_) = chars.peek() {
-    //     out.push(try!(read_tokens(&mut chars)));
-    // }
-
-    // if out.len() == 1 {
-    //     Ok(out[0].clone())
-    // } else {
-    //     Ok(Atom::List(out))
-    // }
 }
 
 pub type ParseResult = Result<Atom, Error>;
@@ -206,26 +196,33 @@ mod tests {
         Atom::parse(s)
     }
 
+    fn second(a: Atom) -> Atom {
+        match a {
+            Atom::List(ref l) => l[1].clone(),
+            _ => panic!()
+        }
+    }
+
 
     #[test]
     fn naked_atoms() {
-        assert_eq!(Atom::from(0), tokenize("0").unwrap());
-        assert_eq!(Atom::from(512), tokenize("512").unwrap());
-        assert_eq!(Atom::from(-512), tokenize("-512").unwrap());
-        assert_eq!(Atom::from(5.0f64), tokenize("5.0").unwrap());
-        assert_eq!(Atom::string("foo bar"), tokenize("\"foo bar\"").unwrap());
-        assert_eq!(Atom::symbol("foo"), tokenize("foo").unwrap());
+        assert_eq!(Atom::from(0), second(tokenize("0").unwrap()));
+        assert_eq!(Atom::from(512), second(tokenize("512").unwrap()));
+        assert_eq!(Atom::from(-512), second(tokenize("-512").unwrap()));
+        assert_eq!(Atom::from(5.0f64), second(tokenize("5.0").unwrap()));
+        assert_eq!(Atom::string("foo bar"), second(tokenize("\"foo bar\"").unwrap()));
+        assert_eq!(Atom::symbol("foo"), second(tokenize("foo").unwrap()));
     }
 
     #[test]
     fn string_escaping() {
-        assert_eq!(Atom::string("foo'bar"), tokenize("\"foo\\'bar\"").unwrap());
-        assert_eq!(Atom::string("foo\"bar"), tokenize("\"foo\\\"bar\"").unwrap());
+        assert_eq!(Atom::string("foo'bar"), second(tokenize("\"foo\\'bar\"").unwrap()));
+        assert_eq!(Atom::string("foo\"bar"), second(tokenize("\"foo\\\"bar\"").unwrap()));
     }
 
     #[test]
     fn simple_read_tokens() {
-        let x = tokenize("(+ 1 2)").unwrap();
+        let x = second(tokenize("(+ 1 2)").unwrap());
 
         let l = as_list(&x);
 
@@ -240,7 +237,7 @@ mod tests {
 
     #[test]
     fn nested_read_tokens() {
-        let x = tokenize("(+ 1 (* 2 2))").unwrap();
+        let x = second(tokenize("(+ 1 (* 2 2))").unwrap());
 
         let l = as_list(&x);
 
@@ -257,7 +254,7 @@ mod tests {
 
     #[test]
     fn subexp_token_test() {
-        let x = tokenize("(+ 1 (+ 2 3) 4)").unwrap();
+        let x = second(tokenize("(+ 1 (+ 2 3) 4)").unwrap());
 
         let l = as_list(&x);
 
