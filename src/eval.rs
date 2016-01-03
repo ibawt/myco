@@ -22,26 +22,22 @@ fn print_list(list: &[Atom]) -> String {
 }
 
 fn eval_procedure(p: &Procedure, args: &[Atom], env: &mut Env) ->  AtomResult {
-    env.apply(&p.params, args);
+    let mut e = env.bind(&p.params, args);
 
     let res = p.body.iter()
-        .map(|node| eval(&node, env))
+        .map(|node| eval(&node, &mut e))
         .last().unwrap_or(Err(InvalidArguments));
-
-    env.pop();
 
     res
 }
 
 fn eval_macro(p: &Procedure, args: &[Atom], env: &mut Env) -> AtomResult {
-    env.apply(&p.params, args);
+    let mut e = env.bind(&p.params, args);
 
     let res = p.body.iter()
-        .map(|node| eval(&node, env))
+        .map(|node| eval(&node, &mut e))
         .last().unwrap_or(Err(InvalidArguments));
         
-    env.pop();
-
     res
 }
 
@@ -72,10 +68,11 @@ fn macroexpand(_: &[Atom], _: &Env) -> AtomResult {
     Err(NotImplemented)
 }
 
-fn make_proc(list: &[Atom]) -> AtomResult {
+fn make_proc(list: &[Atom], env: &Env) -> AtomResult {
     if let Atom::List(ref p) = list[1] {
         Ok(Atom::Function(Function::Proc(Procedure{ params: p.clone(),
-                                                    body: collect_body(list)})))
+                                                    body: collect_body(list),
+                                                    closures: Env::new(Some(env.clone()))})))
     } else {
         Err(InvalidArguments)
     }
@@ -99,7 +96,9 @@ fn macro_form(args: &[Atom], env: &mut Env) -> AtomResult {
 
     let body = args[2..].iter().map(|n| n.clone()).collect();
 
-    env.set(name, Atom::Function(Function::Macro(Procedure{ params: params, body: body})));
+    let closure_env = Env::new(Some(env.clone()));
+
+    env.set(name, Atom::Function(Function::Macro(Procedure{ params: params, body: body, closures: closure_env})));
 
     Ok(Atom::Symbol(name))
 }
@@ -176,7 +175,7 @@ fn eval_special_forms(f: Form, list: &[Atom], env: &mut Env) -> AtomResult {
             macro_form(&list[1..], env)
         }
         Fn => {
-            make_proc(&list)
+            make_proc(&list, env)
         },
         Quote => {
             quote(&list[1..])
@@ -294,6 +293,12 @@ pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
                 let args: Vec<Atom> = try!(list.iter().skip(1).map(|n| eval(&n, cur_env)).collect());
                 match *func {
                     Function::Proc(ref p) => {
+                        // cur_env.apply(&p.params, &list[1..]);
+                        // let mut v = vec![Atom::Form(Form::Do)];
+                        // for d in &p.body {
+                        //     v.push(d.clone());
+                        // }
+                        // cur_node = Atom::List(v);
                         return eval_procedure(p, &args, cur_env)
                     },
                     Function::Native(native) => {
@@ -318,14 +323,14 @@ mod tests {
 
     #[test]
     fn if_special_form() {
-        let x = eval(&tokenize("(if (= 1 1) true false)").unwrap(), &mut Env::new()).unwrap();
+        let x = eval(&tokenize("(if (= 1 1) true false)").unwrap(), &mut Env::new(None)).unwrap();
 
         assert_eq!(Atom::from(true), x);
     }
 
     #[test]
     fn if_special_form_false() {
-        let x = eval(&tokenize("(if (= 1 2) true false)").unwrap(), &mut Env::new()).unwrap();
+        let x = eval(&tokenize("(if (= 1 2) true false)").unwrap(), &mut Env::new(None)).unwrap();
 
         assert_eq!(Atom::Boolean(false), x);
     }
@@ -384,7 +389,7 @@ mod tests {
     }
 
     fn teval(s: &str) -> Atom {
-        let mut env = Env::new();
+        let mut env = Env::new(None);
         tokenize(s)
             .and_then(|n| eval(&n, &mut env)).unwrap()
     }
@@ -397,7 +402,7 @@ mod tests {
 
     #[test]
     fn symbol_resolving() {
-        let mut env = Env::new();
+        let mut env = Env::new(None);
 
         teval_env("(def foo 5)", &mut env).unwrap();
 
@@ -417,7 +422,7 @@ mod tests {
 
     #[test]
     fn simple_func() {
-        let mut env = Env::new();
+        let mut env = Env::new(None);
         let _ = eval(&tokenize("(def f (fn (r b) (+ r b)))").unwrap(), &mut env).unwrap();
         let res = eval(&tokenize("(f 2 3)").unwrap(), &mut env).unwrap();
 
@@ -438,7 +443,7 @@ mod tests {
 
     #[test]
     fn splice_macro() {
-        let mut env = Env::new();
+        let mut env = Env::new(None);
 
         teval_env("(defmacro foo (& a) `(list ~@a))", &mut env).unwrap();
 
@@ -472,14 +477,14 @@ mod tests {
 
     #[test]
     fn more_complex_macro() {
-        let mut env = Env::new();
+        let mut env = Env::new(None);
         teval_env("(defmacro unless (p a b) `(if (not ~p) ~a ~b))", &mut env).unwrap();
         assert_eq!(teval("3"), teval_env("(unless false 3 5)", &mut env).unwrap());
     }
 
     #[test]
     fn recursive_fibonacci() {
-        let mut env = Env::new();
+        let mut env = Env::new(None);
         teval_env("(def fibonacci (fn (n) (if (<= n 2) 1 (+ (fibonacci (- n 1)) (fibonacci (- n 2))))))", &mut env).unwrap();
 
         assert_eq!(teval("1"), teval_env("(fibonacci 0)", &mut env).unwrap());

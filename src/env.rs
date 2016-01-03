@@ -1,6 +1,23 @@
 use atom::*;
 use symbol;
-use std::fmt;
+
+use std::rc::Rc;
+use std::cell::RefCell;
+
+#[derive(Debug,PartialEq)]
+struct EnvGeneration {
+    value: Vec<Entry>,
+    parent: Option<Env>
+}
+
+impl EnvGeneration {
+    fn new(parent: Option<Env>) -> EnvGeneration {
+        EnvGeneration {
+            value: Vec::new(),
+            parent: parent
+        }
+    }
+}
 
 #[derive (Debug, Clone, PartialEq)]
 struct Entry {
@@ -8,45 +25,32 @@ struct Entry {
     value: Atom
 }
 
-#[derive (Debug, Clone)]
-pub struct Env {
-    def_map: Vec<Vec<Entry>>
-}
-
-impl fmt::Display for Env {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        try!(write!(f, "Env:"));
-        let mut level = self.def_map.len();
-
-        for i in self.def_map.iter().rev() { 
-            try!(write!(f, "Level: {}", level));
-
-            for entry in i.iter() {
-                try!(write!(f, " {} = {},", entry.key, entry.value));
-            }
-
-            level -= 1;
-            try!(write!(f, "\n"));
-        }
-        write!(f, "Env done")
-    }
-}
+#[derive (Debug, Clone, PartialEq)]
+pub struct Env(Rc<RefCell<EnvGeneration>>);
 
 impl Env {
-    pub fn new() -> Env {
-        Env { def_map: vec![vec![]] }
+    pub fn new(parent: Option<Env>) -> Env {
+        Env(Rc::new(RefCell::new(EnvGeneration::new(parent))))
     }
 
-    fn find(&self, key: &str) -> Option<&Atom> {
-        for env_map in self.def_map.iter().rev() {
-            if let Some(entry) = env_map.iter().find(|entry| entry.key.as_ref() == key ) {
-                return Some(&entry.value)
+    fn find(&self, key: &str) -> Option<Atom> {
+        let gen = self.0.borrow();
+        let value = &gen.value;
+        match value.iter().find(|entry| entry.key.as_ref() == key) {
+            Some(ref entry) => {
+                Some(entry.value.clone())
+            },
+            None => {
+                if let Some(ref parent) = gen.parent {
+                    parent.find(key)
+                } else {
+                    None
+                }
             }
         }
-        None
     }
 
-    pub fn apply(&mut self, params: &[Atom], args: &[Atom]) {
+    pub fn bind(&mut self, params: &[Atom], args: &[Atom]) -> Env {
         let mut arg_map = vec![];
         let mut params_iter = params.iter();
         let mut args_iter = args.iter();
@@ -65,21 +69,22 @@ impl Env {
             }
         }
 
-        self.def_map.push(arg_map);
-    }
-
-    pub fn pop(&mut self) {
-        self.def_map.pop();
+        let env_gen = EnvGeneration {
+            value: arg_map,
+            parent: Some(self.clone())
+        };
+        Env(Rc::new(RefCell::new(env_gen)))
     }
 
     pub fn get(&self, key: &str) -> Option<Atom> {
-        self.find(key).map(|x| x.clone())
+        self.find(key)
     }
 
     pub fn set(&mut self, key: symbol::InternedStr, value: Atom) {
-        if let Some(v) = self.def_map.last_mut() {
-            v.push( Entry { key: key, value: value } );
-        }
+        self.0.borrow_mut().value.push(Entry {
+            key: key,
+            value: value
+        });
     }
 
     pub fn resolve_symbols(&self, v: &[Atom]) -> Vec<Atom> {
@@ -98,36 +103,30 @@ impl Env {
 mod tests {
     use self::super::*;
     use atom::*;
+    use symbol::*;
 
     #[test]
     fn nested_get() {
-        let mut env = Env::new();
+        let mut env = Env::new(None);
 
-        let params = vec![Atom::symbol("a"), Atom::symbol("b")];
-        let args = vec![Atom::from(0), Atom::from(1)];
+        env.set(intern("foo"), Atom::String("bar".to_owned()));
 
-        env.apply(&params, &args);
+        let env2 = Env::new(Some(env.clone()));
 
-        assert_eq!(Atom::from(0), env.get("a").unwrap());
-
-        env.apply(&params, &vec![Atom::from(5)]);
-
-        assert_eq!(Atom::from(5), env.get("a").unwrap());
-
-        assert_eq!(Atom::from(1), env.get("b").unwrap());
+        assert_eq!(Atom::String("bar".to_owned()), env2.get(intern("foo").as_ref()).unwrap());
     }
 
     #[test]
     fn splat() {
-        let mut env = Env::new();
+        // let mut env = Env::new(None);
 
-        let params = vec![Atom::symbol("&"), Atom::symbol("body")];
+        // let params = vec![Atom::symbol("&"), Atom::symbol("body")];
 
-        env.apply(&params, &vec![Atom::from(0), Atom::from(1), Atom::from(2)]);
+        // env.apply(&params, &vec![Atom::from(0), Atom::from(1), Atom::from(2)]);
 
-        let body = env.get("body").unwrap();
+        // let body = env.get("body").unwrap();
 
-        assert_eq!(Atom::List(vec![Atom::from(0), Atom::from(1), Atom::from(2)]), body);
+        // assert_eq!(Atom::List(vec![Atom::from(0), Atom::from(1), Atom::from(2)]), body);
     }
 
 }

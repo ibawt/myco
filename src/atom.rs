@@ -1,6 +1,7 @@
 use errors::Error;
 use number::*;
 use symbol;
+use env::Env;
 
 #[derive (Debug, Clone, PartialEq, Copy)]
 pub enum Form {
@@ -36,10 +37,12 @@ impl fmt::Display for Form {
     }
 }
 
+
 #[derive (Debug, Clone, PartialEq)]
 pub struct Procedure {
     pub params: List,
     pub body: List,
+    pub closures: Env
 }
 
 #[derive (Debug, Clone, PartialEq)]

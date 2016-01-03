@@ -19,7 +19,7 @@ use errors::Error;
 
 fn repl() {
     println!("Rust Lisp!");
-    let mut env = Env::new();
+    let mut env = Env::new(None);
 
     base_lib::init(&mut env).unwrap();
 
