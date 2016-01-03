@@ -46,16 +46,16 @@ fn append(args: &[Atom], _: &Env) -> AtomResult {
     }
 }
 
-fn print(args: &[Atom], env: &Env) -> AtomResult {
-    for i in env.resolve_symbols(args) {
+fn print(args: &[Atom], _: &Env) -> AtomResult {
+    for i in args {
         println!("{} ", i);
     }
 
     Ok(Atom::Nil)
 }
 
-fn first(args: &[Atom], env: &Env) -> AtomResult {
-    if let Some(p) = env.resolve_symbols(args).first() {
+fn first(args: &[Atom], _: &Env) -> AtomResult {
+    if let Some(p) = args.first() {
         match *p {
             Atom::List(ref list) => {
                 if let Some(f) = list.first() {
@@ -71,12 +71,12 @@ fn first(args: &[Atom], env: &Env) -> AtomResult {
     }
 }
 
-fn rest(args: &[Atom], env: &Env) -> AtomResult {
+fn rest(args: &[Atom], _: &Env) -> AtomResult {
     if args.len() < 1 {
         return Err(NotEnoughArguments)
     }
 
-    match env.resolve_symbols(args)[0] {
+    match args[0] {
         Atom::List(ref list) => {
             Ok(Atom::List(list.iter().skip(1).map(|x| x.clone()).collect()))
         },
@@ -84,12 +84,12 @@ fn rest(args: &[Atom], env: &Env) -> AtomResult {
     }
 }
 
-fn list(args: &[Atom], env: &Env) -> AtomResult {
-    Ok(Atom::List(env.resolve_symbols(args).iter().map(|n| n.clone()).collect()))
+fn list(args: &[Atom], _: &Env) -> AtomResult {
+    Ok(Atom::List(args.iter().map(|n| n.clone()).collect()))
 }
 
-fn not(args: &[Atom], env: &Env) -> AtomResult {
-    env.resolve_symbols(args).first().ok_or(NotEnoughArguments)
+fn not(args: &[Atom], _: &Env) -> AtomResult {
+    args.first().ok_or(NotEnoughArguments)
         .map(|a|
              Atom::from(match *a {
                  Atom::Boolean(b) => !b,
@@ -120,8 +120,8 @@ pub fn eval_native(n: Native, args: &[Atom], env: &mut Env) -> AtomResult {
     }
 }
 
-fn equals(args: &[Atom], env: &Env) -> AtomResult {
-    if let Some(v) = env.resolve_symbols(args).first() {
+fn equals(args: &[Atom], _: &Env) -> AtomResult {
+    if let Some(v) = args.first() {
         for i in args.iter().skip(1) {
             if v != i {
                 return Ok(Atom::Boolean(false))
@@ -133,10 +133,10 @@ fn equals(args: &[Atom], env: &Env) -> AtomResult {
     }
 }
 
-fn add(v: &[Atom], env: &Env) -> AtomResult {
+fn add(v: &[Atom], _: &Env) -> AtomResult {
     let mut result = Number::Integer(0);
 
-    for i in env.resolve_symbols(v).iter() {
+    for i in v.iter() {
         match *i {
             Atom::Number(d) => {
                 result = result + d;
@@ -160,22 +160,19 @@ enum Comparison {
 
 use self::Comparison::*;
 
-fn cmp(v: &[Atom], env: &Env, cmp: Comparison) -> AtomResult {
+fn cmp(v: &[Atom], _: &Env, cmp: Comparison) -> AtomResult {
     if v.len() < 2 {
         return Err(NotEnoughArguments)
     }
 
-    let vv = env.resolve_symbols(v);
-    // println!("vv = {:?}", vv);
-    let initial = match vv[0] {
+    let initial = match v[0] {
         Atom::Number(a) => a,
         _ => {
-            // println!("top of cmp");
             return Err(UnexpectedType)
         }
     };
 
-    for i in vv.iter().skip(1) {
+    for i in v.iter().skip(1) {
         match *i {
             Atom::Number(d) => {
                 let b = match cmp {
@@ -199,14 +196,12 @@ fn cmp(v: &[Atom], env: &Env, cmp: Comparison) -> AtomResult {
     Ok(Atom::Boolean(true))
 }
 
-fn sub(v: &[Atom], env: &Env) -> AtomResult {
+fn sub(v: &[Atom], _: &Env) -> AtomResult {
     if v.len() < 1 {
         return Err(InvalidArguments)
     }
 
-    let vv = env.resolve_symbols(v);
-
-    let mut result = match vv[0] {
+    let mut result = match v[0] {
         Atom::Number(d) => d,
         _ => {
             // println!("over here");
@@ -214,7 +209,7 @@ fn sub(v: &[Atom], env: &Env) -> AtomResult {
         }
     };
 
-    for i in vv.iter().skip(1) {
+    for i in v.iter().skip(1) {
         match *i {
             Atom::Number(d) => result = result - d,
             _ => {
@@ -227,19 +222,17 @@ fn sub(v: &[Atom], env: &Env) -> AtomResult {
     Ok(Atom::Number(result))
 }
 
-fn mul(v: &[Atom], env: &Env) -> AtomResult {
+fn mul(v: &[Atom], _: &Env) -> AtomResult {
     if v.len() < 2 {
         return Err(NotEnoughArguments)
     }
 
-    let vv = env.resolve_symbols(v);
-
-    let mut initial = match vv[0] {
+    let mut initial = match v[0] {
         Atom::Number(d) => d,
         _ => return Err(InvalidArguments)
     };
 
-    for i in vv.iter().skip(1) {
+    for i in v.iter().skip(1) {
         match *i {
             Atom::Number(d) => initial = initial * d,
             _ => return Err(InvalidArguments)
@@ -248,19 +241,17 @@ fn mul(v: &[Atom], env: &Env) -> AtomResult {
     Ok(Atom::Number(initial))
 }
 
-fn div(v: &[Atom], env: &Env) -> AtomResult {
+fn div(v: &[Atom], _: &Env) -> AtomResult {
     if v.len() < 2 {
         return Err(NotEnoughArguments)
     }
 
-    let vv = env.resolve_symbols(v);
-
-    let mut initial = match vv[0] {
+    let mut initial = match v[0] {
         Atom::Number(d) => d,
         _ => return Err(InvalidArguments)
     };
 
-    for i in vv.iter().skip(1) {
+    for i in v.iter().skip(1) {
         match *i {
             Atom::Number(d) => initial = initial / d,
             _ => return Err(InvalidArguments)
@@ -268,3 +259,4 @@ fn div(v: &[Atom], env: &Env) -> AtomResult {
     }
     Ok(Atom::Number(initial))
 }
+

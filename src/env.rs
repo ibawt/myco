@@ -86,17 +86,6 @@ impl Env {
             value: value
         });
     }
-
-    pub fn resolve_symbols(&self, v: &[Atom]) -> Vec<Atom> {
-        v.iter().map(|x| self.resolve_atom(x)).collect()
-    }
-
-    pub fn resolve_atom(&self, a: &Atom) -> Atom {
-        match *a {
-            Atom::Symbol(ref s ) => self.get(s).unwrap_or(Atom::Nil),
-            _ => a.clone()
-        }
-    }
 }
 
 #[cfg(test)]
