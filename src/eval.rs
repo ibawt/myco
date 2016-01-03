@@ -198,7 +198,6 @@ fn macro_expand(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
 }
 
 pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
-//    println!("eval: {}", node);
     let mut cur_node = node.clone(); // FIXME: shitty clone
     let mut cur_env = env;
 
@@ -233,9 +232,9 @@ pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
                         if list.len() == 1 {
                             return Ok(Atom::Nil)
                         }
-                        if list.len() > 3 {
-                            for node in &list[1..list.len()-2] {
-                                try!(eval(node, cur_env));
+                        if list.len() > 2 {
+                            for i in 1..list.len()-1 {
+                                try!(eval(&list[i], cur_env));
                             }
                         }
                         cur_node = list[list.len()-1].clone();
@@ -278,7 +277,10 @@ pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
                     }
                 }
             },
-            _ => return Err(Error::NotAFunction)
+            _ => {
+                println!("{} isnt' a function", list[0]);
+                return Err(Error::NotAFunction)
+            }
         }
     }
 }
