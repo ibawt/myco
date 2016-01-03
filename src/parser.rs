@@ -5,17 +5,26 @@ use std::io::prelude::*;
 
 pub fn tokenize(line: &str) -> ParseResult {
     let mut chars = line.chars().peekable();
-    read_tokens(&mut chars)
-    // let mut out: Vec<Atom> = vec![];
-    // while let Some(_) = chars.peek() {
-    //     out.push(try!(read_tokens(&mut chars)));
-    // }
 
-    // if out.len() == 1 {
-    //     Ok(out[0].clone())
-    // } else {
-    //     Ok(Atom::List(out))
-    // }
+    let mut v = vec![Atom::Form(Form::Do)];
+
+    while let Some(_) = chars.peek() {
+        match read_tokens(&mut chars) {
+            Ok(a) => {
+                v.push(a);
+            },
+            Err(Error::EoF) => {
+                ()
+            }
+            _ => ()
+        }
+    }
+
+    if v.len() == 1 {
+        return Err(Error::EoF)
+    }
+
+    Ok(Atom::List(v))
 }
 
 pub type ParseResult = Result<Atom, Error>;
@@ -119,7 +128,7 @@ fn make_quote_form(f: Form, chars: &mut Peekable<Chars> ) -> ParseResult {
 }
 
 fn read_tokens(chars: &mut Peekable<Chars>) -> ParseResult {
-    let token = try!(try!(next(chars)).ok_or(Error::Parser));
+    let token = try!(try!(next(chars)).ok_or(Error::EoF));
 
     match token {
         Token::Open => {
@@ -187,26 +196,33 @@ mod tests {
         Atom::parse(s)
     }
 
+    fn second(a: Atom) -> Atom {
+        match a {
+            Atom::List(ref l) => l[1].clone(),
+            _ => panic!()
+        }
+    }
+
 
     #[test]
     fn naked_atoms() {
-        assert_eq!(Atom::from(0), tokenize("0").unwrap());
-        assert_eq!(Atom::from(512), tokenize("512").unwrap());
-        assert_eq!(Atom::from(-512), tokenize("-512").unwrap());
-        assert_eq!(Atom::from(5.0f64), tokenize("5.0").unwrap());
-        assert_eq!(Atom::string("foo bar"), tokenize("\"foo bar\"").unwrap());
-        assert_eq!(Atom::symbol("foo"), tokenize("foo").unwrap());
+        assert_eq!(Atom::from(0), second(tokenize("0").unwrap()));
+        assert_eq!(Atom::from(512), second(tokenize("512").unwrap()));
+        assert_eq!(Atom::from(-512), second(tokenize("-512").unwrap()));
+        assert_eq!(Atom::from(5.0f64), second(tokenize("5.0").unwrap()));
+        assert_eq!(Atom::string("foo bar"), second(tokenize("\"foo bar\"").unwrap()));
+        assert_eq!(Atom::symbol("foo"), second(tokenize("foo").unwrap()));
     }
 
     #[test]
     fn string_escaping() {
-        assert_eq!(Atom::string("foo'bar"), tokenize("\"foo\\'bar\"").unwrap());
-        assert_eq!(Atom::string("foo\"bar"), tokenize("\"foo\\\"bar\"").unwrap());
+        assert_eq!(Atom::string("foo'bar"), second(tokenize("\"foo\\'bar\"").unwrap()));
+        assert_eq!(Atom::string("foo\"bar"), second(tokenize("\"foo\\\"bar\"").unwrap()));
     }
 
     #[test]
     fn simple_read_tokens() {
-        let x = tokenize("(+ 1 2)").unwrap();
+        let x = second(tokenize("(+ 1 2)").unwrap());
 
         let l = as_list(&x);
 
@@ -221,7 +237,7 @@ mod tests {
 
     #[test]
     fn nested_read_tokens() {
-        let x = tokenize("(+ 1 (* 2 2))").unwrap();
+        let x = second(tokenize("(+ 1 (* 2 2))").unwrap());
 
         let l = as_list(&x);
 
@@ -238,7 +254,7 @@ mod tests {
 
     #[test]
     fn subexp_token_test() {
-        let x = tokenize("(+ 1 (+ 2 3) 4)").unwrap();
+        let x = second(tokenize("(+ 1 (+ 2 3) 4)").unwrap());
 
         let l = as_list(&x);
 

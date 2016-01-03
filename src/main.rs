@@ -1,6 +1,7 @@
 extern crate readline;
 #[macro_use]
 extern crate lazy_static;
+extern crate smallvec;
 
 mod errors;
 mod number;
@@ -19,7 +20,7 @@ use errors::Error;
 
 fn repl() {
     println!("Rust Lisp!");
-    let mut env = Env::new();
+    let mut env = Env::new(None);
 
     base_lib::init(&mut env).unwrap();
 
