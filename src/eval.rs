@@ -225,6 +225,39 @@ pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
         match list[0] {
             Atom::Form(f) => {
                 match f {
+                    Form::Let => {
+                        // let ((b v) (b' v')) body
+                        let mut env = Env::new(Some(cur_env.clone()));
+
+                        match list[1] {
+                            Atom::List(ref bind_list) => {
+                                for binding in bind_list {
+                                    match *binding {
+                                        Atom::List(ref bind_exp) => {
+                                            if bind_exp.len() != 2 {
+                                                return Err(Error::InvalidArguments)
+                                            }
+
+                                            match bind_exp[0] {
+                                                Atom::Symbol(sym) => {
+                                                    let value = try!(eval(&bind_exp[1], &mut env));
+                                                    try!(env.define(sym, value));
+                                                },
+                                                _ => return Err(Error::InvalidArguments)
+                                            }
+                                        },
+                                        _ => {
+                                            return Err(Error::InvalidArguments)
+                                        }
+                                    }
+                                }
+                            },
+                            _ => return Err(Error::InvalidArguments)
+                        }
+
+                        cur_node = list[2].clone();
+                        *cur_env = env;
+                    }
                     Form::Set => {
                         if list.len() < 3 {
                             return Err(Error::InvalidArguments)

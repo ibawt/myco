@@ -6,6 +6,7 @@ use env::Env;
 #[derive (Debug, Clone, PartialEq, Copy)]
 pub enum Form {
     Def,
+    Let,
     Set,
     Do,
     Macro,
@@ -23,6 +24,7 @@ impl fmt::Display for Form {
         use self::Form::*;
 
         let s = match *self {
+            Let => "let*",
             Def => "def",
             Set => "set!",
             Do => "do",
@@ -229,6 +231,7 @@ fn find_native(t: &str) -> Option<Atom> {
 fn find_form(t: &str) -> Option<Atom> {
     use self::Form::*;
     let form = match t {
+        "let*" => Let,
         "def" => Def,
         "set!" => Set,
         "do" => Do,
