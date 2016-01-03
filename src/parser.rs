@@ -5,7 +5,26 @@ use std::io::prelude::*;
 
 pub fn tokenize(line: &str) -> ParseResult {
     let mut chars = line.chars().peekable();
-    read_tokens(&mut chars)
+
+    let mut v = vec![Atom::Form(Form::Do)];
+
+    while let Some(_) = chars.peek() {
+        match read_tokens(&mut chars) {
+            Ok(a) => {
+                v.push(a);
+            },
+            Err(Error::EoF) => {
+                ()
+            }
+            _ => ()
+        }
+    }
+
+    if v.len() == 1 {
+        return Err(Error::EoF)
+    }
+
+    Ok(Atom::List(v))
     // let mut out: Vec<Atom> = vec![];
     // while let Some(_) = chars.peek() {
     //     out.push(try!(read_tokens(&mut chars)));
@@ -119,7 +138,7 @@ fn make_quote_form(f: Form, chars: &mut Peekable<Chars> ) -> ParseResult {
 }
 
 fn read_tokens(chars: &mut Peekable<Chars>) -> ParseResult {
-    let token = try!(try!(next(chars)).ok_or(Error::Parser));
+    let token = try!(try!(next(chars)).ok_or(Error::EoF));
 
     match token {
         Token::Open => {

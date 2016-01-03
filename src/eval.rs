@@ -426,17 +426,6 @@ mod tests {
     fn back_tick_simple_list() {
         assert_eq!(teval("'(1 2)"), teval("`(1 2)"));
     }
-    // #[test]
-    //  fn simple_macro() {
-    //      let mut env = Env::new();
-    //      teval_env("(defmacro m () '(+ 3 5))", &mut env).unwrap();
-    //      assert_eq!(teval("'(+ 3 5)"), teval_env("(macroexpand '(m))", &mut env).unwrap());
-
-    //      teval_env("(def mm (macro () (+ 3 5)))", &mut env).unwrap();
-    //      assert_eq!(teval("8"), teval_env("(macroexpand '(mm))", &mut env).unwrap());
-
-    //      assert_eq!(teval("8"), teval_env("(m)", &mut env).unwrap());
-    //      assert_eq!(teval("8"), teval_env("(mm)", &mut env).unwrap());
 
     #[test]
     fn back_tick_subst() {
@@ -453,12 +442,10 @@ mod tests {
 
     #[test]
     fn recursive_fibonacci() {
-        let mut env = Env::new(None);
-        teval_env("(def fibonacci (fn (n) (if (<= n 2) 1 (+ (fibonacci (- n 1)) (fibonacci (- n 2))))))", &mut env).unwrap();
+        // need a tail call version 
+        let t = include_str!("../test/recursion.lisp");
 
-        assert_eq!(teval("1"), teval_env("(fibonacci 0)", &mut env).unwrap());
-        assert_eq!(teval("2"), teval_env("(fibonacci 3)", &mut env).unwrap());
-        assert_eq!(teval("55"), teval_env("(fibonacci 10)", &mut env).unwrap());
+        assert_eq!(teval(t), teval("9227465"));
     }
 
     #[test]
@@ -475,5 +462,13 @@ mod tests {
 
         assert_eq!(teval_env("(sum2 10 0)", &mut env).unwrap(), teval("55"));
         assert_eq!(teval_env("(sum2 10000 0)", &mut env).unwrap(), teval("50005000"));
+
+
+        teval_env("(def foo (fn (n) (if (= n 0) 0 (bar (- n 1)))))", &mut env).unwrap();
+        teval_env("(def bar (fn (n) (if (= n 0) 0 (foo (- n 1)))))", &mut env).unwrap();
+
+        assert_eq!(teval_env("(foo 10000)", &mut env).unwrap(), teval("0"));
+        teval_env("(def sum-to (fn (n) (if (= n 0) 0 (+ n (sum-to (- n 1))))))", &mut env).unwrap();
+        assert_eq!(teval_env("(sum-to 10)", &mut env).unwrap(), teval("55"));
     }
 }
