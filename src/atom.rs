@@ -2,9 +2,11 @@ use errors::Error;
 use number::*;
 use symbol;
 use env::Env;
+
 #[derive (Debug, Clone, PartialEq, Copy)]
 pub enum Form {
     Def,
+    Set,
     Do,
     Macro,
     Fn,
@@ -22,6 +24,7 @@ impl fmt::Display for Form {
 
         let s = match *self {
             Def => "def",
+            Set => "set!",
             Do => "do",
             Macro => "defmacro",
             Fn => "fn",
@@ -227,6 +230,7 @@ fn find_form(t: &str) -> Option<Atom> {
     use self::Form::*;
     let form = match t {
         "def" => Def,
+        "set!" => Set,
         "do" => Do,
         "fn" => Fn,
         "quote" => Quote,

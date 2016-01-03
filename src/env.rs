@@ -1,5 +1,6 @@
 use atom::*;
 use symbol;
+use errors::*;
 
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -16,6 +17,10 @@ impl EnvGeneration {
             value: Vec::new(),
             parent: parent
         }
+    }
+
+    fn find(&self, key: &str) -> Option<&Entry> {
+        self.value.iter().find(|entry| entry.key.as_ref() == key )
     }
 }
 
@@ -80,11 +85,35 @@ impl Env {
         self.find(key)
     }
 
-    pub fn set(&mut self, key: symbol::InternedStr, value: Atom) {
+    pub fn define(&mut self, key: symbol::InternedStr, value: Atom) -> Result<Atom, Error> {
+        if let Some(_) = self.0.borrow().find(key.as_ref()) {
+            return Err(Error::InvalidArguments)
+        }
         self.0.borrow_mut().value.push(Entry {
             key: key,
             value: value
         });
+        Ok(Atom::Symbol(key))
+    }
+
+    pub fn set(&mut self, key: symbol::InternedStr, value: Atom) -> Result<Atom, Error> {
+        {
+            // set in current generation
+            let mut gen = self.0.borrow_mut();
+            match gen.value.iter_mut().find(|entry| entry.key == key) {
+                Some(mut entry) => {
+                    entry.value = value;
+                    return Ok(Atom::Symbol(key))
+                },
+                _ => ()
+            }
+        }
+
+        if let Some(ref mut parent) = self.0.borrow_mut().parent {
+            parent.set(key, value)
+        } else {
+            Err(Error::InvalidArguments)
+        }
     }
 }
 
@@ -92,13 +121,14 @@ impl Env {
 mod tests {
     use self::super::*;
     use atom::*;
+    use errors::*;
     use symbol::*;
 
     #[test]
     fn nested_get() {
         let mut env = Env::new(None);
 
-        env.set(intern("foo"), Atom::String("bar".to_owned()));
+        env.define(intern("foo"), Atom::String("bar".to_owned())).unwrap();
 
         let env2 = Env::new(Some(env.clone()));
 
@@ -116,6 +146,27 @@ mod tests {
         let body = e.get("body").unwrap();
 
         assert_eq!(Atom::List(vec![Atom::from(0), Atom::from(1), Atom::from(2)]), body);
+    }
+
+    #[test]
+    fn define() {
+        let mut env = Env::new(None);
+
+        env.define(intern("foo"), Atom::string("bar")).unwrap();
+
+        assert_eq!(Err(Error::InvalidArguments), env.set(intern("bar"), Atom::string("foo")));
+
+        let mut env2 = Env::new(Some(env.clone()));
+
+        env2.set(intern("foo"), Atom::parse("0")).unwrap();
+
+        assert_eq!(Atom::parse("0"), env.get("foo").unwrap());
+        assert_eq!(Atom::parse("0"), env2.get("foo").unwrap());
+
+        env2.define(intern("foo"), Atom::string("baz")).unwrap();
+
+        assert_eq!(Atom::string("baz"), env2.get("foo").unwrap());
+        assert_eq!(Atom::parse("0"), env.get("foo").unwrap());
     }
 
 }

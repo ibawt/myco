@@ -40,8 +40,7 @@ fn define(args: &[Atom], env: &mut Env) -> AtomResult {
 
     if let Atom::Symbol(ref key) = args[0] {
         let value = try!(eval(&args[1], env));
-        env.set(key.clone(), value);
-        Ok(Atom::Nil)
+        env.define(key.clone(), value)
     } else {
         Err(Error::InvalidArguments)
     }
@@ -94,9 +93,7 @@ fn macro_form(args: &[Atom], env: &mut Env) -> AtomResult {
         closures: Env::new(Some(env.clone()))
     };
 
-    env.set(name, Atom::Function(Function::Macro(p)));
-
-    Ok(Atom::Symbol(name))
+    env.define(name, Atom::Function(Function::Macro(p)))
 }
 
 fn expand_quasiquote(node: &Atom, env: &mut Env) -> AtomResult {
@@ -228,6 +225,19 @@ pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
         match list[0] {
             Atom::Form(f) => {
                 match f {
+                    Form::Set => {
+                        if list.len() < 3 {
+                            return Err(Error::InvalidArguments)
+                        }
+
+                        match list[1] {
+                            Atom::Symbol(sym) => {
+                                let arg = try!(eval(&list[2], cur_env));
+                                return cur_env.set(sym, arg)
+                            },
+                            _ => return Err(Error::InvalidArguments)
+                        }
+                    },
                     Form::Do => {
                         if list.len() == 1 {
                             return Ok(Atom::Nil)
