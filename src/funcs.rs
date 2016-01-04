@@ -117,7 +117,8 @@ pub fn eval_native(n: Native, args: &[Atom], env: &mut Env) -> AtomResult {
         List => list(args, env),
         Cons => cons(args, env),
         Append => append(args, env),
-        Print => print(args, env)
+        Print => print(args, env),
+        Error => error(args, env)
     }
 }
 
@@ -160,6 +161,10 @@ enum Comparison {
 }
 
 use self::Comparison::*;
+
+fn error(_: &[Atom], _: &Env) -> AtomResult {
+    Err(RuntimeAssertion)
+}
 
 fn cmp(v: &[Atom], _: &Env, cmp: Comparison) -> AtomResult {
     if v.len() < 2 {

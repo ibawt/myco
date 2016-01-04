@@ -6,6 +6,7 @@ use env::Env;
 #[derive (Debug, Clone, PartialEq, Copy)]
 pub enum Form {
     Def,
+    Let,
     Set,
     Do,
     Macro,
@@ -23,6 +24,7 @@ impl fmt::Display for Form {
         use self::Form::*;
 
         let s = match *self {
+            Let => "let*",
             Def => "def",
             Set => "set!",
             Do => "do",
@@ -97,7 +99,8 @@ pub enum Native {
     List,
     Cons,
     Append,
-    Print
+    Print,
+    Error
 }
 
 impl fmt::Display for Native {
@@ -120,7 +123,8 @@ impl fmt::Display for Native {
             List => write!(f, "list"),
             Append => write!(f, "append"),
             Cons => write!(f, "cons"),
-            Print => write!(f, "print")
+            Print => write!(f, "print"),
+            Error => write!(f, "error")
         }
     }
 }
@@ -221,6 +225,7 @@ fn find_native(t: &str) -> Option<Atom> {
         "append" => Append,
         "cons" => Cons,
         "print" => Print,
+        "error" => Error,
         _ => return None
     };
     Some(Atom::Function(Function::Native(native)))
@@ -229,6 +234,7 @@ fn find_native(t: &str) -> Option<Atom> {
 fn find_form(t: &str) -> Option<Atom> {
     use self::Form::*;
     let form = match t {
+        "let*" => Let,
         "def" => Def,
         "set!" => Set,
         "do" => Do,
