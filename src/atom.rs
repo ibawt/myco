@@ -67,8 +67,9 @@ impl fmt::Display for Function {
         }
     }
 }
+use std::rc::Rc;
 
-pub type List = Vec<Atom>;
+pub type List = Rc<Vec<Atom>>;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Atom {
@@ -166,6 +167,10 @@ impl Atom {
             Atom::List(ref list) => !list.is_empty(),
             _ => false
         }
+    }
+
+    pub fn list(v: Vec<Atom>) -> Atom {
+        Atom::List(Rc::new(v))
     }
 }
 

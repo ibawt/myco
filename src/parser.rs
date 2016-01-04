@@ -24,7 +24,7 @@ pub fn tokenize(line: &str) -> ParseResult {
         return Err(Error::EoF)
     }
 
-    Ok(Atom::List(v))
+    Ok(Atom::list(v))
 }
 
 pub type ParseResult = Result<Atom, Error>;
@@ -121,10 +121,10 @@ fn next(iter: &mut Peekable<Chars>) -> Result<Option<Token>, Error> {
 }
 
 fn make_quote_form(f: Form, chars: &mut Peekable<Chars> ) -> ParseResult {
-    let mut list = List::with_capacity(2);
+    let mut list = Vec::with_capacity(2);
     list.push(Atom::Form(f));
     list.push(try!(read_tokens(chars)));
-    Ok(Atom::List(list))
+    Ok(Atom::list(list))
 }
 
 fn read_tokens(chars: &mut Peekable<Chars>) -> ParseResult {
@@ -132,7 +132,7 @@ fn read_tokens(chars: &mut Peekable<Chars>) -> ParseResult {
 
     match token {
         Token::Open => {
-            let mut node = List::new();
+            let mut node = Vec::new();
 
             loop {
                 match chars.peek() {
@@ -150,7 +150,7 @@ fn read_tokens(chars: &mut Peekable<Chars>) -> ParseResult {
                 }
             }
 
-            Ok(Atom::List(node))
+            Ok(Atom::list(node))
         },
         Token::Close => {
             Err(Error::Parser)

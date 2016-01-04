@@ -11,10 +11,10 @@ fn cons(args: &[Atom], _: &Env) -> AtomResult {
     match args[1] {
         Atom::List(ref list) => {
             let mut v = vec![args[0].clone()];
-            for i in list {
+            for i in list.as_ref() {
                 v.push(i.clone());
             }
-            Ok(Atom::List(v))
+            Ok(Atom::list(v))
         }
         _ => {
             Err(InvalidArguments)
@@ -32,13 +32,13 @@ fn append(args: &[Atom], _: &Env) -> AtomResult {
 
     match (a, b) {
         (&Atom::List(ref a), &Atom::List(ref b)) => {
-            Ok(Atom::List(a.iter().chain(b.iter()).map(|n| n.clone()).collect()))
+            Ok(Atom::list(a.iter().chain(b.iter()).map(|n| n.clone()).collect()))
         },
         (&Atom::List(ref a), &Atom::Nil) => {
-            Ok(Atom::List(a.iter().map(|n| n.clone()).collect()))
+            Ok(Atom::list(a.iter().map(|n| n.clone()).collect()))
         }
         (_, &Atom::Nil) => {
-            Ok(Atom::List(vec![a.clone()]))
+            Ok(Atom::list(vec![a.clone()]))
         }
         _ => {
             Err(InvalidArguments)
@@ -79,14 +79,14 @@ fn rest(args: &[Atom], _: &Env) -> AtomResult {
 
     match args[0] {
         Atom::List(ref list) => {
-            Ok(Atom::List(list.iter().skip(1).map(|x| x.clone()).collect()))
+            Ok(Atom::list(list.iter().skip(1).map(|x| x.clone()).collect()))
         },
         _ => Err(InvalidArguments)
     }
 }
 
 fn list(args: &[Atom], _: &Env) -> AtomResult {
-    Ok(Atom::List(args.iter().map(|n| n.clone()).collect()))
+    Ok(Atom::list(args.iter().map(|n| n.clone()).collect()))
 }
 
 fn not(args: &[Atom], _: &Env) -> AtomResult {

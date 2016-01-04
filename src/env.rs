@@ -64,7 +64,7 @@ impl Env {
             if sym.as_ref() == "&" {
                 if let Some(&Atom::Symbol(ref splat)) = params_iter.next() {
                     let vals = args_iter.map(|a| a.clone()).collect();
-                    arg_map.push(Entry { key: splat.clone(), value: Atom::List(vals) });
+                    arg_map.push(Entry { key: splat.clone(), value: Atom::list(vals) });
                     break;
                 }
             } else {
@@ -145,7 +145,7 @@ mod tests {
 
         let body = e.get("body").unwrap();
 
-        assert_eq!(Atom::List(vec![Atom::from(0), Atom::from(1), Atom::from(2)]), body);
+        assert_eq!(Atom::list(vec![Atom::from(0), Atom::from(1), Atom::from(2)]), body);
     }
 
     #[test]
