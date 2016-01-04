@@ -25,11 +25,7 @@ fn print_list(list: &[Atom]) -> String {
 fn eval_macro(p: &Procedure, args: &[Atom], env: &mut Env) -> AtomResult {
     let mut e = env.bind(&p.params, args);
 
-    let res = p.body.iter()
-        .map(|node| eval(&node, &mut e))
-        .last().unwrap_or(Err(InvalidArguments));
-
-    res
+    eval(&Atom::List(p.body.clone()), &mut e)
 }
 
 
@@ -87,8 +83,14 @@ fn macro_form(args: &[Atom], env: &mut Env) -> AtomResult {
         _ => return Err(InvalidArguments)
     };
 
+    let mut body = Vec::with_capacity(args.len()-1);
+    body.push(Atom::Form(Form::Do));
+    for node in &args[2..] {
+        body.push(node.clone());
+    }
+
     let p = Procedure {
-        body: args[2..].iter().map(|n| n.clone()).collect(),
+        body: body,
         params: params,
         closures: Env::new(Some(env.clone()))
     };
@@ -175,18 +177,30 @@ pub fn eval_node(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
 
 fn macro_expand(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
     match *node {
-        Atom::List(ref list) => {
+        Atom::List(ref list) if !list.is_empty() => {
             match list[0] {
                 Atom::Symbol(ref sym) => {
                     if let Some(Atom::Function(Function::Macro(ref m))) = env.get(sym.as_ref()) {
                         return macro_expand(&try!(eval_macro(m, &list[1..], env)), env)
                     }
                 },
-                Atom::Function(Function::Macro(ref m)) => {
-                    return macro_expand(&try!(eval_macro(m, &list[1..], env)), env)
+                Atom::Form(Form::Fn) => {
+                    if list.len() < 3 {
+                        return Err(Error::InvalidArguments)
+                    }
+                    let mut out = vec![list[0].clone(), list[1].clone()];
+
+                    for i in &list[2..] {
+                        out.push(try!(macro_expand(i, env)));
+                    }
+                    return Ok(Atom::List(out))
+                }
+                Atom::Function(Function::Proc(_)) => {
+                    return Ok(node.clone())
                 }
                 _ => ()
             }
+            return Ok(Atom::List(try!(list.iter().map(|n| macro_expand(n, env)).collect())))
         },
         _ => ()
     }
@@ -294,7 +308,7 @@ pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
 
                         if condition {
                             cur_node = list[2].clone();
-                        } else if list.len() > 2 {
+                        } else if list.len() > 3 {
                             cur_node = list[3].clone();
                         } else {
                             return Ok(Atom::Boolean(false))
@@ -515,5 +529,10 @@ mod tests {
         assert_eq!(teval_env("(foo 10000)", &mut env).unwrap(), teval("0"));
         teval_env("(def sum-to (fn (n) (if (= n 0) 0 (+ n (sum-to (- n 1))))))", &mut env).unwrap();
         assert_eq!(teval_env("(sum-to 10)", &mut env).unwrap(), teval("55"));
+    }
+
+    #[test]
+    fn let_tests() {
+        teval(include_str!("../test/let.lisp"));
     }
 }

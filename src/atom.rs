@@ -99,7 +99,8 @@ pub enum Native {
     List,
     Cons,
     Append,
-    Print
+    Print,
+    Error
 }
 
 impl fmt::Display for Native {
@@ -122,7 +123,8 @@ impl fmt::Display for Native {
             List => write!(f, "list"),
             Append => write!(f, "append"),
             Cons => write!(f, "cons"),
-            Print => write!(f, "print")
+            Print => write!(f, "print"),
+            Error => write!(f, "error")
         }
     }
 }
@@ -223,6 +225,7 @@ fn find_native(t: &str) -> Option<Atom> {
         "append" => Append,
         "cons" => Cons,
         "print" => Print,
+        "error" => Error,
         _ => return None
     };
     Some(Atom::Function(Function::Native(native)))

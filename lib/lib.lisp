@@ -1,12 +1,24 @@
+(defmacro let (bindings & body)
+  `(let* ~bindings
+     (do ~@body)))
+
 (defmacro defun (name args & body)
   `(def ~name (fn ~args ~@body)))
 
 (defmacro inc (x)
   `(+ 1 ~x))
 
-(defmacro let (bindings & body)
-  `(let* (~bindings)
-     (do ~@body)))
+(defmacro assert (condition msg)
+  `(unless ~condition
+     (print "FAIL: " '~condition)
+     (error)))
+
+(defmacro unless (x & body)
+  `(if (not ~x)
+       (do ~@body)))
+
+(defmacro when (x & body)
+  `(if ~x (do ~@body)))
 
 (def *gen-sym-counter* 0)
 

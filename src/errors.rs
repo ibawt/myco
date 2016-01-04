@@ -5,6 +5,7 @@ pub enum Error {
     Parser,
     InvalidArguments,
     NotAFunction,
+    RuntimeAssertion,
     NotEnoughArguments,
     NotImplemented
 }
@@ -22,6 +23,7 @@ use self::Error::*;
 impl error::Error for Error {
     fn description(&self) -> &str {
         match *self {
+            RuntimeAssertion => "RuntimeAssertion",
             EoF => "End of File",
             UnexpectedType => "UnexpectedType",
             Parser => "Parser",
