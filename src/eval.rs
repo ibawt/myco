@@ -240,6 +240,10 @@ pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
             Atom::Form(f) => {
                 match f {
                     Form::Let => {
+                        if list.len() < 3 {
+                            return Err(Error::InvalidArguments)
+                        }
+
                         let mut env = Env::new(Some(cur_env.clone()));
 
                         match list[1] {
