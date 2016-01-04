@@ -240,7 +240,6 @@ pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
             Atom::Form(f) => {
                 match f {
                     Form::Let => {
-                        // let ((b v) (b' v')) body
                         let mut env = Env::new(Some(cur_env.clone()));
 
                         match list[1] {
@@ -269,8 +268,7 @@ pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
                             _ => return Err(Error::InvalidArguments)
                         }
 
-                        cur_node = list[2].clone();
-                        *cur_env = env;
+                        return eval(&list[2], &mut env)
                     }
                     Form::Set => {
                         if list.len() < 3 {
@@ -531,8 +529,12 @@ mod tests {
         assert_eq!(teval_env("(sum-to 10)", &mut env).unwrap(), teval("55"));
     }
 
+    use base_lib;
+
     #[test]
     fn let_tests() {
-        teval(include_str!("../test/let.lisp"));
+        let mut e = Env::new(None);
+        base_lib::init(&mut e).unwrap();
+        teval_env(include_str!("../test/let.lisp"), &mut e).unwrap();
     }
 }

@@ -9,9 +9,11 @@
   `(+ 1 ~x))
 
 (defmacro assert (condition msg)
-  `(unless ~condition
-     (print "FAIL: " '~condition)
-     (error)))
+  `(if ~condition
+       true
+       (do
+        (print "FAIL: " '~condition)
+        (error))))
 
 (defmacro unless (x & body)
   `(if (not ~x)
