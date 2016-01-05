@@ -1,3 +1,6 @@
+#![feature(test)]
+extern crate test;
+
 extern crate readline;
 #[macro_use]
 extern crate lazy_static;
@@ -17,12 +20,25 @@ use parser::{tokenize};
 use eval::{eval};
 use env::*;
 use errors::Error;
+use std::env::args;
+use std::fs::File;
+use std::io::prelude::*;
 
 fn repl() {
     println!("Rust Lisp!");
     let mut env = Env::new(None);
 
     base_lib::init(&mut env).unwrap();
+
+    for i in args().skip(1) {
+        let mut file = File::open(i).unwrap();
+        let mut s = String::new();
+        file.read_to_string(&mut s).unwrap();
+
+        let a = tokenize(&s)
+            .and_then(|node| eval(node, &mut env)).unwrap();
+        println!("{}", a);
+    }
 
     let mut lines: String = String::new();
 
@@ -37,7 +53,7 @@ fn repl() {
                 lines.push_str(&s);
 
                 let result = tokenize(&lines)
-                    .and_then(|node| eval(&node, &mut env));
+                    .and_then(|node| eval(node, &mut env));
 
                 match result {
                     Ok(r) => {

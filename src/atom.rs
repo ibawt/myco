@@ -16,7 +16,8 @@ pub enum Form {
     QuasiQuote,
     Unquote,
     Splice,
-    MacroExpand
+    MacroExpand,
+    Eval
 }
 
 impl fmt::Display for Form {
@@ -35,7 +36,8 @@ impl fmt::Display for Form {
             Splice => "splice",
             MacroExpand => "macroexpand",
             If => "if",
-            QuasiQuote => "quasiquote"
+            QuasiQuote => "quasiquote",
+            Eval => "eval"
         };
         write!(f, "{}", s)
     }
@@ -74,6 +76,7 @@ pub type List = Rc<Vec<Atom>>;
 #[derive(Debug, PartialEq, Clone)]
 pub enum Atom {
     List(List),
+    Keyword(symbol::InternedStr),
     String(String),
     Number(Number),
     Symbol(symbol::InternedStr),
@@ -101,7 +104,14 @@ pub enum Native {
     Cons,
     Append,
     Print,
-    Error
+    Error,
+    Type,
+    Map,
+    Slurp,
+    Barf,
+    Filter,
+    Reduce,
+    Count,
 }
 
 impl fmt::Display for Native {
@@ -125,7 +135,14 @@ impl fmt::Display for Native {
             Append => write!(f, "append"),
             Cons => write!(f, "cons"),
             Print => write!(f, "print"),
-            Error => write!(f, "error")
+            Error => write!(f, "error"),
+            Type => write!(f, "type-of"),
+            Map => write!(f, "map"),
+            Slurp => write!(f, "slurp"),
+            Barf => write!(f, "barf"),
+            Filter => write!(f, "filter"),
+            Reduce => write!(f, "reduce"),
+            Count => write!(f, "count")
         }
     }
 }
@@ -151,29 +168,6 @@ impl From<f64> for Atom {
     }
 }
 
-impl Atom {
-    #[allow(dead_code)]
-    pub fn string(s: &str) -> Atom {
-        Atom::String(s.to_string())
-    }
-
-    #[allow(dead_code)]
-    pub fn symbol(s: &str) -> Atom {
-        Atom::Symbol(symbol::intern(s))
-    }
-
-    pub fn is_pair(&self) -> bool {
-        match *self {
-            Atom::List(ref list) => !list.is_empty(),
-            _ => false
-        }
-    }
-
-    pub fn list(v: Vec<Atom>) -> Atom {
-        Atom::List(Rc::new(v))
-    }
-}
-
 impl fmt::Display for Atom {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Atom::*;
@@ -188,6 +182,9 @@ impl fmt::Display for Atom {
                 }
                 write!(f, ")")
             },
+            Keyword(s) => {
+                write!(f, ":{}", s)
+            }
             Form(form) => {
                 write!(f, "{}", form)
             }
@@ -231,6 +228,13 @@ fn find_native(t: &str) -> Option<Atom> {
         "cons" => Cons,
         "print" => Print,
         "error" => Error,
+        "type-of" => Type,
+        "map" => Map,
+        "slurp" => Slurp,
+        "barf" => Barf,
+        "filter" => Filter,
+        "reduce" => Reduce,
+        "count" => Count,
         _ => return None
     };
     Some(Atom::Function(Function::Native(native)))
@@ -239,6 +243,7 @@ fn find_native(t: &str) -> Option<Atom> {
 fn find_form(t: &str) -> Option<Atom> {
     use self::Form::*;
     let form = match t {
+        "eval" => Eval,
         "let*" => Let,
         "def" => Def,
         "set!" => Set,
@@ -254,6 +259,10 @@ fn find_form(t: &str) -> Option<Atom> {
 }
 
 fn find_special_atoms(t: &str) -> Option<Atom> {
+    if t.starts_with(":") {
+        return Some(Atom::Keyword(symbol::intern(&t[1..])))
+    }
+
     let atom = match t {
         "true" => Atom::Boolean(true),
         "false" => Atom::Boolean(false),
@@ -283,19 +292,87 @@ impl Atom {
         some!(find_special_atoms(token));
         default_parse(token)
     }
+
+    pub fn as_bool(self) -> bool {
+        match self {
+            Atom::Boolean(b) => b,
+            Atom::Nil => false,
+            _ => true
+        }
+    }
+
+    pub fn as_string(&self) -> Result<&str, Error> {
+        match *self {
+            Atom::String(ref s) => Ok(s),
+            _ => Err(Error::UnexpectedType)
+        }
+    }
+
+    pub fn as_symbol(&self) -> Result<&symbol::InternedStr, Error> {
+        match *self {
+            Atom::Symbol(ref sym) => Ok(sym),
+            _ => Err(Error::UnexpectedType)
+        }
+    }
+
+    pub fn as_list(&self) -> Result<&List, Error> {
+        match *self {
+            Atom::List(ref l) => Ok(l),
+            _ => Err(Error::UnexpectedType)
+        }
+    }
+
+    pub fn as_number(&self) -> Result<Number, Error> {
+        match *self {
+            Atom::Number(n) => Ok(n),
+            _ => Err(Error::UnexpectedType)
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn as_function(&self) -> Result<&Function, Error> {
+        match *self {
+            Atom::Function(ref f) => Ok(f),
+            _ => Err(Error::UnexpectedType)
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn string(s: &str) -> Atom {
+        Atom::String(s.to_string())
+    }
+
+    #[allow(dead_code)]
+    pub fn symbol(s: &str) -> Atom {
+        Atom::Symbol(symbol::intern(s))
+    }
+
+    pub fn is_pair(&self) -> bool {
+        match *self {
+            Atom::List(ref list) => !list.is_empty(),
+            _ => false
+        }
+    }
+
+    pub fn list(v: Vec<Atom>) -> Atom {
+        Atom::List(Rc::new(v))
+    }
 }
 
 #[cfg(test)]
 mod test {
     use super::Atom;
     use number::Number::*;
+    use symbol::intern;
 
     #[test]
     fn atom_test() {
         assert_eq!(Atom::Number(Integer(32)), Atom::parse("32"));
         assert_eq!(Atom::symbol("symbol"), Atom::parse("symbol"));
+        assert_eq!(Atom::symbol("foo-bar"), Atom::parse("foo-bar"));
         assert_eq!(Atom::Boolean(true), Atom::parse("true"));
         assert_eq!(Atom::Boolean(false), Atom::parse("false"));
         assert_eq!(Atom::Nil, Atom::parse("nil"));
+        assert_eq!(Atom::Keyword(intern("foo")), Atom::parse(":foo"));
     }
 }

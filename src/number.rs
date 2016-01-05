@@ -9,14 +9,22 @@ pub enum Number {
 use self::Number::*;
 use std::fmt;
 
-impl fmt::Display for Number {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            use self::Number::*;
-            match *self {
-                Integer(i) => write!(f, "{}", i),
-                Float(fl) => write!(f, "{}", fl)
-            }
+impl Number {
+    pub fn is_zero(self) -> bool {
+        match self {
+            Integer(i) => i == 0,
+            Float(f) => f == 0.0
         }
+    }
+}
+
+impl fmt::Display for Number {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Integer(i) => write!(f, "{}", i),
+            Float(fl) => write!(f, "{}", fl)
+        }
+    }
 }
 
 impl Add for Number {
