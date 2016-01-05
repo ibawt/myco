@@ -209,7 +209,7 @@ fn macro_expand(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
 }
 
 pub fn eval(node: &Atom, env: &mut Env) -> Result<Atom, Error> {
-    let mut cur_node = node.clone(); // FIXME: shitty clone
+    let mut cur_node = node.clone();
     let mut cur_env = env;
 
     loop {
