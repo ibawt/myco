@@ -14,6 +14,7 @@ mod parser;
 mod env;
 mod eval;
 mod funcs;
+mod vm;
 mod base_lib;
 
 use parser::{tokenize};

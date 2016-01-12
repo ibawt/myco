@@ -51,6 +51,12 @@ pub struct Procedure {
     pub closures: Env
 }
 
+impl Procedure {
+    pub fn len(&self) -> usize {
+        self.params.len()
+    }
+}
+
 #[derive (Debug, Clone, PartialEq)]
 pub enum Function {
     Native(Native),
