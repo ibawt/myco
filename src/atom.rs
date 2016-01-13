@@ -48,7 +48,7 @@ impl fmt::Display for Form {
 pub struct Procedure {
     pub params: List,
     pub body: List,
-    pub closures: Env
+    pub closures: Env,
 }
 
 impl Procedure {

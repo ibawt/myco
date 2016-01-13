@@ -5,7 +5,6 @@ use env::Env;
 #[derive (Debug)]
 struct Function2 {
     program: Vec<Instruction>,
-    env: Env,
     arity: u8
 }
 
@@ -20,7 +19,7 @@ struct Frame {
 #[derive (Debug)]
 pub struct VirtualMachine {
     program: Vec<Instruction>,
-    stack: Vec<StackElement>,
+    stack: Vec<Atom>,
     frames: Vec<Frame>,
     env: Env,
     pc: usize,
@@ -28,21 +27,69 @@ pub struct VirtualMachine {
     sp: usize,
 }
 
-#[derive (Debug)]
-enum StackElement {
-    Atom(Atom),
+struct Compiler {
+    output: Vec<Instruction>
 }
 
-fn compile(node: &[Atom]) -> Vec<Instruction> {
-    let mut inst = vec![];
+use symbol::*;
 
-    inst.push(Instruction::LOADI(1));
-    inst.push(Instruction::LOADI(2));
-    inst.push(Instruction::ADD);
-    inst.push(Instruction::LOADI(3));
-    inst.push(Instruction::ADD);
+impl Compiler {
+    fn compile_node(&mut self, a: &Atom) {
+        match *a {
+            Atom::Symbol(ref sym) => {
+                self.push(LOAD_SYM(*sym));
+                self.push(LOAD_ENV);
+            },
+            Atom::List(ref l) => {
+                // derp
+            },
+            Atom::Boolean(b) => {
+                self.push(LOADI(b as i64));
+            },
+            Atom::Number(f) => {
+                self.push(LOAD_NUM(f))
+            }
+        }
+    }
 
-    inst
+    fn compile(&mut self, a: &Atom) {
+        match *a {
+            Atom::List(ref list) => {
+                if list.is_empty() {
+                }
+            },
+            _ => return self.compile_node(a)
+        }
+
+        let list = a.as_list().unwrap();
+
+        match list[0] {
+            Atom::Form(f) => {
+                match f {
+                    Form::If => {
+                        // TODO: output code for test in list[1]
+                        let start_pos = self.compile( list[1] );
+
+                        let jump_pos = self.push(JUMP_IFN(0));
+                        self.compile(&list[2]);
+
+                        let true_clause_jump = self.push(JUMP(0));
+
+                        let else_pos = self.compile(list[3]);
+                        self.set_jump_pos(jump_pos, else_pos);
+
+                        self.set_jump_pos(JUMP(0), self.cur_pos())
+                    }
+                }
+            }
+        }
+    }
+
+
+    pub fn compile_procedure(p: &Procedure) -> Function2 {
+        
+    }
+
 }
 
 #[derive (Debug,Clone, Copy, PartialEq)]
@@ -53,6 +100,7 @@ enum Instruction {
     POP,
     CALL,
     TCALL,
+    JUMP_IF(i32),
     JUMP(usize),
     JUMP_REL(i64),
     RET,
@@ -83,9 +131,9 @@ enum Instruction {
 
     LOADI(i64),
     LOAD_ENV,
+    LOAD_SYM(symbol::InternedStr),
     PRINT,
 }
-
 use self::Instruction::*;
 
 impl VirtualMachine {
@@ -143,12 +191,12 @@ impl VirtualMachine {
                     let func = self.pop();
                     match try!(func.as_function()) {
                         &Function::Proc(ref p) => {
-                            let e = Env::new(Some(p.closures.clone()))
-                                .bind(&p.params, &self.stack[self.sp-p.len()..p.len()]);
-                            for _ in 1..p.len() {
-                                self.pop();
-                                self.sp -= 1;
-                            }
+                            // let e = Env::new(Some(p.closures.clone()))
+                            //     .bind(&p.params, );
+                            // for _ in 1..p.len() {
+                            //     self.pop();
+                            //     self.sp -= 1;
+                            // }
                         }
                         _ => ()
                     }
