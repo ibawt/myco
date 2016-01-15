@@ -6,25 +6,26 @@ use std::io::prelude::*;
 pub fn tokenize(line: &str) -> ParseResult {
     let mut chars = line.chars().peekable();
 
-    let mut v = vec![Atom::Form(Form::Do)];
+   read_tokens(&mut chars)
+    // let mut v = vec![Atom::Form(Form::Do)];
 
-    while let Some(_) = chars.peek() {
-        match read_tokens(&mut chars) {
-            Ok(a) => {
-                v.push(a);
-            },
-            Err(Error::EoF) => {
-                ()
-            }
-            _ => ()
-        }
-    }
+    // while let Some(_) = chars.peek() {
+    //     match read_tokens(&mut chars) {
+    //         Ok(a) => {
+    //             v.push(a);
+    //         },
+    //         Err(Error::EoF) => {
+    //             ()
+    //         }
+    //         _ => ()
+    //     }
+    // }
 
-    if v.len() == 1 {
-        return Err(Error::EoF)
-    }
+    // if v.len() == 1 {
+    //     return Err(Error::EoF)
+    // }
 
-    Ok(Atom::list(v))
+    // Ok(Atom::list(v))
 }
 
 pub type ParseResult = Result<Atom, Error>;

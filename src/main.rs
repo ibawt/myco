@@ -5,6 +5,8 @@ extern crate readline;
 #[macro_use]
 extern crate lazy_static;
 extern crate smallvec;
+extern crate iron_llvm;
+extern crate llvm_sys;
 
 mod errors;
 mod number;
@@ -14,7 +16,8 @@ mod parser;
 mod env;
 mod eval;
 mod funcs;
-mod vm;
+mod compiler;
+mod jitter;
 mod base_lib;
 
 use parser::{tokenize};
@@ -27,6 +30,7 @@ use std::io::prelude::*;
 
 fn repl() {
     println!("Rust Lisp!");
+    compiler::test();
     let mut env = Env::new(None);
 
     base_lib::init(&mut env).unwrap();
