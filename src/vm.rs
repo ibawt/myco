@@ -12,14 +12,11 @@ struct Function2 {
 #[derive (Debug)]
 struct Frame {
     program: Function2,
-    sp: usize,
-    env: Env,
-    caller: usize
+    env: Env
 }
 
 #[derive (Debug)]
 pub struct VirtualMachine {
-    program: Vec<Instruction>,
     stack: Vec<StackElement>,
     frames: Vec<Frame>,
     env: Env,
@@ -36,54 +33,24 @@ enum StackElement {
 fn compile(node: &[Atom]) -> Vec<Instruction> {
     let mut inst = vec![];
 
-    inst.push(Instruction::LOADI(1));
-    inst.push(Instruction::LOADI(2));
-    inst.push(Instruction::ADD);
-    inst.push(Instruction::LOADI(3));
-    inst.push(Instruction::ADD);
+    // inst.push(Instruction::LOADI(1));
+    // inst.push(Instruction::LOADI(2));
+    // inst.push(Instruction::ADD);
+    // inst.push(Instruction::LOADI(3));
+    // inst.push(Instruction::ADD);
 
     inst
 }
 
 #[derive (Debug,Clone, Copy, PartialEq)]
 enum Instruction {
-    // control
-    NOP,
-    DUP,
-    POP,
+    CONST,
+    LOAD,
+    STORE,
+    DEFINE,
+    FUNCTION,
+    JUMP,
     CALL,
-    TCALL,
-    JUMP(usize),
-    JUMP_REL(i64),
-    RET,
-
-    //lispyness
-    CONS,
-    LIST,
-    APPLY,
-
-    // equivalence
-    EQ,
-    EQV,
-    EQUAL,
-    NOT,
-
-    // predicates
-    NULLP,
-    BOOLEANP,
-    SYMBOLP,
-    NUMBERP,
-    LISTP,
-    KEYWORDP,
-    FUNCTIONP,
-    MACROP,
-
-    // math
-    ADD, SUB, MUL, DIV, IDIV, NUMEQ, LT, COMPARE,
-
-    LOADI(i64),
-    LOAD_ENV,
-    PRINT,
 }
 
 use self::Instruction::*;
