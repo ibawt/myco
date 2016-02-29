@@ -17,17 +17,12 @@ struct Frame {
 
 #[derive (Debug)]
 pub struct VirtualMachine {
-    stack: Vec<StackElement>,
+    stack: Vec<Atom>,
     frames: Vec<Frame>,
     env: Env,
     pc: usize,
     fp: usize,
     sp: usize,
-}
-
-#[derive (Debug)]
-enum StackElement {
-    Atom(Atom),
 }
 
 fn compile(node: &[Atom]) -> Vec<Instruction> {
@@ -58,7 +53,6 @@ use self::Instruction::*;
 impl VirtualMachine {
     pub fn new() -> VirtualMachine {
         VirtualMachine {
-            program: vec![],
             stack: vec![],
             frames: vec![],
             env: Env::new(None),
@@ -70,58 +64,6 @@ impl VirtualMachine {
 
     pub fn run(&mut self) -> AtomResult {
         loop {
-            if self.pc >= self.program.len() {
-                break;
-            }
-            match self.program[self.pc] {
-                ADD => {
-                    let a = self.pop().as_number().unwrap();
-                    let b = self.pop().as_number().unwrap();
-                    self.push( Atom::Number(a + b));
-                    self.pc += 1;
-                },
-                LOADI(i) => {
-                    self.push( Atom::Number(Number::Integer(i)));
-                    self.pc += 1;
-                },
-                PRINT => {
-                    println!("{}", self.pop());
-                    self.pc += 1;
-                },
-                JUMP_REL(offset) => {
-                    self.pc = ((self.pc as i64) + offset) as usize;
-                    assert!( self.pc < self.program.len())
-                },
-                JUMP(addr) => {
-                    self.pc = addr;
-                    assert!( self.pc < self.program.len())
-                },
-                POP => {
-                    self.pop();
-                },
-                LOAD_ENV => {
-                    let atom = self.pop();
-                    let key = try!(atom.as_symbol());
-                    let v = self.env.get(key);
-                    self.push(v.unwrap_or(Atom::Nil));
-                    self.pc += 1;
-                },
-                CALL => {
-                    let func = self.pop();
-                    match try!(func.as_function()) {
-                        &Function::Proc(ref p) => {
-                            let e = Env::new(Some(p.closures.clone()))
-                                .bind(&p.params, &self.stack[self.sp-p.len()..p.len()]);
-                            for _ in 1..p.len() {
-                                self.pop();
-                                self.sp -= 1;
-                            }
-                        }
-                        _ => ()
-                    }
-                }
-                _ => ()
-            }
         }
         Ok(self.pop())
     }
