@@ -1,9 +1,7 @@
 use atom::*;
-use number::*;
 use env::Env;
 use errors::*;
 use symbol::*;
-use parser::*;
 use funcs::*;
 use self::Instruction::*;
 
@@ -135,7 +133,9 @@ impl VirtualMachine {
 
     pub fn run(&mut self) -> AtomResult {
         loop {
-            use self::Instruction::*;
+            if self.pc >= self.program.len() {
+                break;
+            }
             match self.current_instruction() {
                 CONST(ref atom) => {
                     self.push(atom.clone())
@@ -178,20 +178,20 @@ mod tests {
     use super::*;
     use parser::*;
     use atom::*;
-    #[test]
-    fn test() {
-        let p = tokenize("(+ (+ 2 2) 2)").unwrap();
 
-        let mut out = vec![];
-
+    fn run_expr(s: &str) -> Atom {
+        let p = tokenize(s).unwrap();
+        let mut out = Vec::new();
         compile(p, &mut out).unwrap();
 
         let mut vm = VirtualMachine::new();
-
         vm.program = out;
 
-        let result = vm.run().unwrap();
+        vm.run().unwrap()
+    }
 
-        assert_eq!(Atom::from(6), result);
+    #[test]
+    fn test() {
+        assert_eq!(Atom::from(6), run_expr("(+ (+ 2 2) 2)"));
     }
 }
