@@ -46,14 +46,14 @@ pub enum Instruction {
     DCALL(usize)
 }
 
-fn compile_node(node: Atom, out: &mut Vec<Instruction>) -> Result<(), Error> {
+fn compile_node(node: Atom, out: &mut Vec<Instruction>, env: &Env) -> Result<(), Error> {
     match node {
         Atom::Symbol(sym) => {
             out.push(Instruction::LOAD(sym))
         },
         Atom::List(ref list) => {
             for n in list.iter() {
-                try!(compile(n.clone(), out));
+                try!(compile(n.clone(), out, env));
             }
         },
         // handle constants
@@ -64,7 +64,7 @@ fn compile_node(node: Atom, out: &mut Vec<Instruction>) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn compile(node: Atom, out: &mut Vec<Instruction>) -> Result<(), Error> {
+pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &Env) -> Result<(), Error> {
     println!("compiling: {}", node);
     match node {
         Atom::List(ref list) => {
@@ -74,16 +74,16 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>) -> Result<(), Error> {
             }
             ()
         },
-        _ => return compile_node(node, out)
+        _ => return compile_node(node, out, env)
     }
 
     let list = try!(node.as_list());
 
     if let Atom::List(_) = list[0] {
         for i in list.iter().skip(1) {
-            try!(compile(i.clone(), out));
+            try!(compile(i.clone(), out, env));
         }
-        try!(compile(list[0].clone(), out));
+        try!(compile(list[0].clone(), out, env));
         out.push(DCALL(list.len() - 1));
         return Ok(())
     }
@@ -95,27 +95,27 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>) -> Result<(), Error> {
                 },
                 Form::Def => {
                     let sym = try!(list[1].as_symbol());
-                    try!(compile(list[2].clone(), out));
+                    try!(compile(list[2].clone(), out, env));
                     out.push(DEFINE(*sym));
                     return Ok(())
                 },
                 Form::Do => {
                     if list.len() > 2 {
                         for i in 1..list.len()-1 {
-                            try!(compile(list[i].clone(), out));
+                            try!(compile(list[i].clone(), out, env));
                             out.push(POP);
                         }
                     }
-                    return compile(list[list.len()-1].clone(), out)
+                    return compile(list[list.len()-1].clone(), out, env)
                 },
                 Form::Fn => {
                     let mut body = Vec::new();
-                    try!(compile(list[2].clone(), &mut body));
+                    try!(compile(list[2].clone(), &mut body, env));
                     body.push(RETURN);
                     let func = CompiledFunction {
                         body: body,
                         params: try!(list[1].as_list()).clone(),
-                        env: Env::new(None)
+                        env: Env::new(Some(env.clone()))
                     };
                     out.push(CONST(Atom::Function(Function::Compiled(func))));
                     return Ok(())
@@ -127,15 +127,15 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>) -> Result<(), Error> {
         },
         Atom::Symbol(_) => {
             for n in list.iter().skip(1) {
-                try!(compile(n.clone(), out));
+                try!(compile(n.clone(), out, env));
             }
-            try!(compile_node(list[0].clone(), out));
+            try!(compile_node(list[0].clone(), out, env));
             out.push( DCALL(list.len() -1 ));
             return Ok(())
         }
         Atom::Function(ref func) => {
             for n in list.iter().skip(1) {
-                try!(compile(n.clone(), out));
+                try!(compile(n.clone(), out, env));
             }
             match *func {
                 Function::Native(_) => {
@@ -219,10 +219,12 @@ impl VirtualMachine {
 
                     match func {
                         Atom::Function(Function::Compiled(f)) => {
-                            let env = Env::new(Some(f.env.clone())).bind(&f.params, &self.stack[self.stack.len()-arity..]);
+                            let env = Env::new(Some(f.env.clone())).bind(&f.params, &self.stack[self.sp-arity..]);
+                            for _ in 0..arity {
+                                self.pop();
+                            }
                             let mut f = Frame::new(f.clone());
                             f.program.env = env;
-                            f.pc = 0;
                             self.frames.push(f);
                             self.fp += 1;
                             continue; // don't advance PC of the new frame
@@ -243,13 +245,6 @@ impl VirtualMachine {
                             }
                             self.push(r);
                         },
-                        Function::Compiled(f) => {
-                            let env = Env::new(Some(f.env.clone())).bind(&f.params, &self.stack[self.stack.len()-arity..]);
-                            let mut f = Frame::new(f.clone());
-                            f.program.env = env;
-                            self.frames.push(f);
-                            self.fp += 1;
-                        }
                         _ => {
                             return Err(Error::NotImplemented)
                         }
@@ -293,10 +288,12 @@ mod tests {
     fn run_expr(s: &str) -> Atom {
         let p = tokenize(s).unwrap();
         let mut out = Vec::new();
-        compile(p, &mut out).unwrap();
+        let env = Env::new(None);
+        compile(p, &mut out, &env).unwrap();
         println!("output: {:?}", out);
         let mut vm = VirtualMachine::new();
         let mut f = empty_frame();
+        f.program.env = env;
         f.program.body = out;
         vm.frames.push(f);
         vm.run().unwrap()
