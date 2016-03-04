@@ -38,6 +38,7 @@ pub enum Instruction {
     CONST(Atom),
     LOAD(InternedStr),
     DEFINE(InternedStr),
+    POP,
     // FUNCTION,
     JUMP,
     RETURN,
@@ -99,10 +100,13 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>) -> Result<(), Error> {
                     return Ok(())
                 },
                 Form::Do => {
-                    for i in list.iter().skip(1) {
-                        try!(compile(i.clone(), out));
+                    if list.len() > 2 {
+                        for i in 1..list.len()-1 {
+                            try!(compile(list[i].clone(), out));
+                            out.push(POP);
+                        }
                     }
-                    return Ok(())
+                    return compile(list[list.len()-1].clone(), out)
                 },
                 Form::Fn => {
                     let mut body = Vec::new();
@@ -187,6 +191,9 @@ impl VirtualMachine {
     pub fn run(&mut self) -> AtomResult {
         while let Some(instruction) = self.next_instruction() {
             match instruction {
+                POP => {
+                    self.pop();
+                }
                 RETURN => {
                     if self.fp > 0 {
                         self.fp -= 1;
@@ -215,11 +222,13 @@ impl VirtualMachine {
                             let env = Env::new(Some(f.env.clone())).bind(&f.params, &self.stack[self.stack.len()-arity..]);
                             let mut f = Frame::new(f.clone());
                             f.program.env = env;
+                            f.pc = 0;
                             self.frames.push(f);
                             self.fp += 1;
+                            continue; // don't advance PC of the new frame
                         },
                         _ => {
-                            println!("in a dcall?");
+                            println!("not a function: {:?}", func);
                             return Err(Error::NotAFunction)
                         }
                     }
@@ -298,5 +307,10 @@ mod tests {
         assert_eq!(Atom::from(6), run_expr("(+ (+ 2 2) 2)"));
         assert_eq!(Atom::symbol("a"), run_expr("(def a 1)"));
         assert_eq!(Atom::from(3), run_expr("(do (def foo (fn (x) (+ x 2))) (foo 1))"));
+    }
+
+    #[test]
+    fn test_invoke_fn_inline() {
+        assert_eq!(Atom::from(1), run_expr("((fn (x) 1) 0)"));
     }
 }
