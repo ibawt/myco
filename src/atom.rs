@@ -57,10 +57,20 @@ impl Procedure {
     }
 }
 
+use vm::Instruction;
+
+#[derive (Debug, Clone, PartialEq)]
+pub struct CompiledFunction {
+    pub body: Vec<Instruction>,
+    pub params: List,
+    pub env: Env
+}
+
 #[derive (Debug, Clone, PartialEq)]
 pub enum Function {
     Native(Native),
     Proc(Procedure),
+    Compiled(CompiledFunction),
     Macro(Procedure)
 }
 
@@ -71,6 +81,7 @@ impl fmt::Display for Function {
         match *self {
             Native(n) => write!(f, "{}", n),
             Proc(_) => write!(f, "proc"),
+            Compiled(_) => write!(f, "compiled-proc"),
             Macro(_) => write!(f, "macro")
         }
     }
@@ -78,6 +89,10 @@ impl fmt::Display for Function {
 use std::rc::Rc;
 
 pub type List = Rc<Vec<Atom>>;
+
+pub fn empty_list() -> List {
+    Rc::new(Vec::new())
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Atom {
