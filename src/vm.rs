@@ -110,12 +110,13 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &Env) -> Result<(), 
                 },
                 Form::Fn => {
                     let mut body = Vec::new();
-                    try!(compile(list[2].clone(), &mut body, env));
+                    let mut env = Env::new(Some(env.clone()));
+                    try!(compile(list[2].clone(), &mut body, &mut env));
                     body.push(RETURN);
                     let func = CompiledFunction {
                         body: body,
                         params: try!(list[1].as_list()).clone(),
-                        env: Env::new(Some(env.clone()))
+                        env: env
                     };
                     out.push(CONST(Atom::Function(Function::Compiled(func))));
                     return Ok(())
@@ -204,6 +205,7 @@ impl VirtualMachine {
                 },
                 LOAD(sym) => {
                     let value = self.current_frame().program.env.get(sym.as_ref()).unwrap_or(Atom::Nil);
+                    // println!("loading: {} => {} from env: {}",  sym, value, &self.current_frame().program.env);
                     self.push(value);
                 },
                 CONST(ref atom) => {
@@ -218,14 +220,13 @@ impl VirtualMachine {
                     let func = self.pop();
 
                     match func {
-                        Atom::Function(Function::Compiled(f)) => {
-                            let env = Env::new(Some(f.env.clone())).bind(&f.params, &self.stack[self.sp-arity..]);
+                        Atom::Function(Function::Compiled(mut f)) => {
+                            f.env.bind_mut(&f.params, &self.stack[self.sp-arity..]);
+                            // println!("binding to env: {}", &f.env);
                             for _ in 0..arity {
                                 self.pop();
                             }
-                            let mut f = Frame::new(f.clone());
-                            f.program.env = env;
-                            self.frames.push(f);
+                            self.frames.push(Frame::new(f.clone()));
                             self.fp += 1;
                             continue; // don't advance PC of the new frame
                         },
@@ -309,5 +310,10 @@ mod tests {
     #[test]
     fn test_invoke_fn_inline() {
         assert_eq!(Atom::from(1), run_expr("((fn (x) 1) 0)"));
+    }
+
+    #[test]
+    fn test_closure() {
+        assert_eq!(Atom::from(2), run_expr("(do (def foo (fn (x) (fn () (* 2 x)))) (def foo2 (foo 1)) (foo2))"))
     }
 }
