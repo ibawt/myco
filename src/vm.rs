@@ -3,6 +3,7 @@ use env::Env;
 use errors::*;
 use symbol::*;
 use funcs::*;
+use eval::*;
 use self::Instruction::*;
 
 #[derive (Debug, Clone)]
@@ -34,6 +35,7 @@ pub struct VirtualMachine {
 
 
 #[derive (Debug, Clone, PartialEq)]
+#[allow(dead_code)]
 pub enum Instruction {
     CONST(Atom),
     LOAD(InternedStr),
@@ -65,7 +67,6 @@ fn compile_node(node: Atom, out: &mut Vec<Instruction>, env: &Env) -> Result<(),
 }
 
 pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &Env) -> Result<(), Error> {
-    println!("compiling: {}", node);
     match node {
         Atom::List(ref list) => {
             if list.is_empty() {
@@ -91,6 +92,33 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &Env) -> Result<(), 
     match list[0] {
         Atom::Form(f) => {
             match f {
+                Form::Let => {
+                    let mut new_env = Env::new(Some(env.clone()));
+                    let bind_list = try!(list[1].as_list());
+                    let mut bindings = Vec::new();
+
+                    for binding in bind_list.iter() {
+                        let bind_exp = try!(binding.as_list());
+                        try!(expect_arg_length(bind_exp, 2));
+                        bindings.push(bind_exp[0].clone());
+                        try!(compile(bind_exp[1].clone(), out, env));
+                    }
+                    let mut body = Vec::new();
+                    try!(compile(list[2].clone(), &mut body, &mut new_env));
+                    body.push(RETURN);
+
+                    let arity = bindings.len();
+
+                    let func = CompiledFunction {
+                        body: body,
+                        params: to_list(bindings),
+                        env: new_env
+                    };
+
+                    out.push(CONST(Atom::Function(Function::Compiled(func))));
+                    out.push(DCALL(arity));
+                    return Ok(())
+                },
                 Form::Set => {
                 },
                 Form::Def => {
@@ -153,8 +181,6 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &Env) -> Result<(), 
             }
         },
         _ => {
-            println!("it's a {}",list[0]);
-            println!("output so far is: {:?}", out);
             return Err(Error::NotAFunction)
         }
     }
@@ -205,7 +231,6 @@ impl VirtualMachine {
                 },
                 LOAD(sym) => {
                     let value = self.current_frame().program.env.get(sym.as_ref()).unwrap_or(Atom::Nil);
-                    // println!("loading: {} => {} from env: {}",  sym, value, &self.current_frame().program.env);
                     self.push(value);
                 },
                 CONST(ref atom) => {
@@ -222,7 +247,6 @@ impl VirtualMachine {
                     match func {
                         Atom::Function(Function::Compiled(mut f)) => {
                             f.env.bind_mut(&f.params, &self.stack[self.sp-arity..]);
-                            // println!("binding to env: {}", &f.env);
                             for _ in 0..arity {
                                 self.pop();
                             }
@@ -315,5 +339,15 @@ mod tests {
     #[test]
     fn test_closure() {
         assert_eq!(Atom::from(2), run_expr("(do (def foo (fn (x) (fn () (* 2 x)))) (def foo2 (foo 1)) (foo2))"))
+    }
+
+    #[test]
+    fn let_binding() {
+        assert_eq!(Atom::from(-1), run_expr("(let* ((x 2) (y 3)) (- x y))"));
+    }
+
+    #[test]
+    fn let_doesnt_leak() {
+        assert_eq!(Atom::from(0), run_expr("(do (let* ((x 1)) (let* ((x 0)) x)))"))
     }
 }

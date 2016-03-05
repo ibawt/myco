@@ -51,12 +51,6 @@ pub struct Procedure {
     pub closures: Env
 }
 
-impl Procedure {
-    pub fn len(&self) -> usize {
-        self.params.len()
-    }
-}
-
 use vm::Instruction;
 
 #[derive (Debug, Clone, PartialEq)]
@@ -378,6 +372,10 @@ impl Atom {
     pub fn list(v: Vec<Atom>) -> Atom {
         Atom::List(Rc::new(v))
     }
+}
+
+pub fn to_list(v: Vec<Atom>) -> List {
+    Rc::new(v)
 }
 
 #[cfg(test)]
