@@ -37,15 +37,15 @@ pub struct VirtualMachine {
 #[derive (Debug, Clone, PartialEq)]
 #[allow(dead_code)]
 pub enum Instruction {
-    CONST(Atom),
-    LOAD(InternedStr),
-    DEFINE(InternedStr),
-    POP,
+    CONST(Atom), // pushes the atom on the stack
+    LOAD(InternedStr), // loads then pushes the value
+    DEFINE(InternedStr), // sets the symbol to value on the top of the stack
+    POP, // pops one off the stack
     // FUNCTION,
     JUMP,
-    RETURN,
-    CALL(Function, usize),
-    DCALL(usize)
+    RETURN, // pops the frame
+    CALL(Function, usize), // calls a noncompiled or native function
+    DCALL(usize) // calls the function at the top of the stack
 }
 
 fn compile_node(node: Atom, out: &mut Vec<Instruction>, env: &Env) -> Result<(), Error> {
@@ -238,7 +238,7 @@ impl VirtualMachine {
                 },
                 DEFINE(sym) => {
                     let v = self.pop();
-                    let a = self.current_env().define(sym, v).unwrap();
+                    let a = try!(self.current_env().define(sym, v));
                     self.push(a);
                 },
                 DCALL(arity) => {
