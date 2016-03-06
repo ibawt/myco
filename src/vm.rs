@@ -35,14 +35,15 @@ pub struct VirtualMachine {
 
 
 #[derive (Debug, Clone, PartialEq)]
-#[allow(dead_code)]
+#[allow(non_camel_case_types)]
 pub enum Instruction {
     CONST(Atom), // pushes the atom on the stack
     LOAD(InternedStr), // loads then pushes the value
     DEFINE(InternedStr), // sets the symbol to value on the top of the stack
     POP, // pops one off the stack
     // FUNCTION,
-    JUMP,
+    JUMP_IF(usize),
+    JUMP(usize),
     RETURN, // pops the frame
     CALL(Function, usize), // calls a noncompiled or native function
     DCALL(usize) // calls the function at the top of the stack
@@ -92,6 +93,25 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &Env) -> Result<(), 
     match list[0] {
         Atom::Form(f) => {
             match f {
+                Form::If => {
+                    if list.len() < 2 {
+                        return Err(Error::NotEnoughArguments)
+                    }
+                    try!(compile(list[1].clone(), out, env));
+                    // predicate on stack
+                    out.push(JUMP_IF(0));
+                    let else_jump_pos = out.len() -1;
+
+                    try!(compile(list[2].clone(), out, env));
+                    out.push(JUMP(0));
+                    let out_jump = out.len() - 1;
+                    out[else_jump_pos] = JUMP_IF(out.len());
+
+                    try!(compile(list[3].clone(), out , env));
+
+                    out[out_jump] = JUMP(out.len()-1);
+                    return Ok(())
+                },
                 Form::Let => {
                     let mut new_env = Env::new(Some(env.clone()));
                     let bind_list = try!(list[1].as_list());
@@ -218,6 +238,22 @@ impl VirtualMachine {
     pub fn run(&mut self) -> AtomResult {
         while let Some(instruction) = self.next_instruction() {
             match instruction {
+                JUMP_IF(addr) => {
+                    let pred = match self.pop() {
+                        Atom::Boolean(b) => b,
+                        Atom::Nil => false,
+                        Atom::List(ref l) if l.is_empty() => false,
+                        _ => true
+                    };
+                    if pred {
+                        self.current_frame().pc = addr;
+                        continue;
+                    }
+                },
+                JUMP(addr) => {
+                    self.current_frame().pc = addr;
+                    continue;
+                }
                 POP => {
                     self.pop();
                 }
@@ -275,7 +311,6 @@ impl VirtualMachine {
                         }
                     }
                 },
-                _ => ()
             }
             self.current_frame().pc += 1;
         }
