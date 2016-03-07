@@ -42,7 +42,7 @@ pub enum Instruction {
     DEFINE(InternedStr), // sets the symbol to value on the top of the stack
     POP, // pops one off the stack
     // FUNCTION,
-    JUMP_IF(usize),
+    JUMP_IFNOT(usize),
     JUMP(usize),
     RETURN, // pops the frame
     CALL(Function, usize), // calls a noncompiled or native function
@@ -99,17 +99,18 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &Env) -> Result<(), 
                     }
                     try!(compile(list[1].clone(), out, env));
                     // predicate on stack
-                    out.push(JUMP_IF(0));
+                    out.push(JUMP_IFNOT(0));
                     let else_jump_pos = out.len() -1;
-
                     try!(compile(list[2].clone(), out, env));
+
                     out.push(JUMP(0));
                     let out_jump = out.len() - 1;
-                    out[else_jump_pos] = JUMP_IF(out.len());
+
+                    out[else_jump_pos] = JUMP_IFNOT(out.len());
 
                     try!(compile(list[3].clone(), out , env));
 
-                    out[out_jump] = JUMP(out.len()-1);
+                    out[out_jump] = JUMP(out.len());
                     return Ok(())
                 },
                 Form::Let => {
@@ -238,14 +239,8 @@ impl VirtualMachine {
     pub fn run(&mut self) -> AtomResult {
         while let Some(instruction) = self.next_instruction() {
             match instruction {
-                JUMP_IF(addr) => {
-                    let pred = match self.pop() {
-                        Atom::Boolean(b) => b,
-                        Atom::Nil => false,
-                        Atom::List(ref l) if l.is_empty() => false,
-                        _ => true
-                    };
-                    if pred {
+                JUMP_IFNOT(addr) => {
+                    if !try!(self.pop()).as_bool() {
                         self.current_frame().pc = addr;
                         continue;
                     }
@@ -255,14 +250,14 @@ impl VirtualMachine {
                     continue;
                 }
                 POP => {
-                    self.pop();
+                    try!(self.pop());
                 }
                 RETURN => {
                     if self.fp > 0 {
                         self.fp -= 1;
                         self.frames.pop();
                     } else {
-                        return Ok(self.pop())
+                        return self.pop()
                     }
                 },
                 LOAD(sym) => {
@@ -273,18 +268,18 @@ impl VirtualMachine {
                     self.push(atom.clone())
                 },
                 DEFINE(sym) => {
-                    let v = self.pop();
+                    let v = try!(self.pop());
                     let a = try!(self.current_env().define(sym, v));
                     self.push(a);
                 },
                 DCALL(arity) => {
-                    let func = self.pop();
+                    let func = try!(self.pop());
 
                     match func {
                         Atom::Function(Function::Compiled(mut f)) => {
                             f.env.bind_mut(&f.params, &self.stack[self.sp-arity..]);
                             for _ in 0..arity {
-                                self.pop();
+                                try!(self.pop());
                             }
                             self.frames.push(Frame::new(f.clone()));
                             self.fp += 1;
@@ -302,7 +297,7 @@ impl VirtualMachine {
                             let len = self.stack.len();
                             let r = try!(eval_native_borrow(self, n, len - arity));
                             for _ in 1..arity {
-                                self.pop();
+                                try!(self.pop());
                             }
                             self.push(r);
                         },
@@ -314,7 +309,7 @@ impl VirtualMachine {
             }
             self.current_frame().pc += 1;
         }
-        Ok(self.pop())
+        self.pop()
     }
 
     fn push(&mut self, a: Atom)  {
@@ -322,9 +317,9 @@ impl VirtualMachine {
         self.sp += 1
     }
 
-    fn pop(&mut self) -> Atom {
+    fn pop(&mut self) -> AtomResult {
         self.sp -= 1;
-        self.stack.pop().unwrap()
+        self.stack.pop().ok_or(Error::RuntimeAssertion)
     }
 }
 
@@ -350,7 +345,6 @@ mod tests {
         let mut out = Vec::new();
         let env = Env::new(None);
         compile(p, &mut out, &env).unwrap();
-        println!("output: {:?}", out);
         let mut vm = VirtualMachine::new();
         let mut f = empty_frame();
         f.program.env = env;
@@ -382,7 +376,15 @@ mod tests {
     }
 
     #[test]
-    fn let_doesnt_leak() {
+    fn nested_let() {
         assert_eq!(Atom::from(0), run_expr("(do (let* ((x 1)) (let* ((x 0)) x)))"))
     }
+
+    #[test]
+    fn if_test() {
+        assert_eq!(Atom::from(0), run_expr("(if false 1 0)"));
+        assert_eq!(Atom::from(1), run_expr("(if true 1 0)"));
+    }
+
+
 }
