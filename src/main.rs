@@ -24,10 +24,25 @@ use errors::Error;
 use std::env::args;
 use std::fs::File;
 use std::io::prelude::*;
+use vm::*;
+use atom::*;
+
+fn run_node(vm: &mut VirtualMachine, node: Atom, env: &Env) -> AtomResult {
+    let mut out = vec![];
+    vm::compile(node, &mut out, &env).unwrap();
+    let mut frame = vm::empty_frame();
+    frame.program.env = env.clone();
+    frame.program.body = out;
+    vm.reset();
+    vm.frames.push(frame);
+    vm.run()
+}
 
 fn repl() {
     println!("Rust Lisp!");
     let mut env = Env::new(None);
+
+    let mut vm = VirtualMachine::new();
 
     base_lib::init(&mut env).unwrap();
 
@@ -37,7 +52,10 @@ fn repl() {
         file.read_to_string(&mut s).unwrap();
 
         let a = tokenize(&s)
-            .and_then(|node| eval(node, &mut env)).unwrap();
+            .and_then(|node| {
+                run_node(&mut vm, node, &env)
+                // eval(node, &mut env)
+            }).unwrap();
         println!("{}", a);
     }
 
@@ -45,7 +63,6 @@ fn repl() {
 
     loop {
         let prompt = if lines.is_empty() { ">" } else  { "" };
-
         match readline::readline(prompt) {
             Some(s) => {
                 if s == "quit" {
@@ -54,7 +71,7 @@ fn repl() {
                 lines.push_str(&s);
 
                 let result = tokenize(&lines)
-                    .and_then(|node| eval(node, &mut env));
+                    .and_then(|node| run_node(&mut vm, node, &mut env));
 
                 match result {
                     Ok(r) => {

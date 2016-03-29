@@ -65,7 +65,8 @@ pub enum Function {
     Native(Native),
     Proc(Procedure),
     Compiled(CompiledFunction),
-    Macro(Procedure)
+    Macro(Procedure),
+    CompiledMacro(CompiledFunction)
 }
 
 impl fmt::Display for Function {
@@ -76,7 +77,8 @@ impl fmt::Display for Function {
             Native(n) => write!(f, "{}", n),
             Proc(_) => write!(f, "proc"),
             Compiled(_) => write!(f, "compiled-proc"),
-            Macro(_) => write!(f, "macro")
+            Macro(_) => write!(f, "macro"),
+            CompiledMacro(_) => write!(f, "compiled-macro")
         }
     }
 }

@@ -7,9 +7,9 @@ use eval::*;
 use self::Instruction::*;
 
 #[derive (Debug, Clone)]
-struct Frame {
-    program: CompiledFunction,
-    pc: usize
+pub struct Frame {
+    pub program: CompiledFunction,
+    pub pc: usize
 }
 
 impl Frame {
@@ -27,8 +27,8 @@ impl Frame {
 
 #[derive (Debug)]
 pub struct VirtualMachine {
-    stack: Vec<Atom>,
-    frames: Vec<Frame>,
+    pub stack: Vec<Atom>,
+    pub frames: Vec<Frame>,
     fp: usize,
     sp: usize,
 }
@@ -65,6 +65,44 @@ fn compile_node(node: Atom, out: &mut Vec<Instruction>, env: &Env) -> Result<(),
         }
     }
     Ok(())
+}
+
+fn expand_quasiquote(node: &Atom, env: &Env) -> AtomResult {
+    println!("expand_quasiquote: {}", node);
+    if !node.is_pair() {
+        return Ok(Atom::list(vec![Atom::Form(Form::Quote), node.clone()]))
+    }
+
+    let list = try!(node.as_list());
+    match list[0] {
+        Atom::Form(Form::Unquote) => {
+            try!(expect_arg_length(list, 2));
+            return Ok(list[1].clone())
+        },
+        _ => ()
+    }
+
+    if list[0].is_pair() {
+        match list[0] {
+            Atom::List(ref sublist) => {
+                match sublist[0] {
+                    Atom::Form(Form::Splice) => {
+                        let append = Atom::Function(Function::Native(Native::Append));
+                        let rest = list[1..].iter().map(|n| n.clone()).collect();
+                        return Ok(Atom::list(vec![append, sublist[1].clone(),
+                                                  Atom::list(rest)]))
+                    },
+                    _ => ()
+                }
+            },
+            _ => ()
+        }
+    }
+
+    let rest = list[1..].iter().map(|n| n.clone()).collect();
+    Ok(Atom::list(vec![Atom::Function(Function::Native(Native::Cons)),
+                       try!(expand_quasiquote(&list[0], env)),
+                       try!(expand_quasiquote(&Atom::list(rest), env))]))
 }
 
 pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &Env) -> Result<(), Error> {
@@ -169,6 +207,30 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &Env) -> Result<(), 
                     };
                     out.push(CONST(Atom::Function(Function::Compiled(func))));
                     return Ok(())
+                },
+                Form::Macro => {
+                    let mut body = Vec::new();
+                    let mut env = Env::new(Some(env.clone()));
+                    try!(compile(list[2].clone(), &mut body, &mut env));
+                    body.push(RETURN);
+                    let func = CompiledFunction {
+                        body: body,
+                        params: try!(list[1].as_list()).clone(),
+                        env: env
+                    };
+                    let sym = try!(list[1].as_symbol());
+                    out.push(CONST(Atom::Function(Function::CompiledMacro(func))));
+                    out.push(DEFINE(*sym));
+                    return Ok(())
+                },
+                Form::Quote => {
+                    out.push(CONST(list[1].clone()));
+                    return Ok(())
+                },
+                Form::QuasiQuote => {
+                    let expanded = try!(expand_quasiquote(&list[1], env));
+                    try!(compile(expanded, out, env));
+                    return Ok(())
                 }
                 _ => {
                     return Err(Error::NotImplemented)
@@ -222,6 +284,13 @@ impl VirtualMachine {
             sp: 0,
             fp: 0
         }
+    }
+
+    pub fn reset(&mut self) {
+        self.stack.clear();
+        self.frames.clear();
+        self.sp = 0;
+        self.fp = 0;
     }
 
     fn next_instruction(&self) -> Option<Instruction> {
@@ -323,22 +392,19 @@ impl VirtualMachine {
     }
 }
 
-
+pub fn empty_frame() -> Frame {
+    Frame::new(CompiledFunction{
+        body: Vec::new(),
+        params: empty_list(),
+        env: Env::new(None)
+    })
+}
 #[cfg(test)]
 mod tests {
     use super::*;
     use parser::*;
     use atom::*;
     use env::*;
-    use super::Frame;
-
-    fn empty_frame() -> Frame {
-        Frame::new(CompiledFunction{
-            body: Vec::new(),
-            params: empty_list(),
-            env: Env::new(None)
-        })
-    }
 
     fn run_expr(s: &str) -> Atom {
         let p = tokenize(s).unwrap();
@@ -386,5 +452,8 @@ mod tests {
         assert_eq!(Atom::from(1), run_expr("(if true 1 0)"));
     }
 
-
+    #[test]
+    fn quote_test() {
+        assert_eq!(Atom::list(vec![Atom::from(0), Atom::from(1)]), run_expr("'(0 1)"));
+    }
 }
