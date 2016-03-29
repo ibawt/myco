@@ -106,6 +106,7 @@ fn expand_quasiquote(node: &Atom, env: &Env) -> AtomResult {
 }
 
 pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &Env) -> Result<(), Error> {
+    println!("compiling: {}", node);
     match node {
         Atom::List(ref list) => {
             if list.is_empty() {
@@ -211,11 +212,11 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &Env) -> Result<(), 
                 Form::Macro => {
                     let mut body = Vec::new();
                     let mut env = Env::new(Some(env.clone()));
-                    try!(compile(list[2].clone(), &mut body, &mut env));
+                    try!(compile(list[3].clone(), &mut body, &mut env));
                     body.push(RETURN);
                     let func = CompiledFunction {
                         body: body,
-                        params: try!(list[1].as_list()).clone(),
+                        params: try!(list[2].as_list()).clone(),
                         env: env
                     };
                     let sym = try!(list[1].as_symbol());
@@ -306,6 +307,7 @@ impl VirtualMachine {
     }
 
     pub fn run(&mut self) -> AtomResult {
+        println!("running...");
         while let Some(instruction) = self.next_instruction() {
             match instruction {
                 JUMP_IFNOT(addr) => {
