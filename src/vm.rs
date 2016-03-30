@@ -41,6 +41,7 @@ pub enum Instruction {
     LOAD(InternedStr), // loads then pushes the value
     DEFINE(InternedStr), // sets the symbol to value on the top of the stack
     POP, // pops one off the stack
+    STORE(InternedStr),
     // FUNCTION,
     JUMP_IFNOT(usize),
     JUMP(usize),
@@ -239,6 +240,10 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<
                     return Ok(())
                 },
                 Form::Set => {
+                    let sym = try!(list[1].as_symbol());
+                    try!(compile(list[2].clone(), out, env));
+                    out.push(STORE(*sym));
+                    return Ok(())
                 },
                 Form::Def => {
                     let sym = try!(list[1].as_symbol());
@@ -393,6 +398,11 @@ impl VirtualMachine {
                     let a = try!(self.current_env().define(sym, v));
                     self.push(a);
                 },
+                STORE(sym) => {
+                    let v = try!(self.pop());
+                    let a = try!(self.current_env().set(sym, v));
+                    self.push(a);
+                }
                 DCALL(arity) => {
                     let func = try!(self.pop());
                     match func {
