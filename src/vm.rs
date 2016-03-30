@@ -101,7 +101,7 @@ fn expand_quasiquote(node: &Atom, env: &Env) -> AtomResult {
     }
 
     let rest = list[1..].iter().map(|n| n.clone()).collect();
-    Ok(Atom::list(vec![Atom::Function(Function::Native(Native::Cons)),
+    Ok(Atom::list(vec![//Atom::Function(Function::Native(Native::Cons)),
                        try!(expand_quasiquote(&list[0], env)),
                        try!(expand_quasiquote(&Atom::list(rest), env))]))
 }
@@ -464,6 +464,7 @@ pub fn empty_frame() -> Frame {
         env: Env::new(None)
     })
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -474,8 +475,8 @@ mod tests {
     fn run_expr(s: &str) -> Atom {
         let p = tokenize(s).unwrap();
         let mut out = Vec::new();
-        let env = Env::new(None);
-        compile(p, &mut out, &env).unwrap();
+        let mut env = Env::new(None);
+        compile(p, &mut out, &mut env).unwrap();
         let mut vm = VirtualMachine::new();
         let mut f = empty_frame();
         f.program.env = env;

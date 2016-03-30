@@ -223,7 +223,11 @@ mod tests {
 
         env.define(intern("foo"), Atom::string("bar")).unwrap();
 
-        assert_eq!(Err(Error::InvalidArguments), env.set(intern("bar"), Atom::string("foo")));
+        if let Err(Error::InvalidArguments(_)) = env.set(intern("bar"), Atom::string("foo")) {
+            assert!(true);
+        } else {
+            assert!(false);
+        }
 
         let mut env2 = Env::new(Some(env.clone()));
 
