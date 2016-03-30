@@ -16,9 +16,9 @@
        (print "FAIL: " '~condition)
        (error))))
 
-(defmacro unless (x & body)
-  `(if (not ~x)
-       (do ~@body)))
+;; (defmacro unless (x & body)
+;;   `(if (not ~x)
+;;        (do ~@body)))
 
 (defmacro when (x & body)
   `(if ~x (do ~@body)))

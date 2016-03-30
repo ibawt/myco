@@ -107,7 +107,7 @@ impl Env {
                     // println!("setting {} to {} in {}", sym, arg, self);
                     self.0.borrow_mut().value.push(Entry {
                         key: *sym,
-                        value: arg.clone() 
+                        value: arg.clone()
                     });
                     // self.define()
                     // arg_map.push(Entry { key: sym.clone(), value: arg.clone() });
@@ -155,7 +155,8 @@ impl Env {
 
     pub fn define(&mut self, key: symbol::InternedStr, value: Atom) -> Result<Atom, Error> {
         if let Some(_) = self.0.borrow().find(key.as_ref()) {
-            return Err(Error::InvalidArguments)
+            // println!("env is: {}", self);
+            return Err(invalid_arg(&format!("define has entry already: {}", key.as_ref())))
         }
         self.0.borrow_mut().value.push(Entry {
             key: key,
@@ -180,7 +181,7 @@ impl Env {
         if let Some(ref mut parent) = self.0.borrow_mut().parent {
             parent.set(key, value)
         } else {
-            Err(Error::InvalidArguments)
+            Err(invalid_arg("in set"))
         }
     }
 }

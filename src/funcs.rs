@@ -3,20 +3,21 @@ use std::fs::File;
 
 use env::*;
 use atom::*;
-use errors::Error::*;
+use errors::*;
 use number::*;
 use eval;
 
+use errors::Error::*;
+
 fn cons(args: &[Atom], _: &Env) -> AtomResult {
     if args.len() != 2 {
-        return Err(InvalidArguments)
+        return Err(invalid_arg("cons"))
     }
     if let Atom::Nil = args[1] {
         return Ok(Atom::list(vec![args[0].clone()]));
     }
 
     let list = try!(args[1].as_list());
-
     let mut v = Vec::with_capacity(list.len() + 1);
     v.push(args[0].clone());
     for i in list.as_ref() {
@@ -27,7 +28,7 @@ fn cons(args: &[Atom], _: &Env) -> AtomResult {
 
 fn append(args: &[Atom], _: &Env) -> AtomResult {
     if args.len() != 2 {
-        return Err(InvalidArguments)
+        return Err(invalid_arg("append"))
     }
 
     let ref a = args[0];
@@ -44,7 +45,7 @@ fn append(args: &[Atom], _: &Env) -> AtomResult {
             Ok(Atom::list(vec![a.clone()]))
         }
         _ => {
-            Err(InvalidArguments)
+            Err(invalid_arg("append"))
         }
     }
 }
@@ -131,7 +132,7 @@ fn apply(f: &Function, args: &[Atom], env: &mut Env) -> AtomResult {
         Function::Native(func) => {
             eval_native(func, args, env)
         },
-        _ => return Err(InvalidArguments)
+        _ => return Err(invalid_arg("apply"))
     }
 }
 
@@ -302,7 +303,7 @@ fn cmp(v: &[Atom], _: &Env, cmp: Comparison) -> AtomResult {
 
 fn sub(v: &[Atom], _: &Env) -> AtomResult {
     if v.len() < 1 {
-        return Err(InvalidArguments)
+        return Err(invalid_arg("sub"))
     }
 
     let mut result = try!(v[0].as_number());
@@ -343,4 +344,3 @@ fn div(v: &[Atom], _: &Env) -> AtomResult {
     }
     Ok(Atom::Number(initial))
 }
-

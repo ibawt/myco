@@ -9,7 +9,7 @@ pub enum Error {
     EoF,
     UnexpectedType,
     Parser,
-    InvalidArguments,
+    InvalidArguments(String),
     NotAFunction,
     RuntimeAssertion,
     NotEnoughArguments,
@@ -19,13 +19,17 @@ pub enum Error {
 
 use std::cmp::PartialEq;
 
+pub fn invalid_arg(s: &str) -> Error {
+    Error::InvalidArguments(s.to_string())
+}
+
 impl PartialEq for Error {
     fn eq(&self, r: &Error) -> bool {
         match (self, r) {
             (&EoF, &EoF) => true,
             (&UnexpectedType, &UnexpectedType) => true,
             (&Parser, &Parser) => true,
-            (&InvalidArguments, &InvalidArguments) => true,
+            (&InvalidArguments(_), &InvalidArguments(_)) => true,
             (&NotAFunction, &NotAFunction) => true,
             (&RuntimeAssertion, &RuntimeAssertion) => true,
             (&NotEnoughArguments, &NotEnoughArguments) => true,
@@ -55,7 +59,7 @@ impl error::Error for Error {
             EoF => "End of File",
             UnexpectedType => "UnexpectedType",
             Parser => "Parser",
-            InvalidArguments => "InvalidArguments",
+            InvalidArguments(ref s) => s,
             NotAFunction => "NotAFunction",
             NotEnoughArguments => "NotEnoughArguments",
             NotImplemented => "NotImplemented",

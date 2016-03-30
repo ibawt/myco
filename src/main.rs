@@ -18,7 +18,6 @@ mod vm;
 mod base_lib;
 
 use parser::{tokenize};
-use eval::{eval};
 use env::*;
 use errors::Error;
 use std::env::args;
@@ -27,11 +26,12 @@ use std::io::prelude::*;
 use vm::*;
 use atom::*;
 
-fn run_node(vm: &mut VirtualMachine, node: Atom, env: &Env) -> AtomResult {
+fn run_node(vm: &mut VirtualMachine, node: Atom, env: &mut Env) -> AtomResult {
     let mut out = vec![];
-    vm::compile(node, &mut out, &env).unwrap();
+    let mut e = env.clone();
+    vm::compile(node, &mut out, &mut e).unwrap();
     let mut frame = vm::empty_frame();
-    frame.program.env = env.clone();
+    frame.program.env = e;
     frame.program.body = out;
     vm.reset();
     vm.frames.push(frame);
@@ -53,7 +53,7 @@ fn repl() {
 
         let a = tokenize(&s)
             .and_then(|node| {
-                run_node(&mut vm, node, &env)
+                run_node(&mut vm, node, &mut env)
                 // eval(node, &mut env)
             }).unwrap();
         println!("{}", a);

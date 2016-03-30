@@ -66,7 +66,6 @@ pub enum Function {
     Proc(Procedure),
     Compiled(CompiledFunction),
     Macro(Procedure),
-    CompiledMacro(CompiledFunction)
 }
 
 impl fmt::Display for Function {
@@ -78,7 +77,6 @@ impl fmt::Display for Function {
             Proc(_) => write!(f, "proc"),
             Compiled(_) => write!(f, "compiled-proc"),
             Macro(_) => write!(f, "macro"),
-            CompiledMacro(_) => write!(f, "compiled-macro")
         }
     }
 }

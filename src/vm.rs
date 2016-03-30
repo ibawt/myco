@@ -49,7 +49,7 @@ pub enum Instruction {
     DCALL(usize) // calls the function at the top of the stack
 }
 
-fn compile_node(node: Atom, out: &mut Vec<Instruction>, env: &Env) -> Result<(), Error> {
+fn compile_node(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<(), Error> {
     match node {
         Atom::Symbol(sym) => {
             out.push(Instruction::LOAD(sym))
@@ -68,7 +68,7 @@ fn compile_node(node: Atom, out: &mut Vec<Instruction>, env: &Env) -> Result<(),
 }
 
 fn expand_quasiquote(node: &Atom, env: &Env) -> AtomResult {
-    println!("expand_quasiquote: {}", node);
+    // println!("expand_quasiquote: {}", node);
     if !node.is_pair() {
         return Ok(Atom::list(vec![Atom::Form(Form::Quote), node.clone()]))
     }
@@ -105,8 +105,40 @@ fn expand_quasiquote(node: &Atom, env: &Env) -> AtomResult {
                        try!(expand_quasiquote(&Atom::list(rest), env))]))
 }
 
-pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &Env) -> Result<(), Error> {
-    println!("compiling: {}", node);
+fn macro_expand(node: Atom, env: &mut Env) -> Result<Atom, Error> {
+    match node {
+        Atom::List(ref list) if !list.is_empty() => {
+            match list[0] {
+                Atom::Symbol(ref sym) => {
+                    if let Some(Atom::Function(Function::Macro(ref m))) = env.get(sym.as_ref()) {
+                        return macro_expand(try!(eval_macro(m, &list[1..], env)), env)
+                    }
+                },
+                Atom::Form(Form::Fn) => {
+                    if list.len() < 3 {
+                        return Err(Error::NotEnoughArguments)
+                    }
+
+                    let mut out = Vec::with_capacity(list.len());
+                    out.push(list[0].clone());
+                    out.push(list[1].clone());
+                    for i in &list[2..] {
+                        out.push(try!(macro_expand(i.clone(), env)));
+                    }
+                    return Ok(Atom::list(out))
+                }
+                _ => ()
+            }
+            return Ok(Atom::list(try!(list.iter().map(|n| macro_expand(n.clone(), env)).collect())))
+        },
+        _ => ()
+    }
+
+    Ok(node)
+}
+
+pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<(), Error> {
+    // println!("compiling: {}", node);
     match node {
         Atom::List(ref list) => {
             if list.is_empty() {
@@ -118,7 +150,22 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &Env) -> Result<(), 
         _ => return compile_node(node, out, env)
     }
 
-    let list = try!(node.as_list());
+    let n = try!(macro_expand(node, env));
+
+    let list = match n {
+        Atom::List(ref list) => {
+            if list.is_empty() {
+                out.push(CONST(Atom::Nil));
+                return Ok(())
+            } else {
+                list
+            }
+        },
+        c @ _ => {
+            out.push(CONST(c));
+            return Ok(())
+        }
+    };
 
     if let Atom::List(_) = list[0] {
         for i in list.iter().skip(1) {
@@ -133,23 +180,35 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &Env) -> Result<(), 
         Atom::Form(f) => {
             match f {
                 Form::If => {
-                    if list.len() < 2 {
-                        return Err(Error::NotEnoughArguments)
+                    match list.len() {
+                        4 => {
+                            try!(compile(list[1].clone(), out, env));
+                            // predicate on stack
+                            out.push(JUMP_IFNOT(0));
+                            let else_jump_pos = out.len() -1;
+                            try!(compile(list[2].clone(), out, env));
+
+                            out.push(JUMP(0));
+                            let out_jump = out.len() - 1;
+
+                            out[else_jump_pos] = JUMP_IFNOT(out.len());
+
+                            try!(compile(list[3].clone(), out , env));
+
+                            out[out_jump] = JUMP(out.len());
+                        },
+                        3 => {
+                            try!(compile(list[1].clone(), out, env));
+                            // predicate on stack
+                            out.push(JUMP_IFNOT(0));
+                            let else_jump_pos = out.len() -1;
+                            try!(compile(list[2].clone(), out, env));
+                            out[else_jump_pos] = JUMP_IFNOT(out.len());
+                        }
+                        _ => {
+                            return Err(invalid_arg("invalid number for forms for if"))
+                        }
                     }
-                    try!(compile(list[1].clone(), out, env));
-                    // predicate on stack
-                    out.push(JUMP_IFNOT(0));
-                    let else_jump_pos = out.len() -1;
-                    try!(compile(list[2].clone(), out, env));
-
-                    out.push(JUMP(0));
-                    let out_jump = out.len() - 1;
-
-                    out[else_jump_pos] = JUMP_IFNOT(out.len());
-
-                    try!(compile(list[3].clone(), out , env));
-
-                    out[out_jump] = JUMP(out.len());
                     return Ok(())
                 },
                 Form::Let => {
@@ -210,18 +269,8 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &Env) -> Result<(), 
                     return Ok(())
                 },
                 Form::Macro => {
-                    let mut body = Vec::new();
-                    let mut env = Env::new(Some(env.clone()));
-                    try!(compile(list[3].clone(), &mut body, &mut env));
-                    body.push(RETURN);
-                    let func = CompiledFunction {
-                        body: body,
-                        params: try!(list[2].as_list()).clone(),
-                        env: env
-                    };
-                    let sym = try!(list[1].as_symbol());
-                    out.push(CONST(Atom::Function(Function::CompiledMacro(func))));
-                    out.push(DEFINE(*sym));
+                    try!(macro_form(&list[1..], env));
+                    out.push(CONST(Atom::Nil));
                     return Ok(())
                 },
                 Form::Quote => {
@@ -230,6 +279,7 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &Env) -> Result<(), 
                 },
                 Form::QuasiQuote => {
                     let expanded = try!(expand_quasiquote(&list[1], env));
+                    // println!("expanded: {}", expanded);
                     try!(compile(expanded, out, env));
                     return Ok(())
                 }
@@ -269,7 +319,7 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &Env) -> Result<(), 
         }
     }
 
-    Err(Error::InvalidArguments)
+    Err(invalid_arg("bottom here"))
 }
 
 fn eval_native_borrow(v: &mut VirtualMachine, n: Native, len: usize) -> AtomResult {
@@ -345,7 +395,6 @@ impl VirtualMachine {
                 },
                 DCALL(arity) => {
                     let func = try!(self.pop());
-
                     match func {
                         Atom::Function(Function::Compiled(mut f)) => {
                             f.env.bind_mut(&f.params, &self.stack[self.sp-arity..]);
@@ -357,7 +406,7 @@ impl VirtualMachine {
                             continue; // don't advance PC of the new frame
                         },
                         _ => {
-                            println!("not a function: {:?}", func);
+                            // println!("not a function: {:?}", func);
                             return Err(Error::NotAFunction)
                         }
                     }
@@ -367,7 +416,7 @@ impl VirtualMachine {
                         Function::Native(n) => {
                             let len = self.stack.len();
                             let r = try!(eval_native_borrow(self, n, len - arity));
-                            for _ in 1..arity {
+                            for _ in 0..arity {
                                 try!(self.pop());
                             }
                             self.push(r);
@@ -389,8 +438,12 @@ impl VirtualMachine {
     }
 
     fn pop(&mut self) -> AtomResult {
-        self.sp -= 1;
-        self.stack.pop().ok_or(Error::RuntimeAssertion)
+        if self.sp > 0 {
+            self.sp -= 1;
+            return self.stack.pop().ok_or(Error::RuntimeAssertion)
+        } else {
+            return Err(Error::RuntimeAssertion)
+        }
     }
 }
 

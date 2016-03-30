@@ -2,7 +2,6 @@ use funcs::*;
 use env::*;
 use atom::*;
 use errors::*;
-use errors::Error::*;
 use std::fmt::{Write};
 use std::string::*;
 use smallvec::SmallVec;
@@ -23,7 +22,7 @@ fn print_list(list: &[Atom]) -> String {
     s
 }
 
-fn eval_macro(p: &Procedure, args: &[Atom], env: &mut Env) -> AtomResult {
+pub fn eval_macro(p: &Procedure, args: &[Atom], env: &mut Env) -> AtomResult {
     let mut e = env.bind(&p.params, args);
 
     eval(Atom::List(p.body.clone()), &mut e)
@@ -31,7 +30,7 @@ fn eval_macro(p: &Procedure, args: &[Atom], env: &mut Env) -> AtomResult {
 
 fn define(args: &[Atom], env: &mut Env) -> AtomResult {
     if args.len() != 2 {
-        return Err(Error::InvalidArguments);
+        return Err(invalid_arg("define - eval"));
     }
 
     let key = try!(args[0].as_symbol());
@@ -41,7 +40,7 @@ fn define(args: &[Atom], env: &mut Env) -> AtomResult {
 
 fn quote(list: &[Atom]) -> AtomResult {
     try!(expect_arg_length(list, 1));
-    list.first().map(|atom| atom.clone()).ok_or(InvalidArguments)
+    list.first().map(|atom| atom.clone()).ok_or(invalid_arg("quote"))
 }
 
 fn make_proc(list: &[Atom], env: &Env) -> AtomResult {
@@ -57,9 +56,9 @@ fn make_proc(list: &[Atom], env: &Env) -> AtomResult {
                                                 closures: Env::new(Some(env.clone()))})))
 }
 
-fn macro_form(args: &[Atom], env: &mut Env) -> AtomResult {
+pub fn macro_form(args: &[Atom], env: &mut Env) -> AtomResult {
     if args.len() < 3 {
-        return Err(InvalidArguments)
+        return Err(invalid_arg("not enough args"))
     }
 
     let name = try!(args[0].as_symbol());
@@ -137,7 +136,7 @@ fn eval_special_forms(f: Form, list: &[Atom], env: &mut Env) -> AtomResult {
         MacroExpand => {
             macro_expand(list[1].clone(), env)
         },
-        _ => Err(InvalidArguments)
+        _ => Err(invalid_arg("eval special form"))
     }
 }
 
@@ -473,7 +472,7 @@ mod tests {
 
     // #[test]
     // fn recursive_fibonacci() {
-    //     // need a tail call version 
+    //     // need a tail call version
     //     let t = include_str!("../test/recursion.lisp");
 
     //     assert_eq!(teval(t), teval("9227465"));
