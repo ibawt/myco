@@ -239,7 +239,8 @@ pub fn eval_native(n: Native, args: &[Atom], env: &mut Env) -> AtomResult {
         Barf => barf(args, env),
         Filter => filter(args, env),
         Reduce => reduce(args, env),
-        Count => count(args, env)
+        Count => count(args, env),
+        Apply => apply(try!(args[1].as_function()), &args[1..], env)
     }
 }
 

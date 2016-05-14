@@ -17,7 +17,8 @@ pub enum Form {
     Unquote,
     Splice,
     MacroExpand,
-    Eval
+    Eval,
+    Recur
 }
 
 impl fmt::Display for Form {
@@ -37,7 +38,8 @@ impl fmt::Display for Form {
             MacroExpand => "macroexpand",
             If => "if",
             QuasiQuote => "quasiquote",
-            Eval => "eval"
+            Eval => "eval",
+            Recur => "recur"
         };
         write!(f, "{}", s)
     }
@@ -127,6 +129,7 @@ pub enum Native {
     Filter,
     Reduce,
     Count,
+    Apply
 }
 
 impl fmt::Display for Native {
@@ -157,7 +160,8 @@ impl fmt::Display for Native {
             Barf => write!(f, "barf"),
             Filter => write!(f, "filter"),
             Reduce => write!(f, "reduce"),
-            Count => write!(f, "count")
+            Count => write!(f, "count"),
+            Apply => write!(f, "apply")
         }
     }
 }
@@ -250,6 +254,7 @@ fn find_native(t: &str) -> Option<Atom> {
         "filter" => Filter,
         "reduce" => Reduce,
         "count" => Count,
+        "apply" => Apply,
         _ => return None
     };
     Some(Atom::Function(Function::Native(native)))
@@ -268,6 +273,7 @@ fn find_form(t: &str) -> Option<Atom> {
         "if" => If,
         "macroexpand" => MacroExpand,
         "defmacro" => Macro,
+        "recur" => Recur,
         _ => return None
     };
     Some(Atom::Form(form))

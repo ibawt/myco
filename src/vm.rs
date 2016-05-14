@@ -47,7 +47,8 @@ pub enum Instruction {
     JUMP(usize),
     RETURN, // pops the frame
     CALL(Function, usize), // calls a noncompiled or native function
-    DCALL(usize) // calls the function at the top of the stack
+    DCALL(usize), // calls the function at the top of the stack
+    RECUR(usize),
 }
 
 fn compile_node(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<(), Error> {
@@ -100,10 +101,15 @@ fn expand_quasiquote(node: &Atom, env: &Env) -> AtomResult {
         }
     }
 
-    let rest = list[1..].iter().map(|n| n.clone()).collect();
-    Ok(Atom::list(vec![//Atom::Function(Function::Native(Native::Cons)),
-                       try!(expand_quasiquote(&list[0], env)),
-                       try!(expand_quasiquote(&Atom::list(rest), env))]))
+    let rest: Vec<Atom> = list[1..].iter().map(|n| n.clone()).collect();
+
+    if rest.len() == 0 {
+        Ok(Atom::list(vec![try!(expand_quasiquote(&list[0], env))]))
+    } else {
+        Ok(Atom::list(vec![//Atom::Function(Function::Native(Native::Cons)),
+            try!(expand_quasiquote(&list[0], env)),
+            try!(expand_quasiquote(&Atom::list(rest), env))]))
+    }
 }
 
 fn macro_expand(node: Atom, env: &mut Env) -> Result<Atom, Error> {
@@ -180,11 +186,17 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<
     match list[0] {
         Atom::Form(f) => {
             match f {
+                Form::Recur => {
+                    for n in list.iter().skip(1) {
+                        try!(compile(n.clone(), out, env));
+                    }
+                    out.push(RECUR(list.len()-1));
+                    return Ok(())
+                },
                 Form::If => {
                     match list.len() {
                         4 => {
                             try!(compile(list[1].clone(), out, env));
-                            // predicate on stack
                             out.push(JUMP_IFNOT(0));
                             let else_jump_pos = out.len() -1;
                             try!(compile(list[2].clone(), out, env));
@@ -200,7 +212,6 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<
                         },
                         3 => {
                             try!(compile(list[1].clone(), out, env));
-                            // predicate on stack
                             out.push(JUMP_IFNOT(0));
                             let else_jump_pos = out.len() -1;
                             try!(compile(list[2].clone(), out, env));
@@ -320,6 +331,7 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<
             }
         },
         _ => {
+            println!("list[0]={}", list[0]);
             return Err(Error::NotAFunction)
         }
     }
@@ -330,6 +342,14 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<
 fn eval_native_borrow(v: &mut VirtualMachine, n: Native, len: usize) -> AtomResult {
     let &mut VirtualMachine { ref mut stack, ref mut frames, fp, .. } = v;
     eval_native(n, &stack[len..], &mut frames[fp].program.env)
+}
+
+fn recur_borrow(v: &mut VirtualMachine, len: usize) {
+    let &mut VirtualMachine { ref mut stack, ref mut frames, fp, sp } = v;
+    let frame = &mut frames[fp];
+    println!("len = {}", len);
+    frame.program.env.bind_mut(&frame.program.params, &stack[sp..]);
+    frame.pc = 0;
 }
 
 impl VirtualMachine {
@@ -403,6 +423,20 @@ impl VirtualMachine {
                     let a = try!(self.current_env().set(sym, v));
                     self.push(a);
                 }
+                RECUR(arity) => {
+                    recur_borrow(self, arity);
+                    for _ in 0..arity {
+                        try!(self.pop());
+                    }
+                    println!("recur???");
+                    // let program = &mut self.frames[self.fp].program;
+                    // program.env.bind_mut(&program.params, &self.stack[self.sp-arity..]);
+                    // for p in program.params.iter() {
+                    //     try!(self.pop());
+                    // }
+                    // self.current_frame().pc = 0;
+                    continue;
+                }
                 DCALL(arity) => {
                     let func = try!(self.pop());
                     match func {
@@ -416,7 +450,7 @@ impl VirtualMachine {
                             continue; // don't advance PC of the new frame
                         },
                         _ => {
-                            // println!("not a function: {:?}", func);
+                            println!("not a function: {:?}", func);
                             return Err(Error::NotAFunction)
                         }
                     }
@@ -522,4 +556,11 @@ mod tests {
     fn quote_test() {
         assert_eq!(Atom::list(vec![Atom::from(0), Atom::from(1)]), run_expr("'(0 1)"));
     }
+
+    #[test]
+    fn run_suite() {
+        let suite = include_str!("../test/suite.lisp");
+        assert_eq!(Atom::from(true), run_expr(suite));
+    }
+
 }

@@ -13,12 +13,12 @@
      (do
        true)
      (do
-       (print "FAIL: " '~condition)
+       (print "FAIL: " '~msg)
        (error))))
 
-;; (defmacro unless (x & body)
-;;   `(if (not ~x)
-;;        (do ~@body)))
+(defmacro unless (x & body)
+  `(if (not ~x)
+       (do ~@body)))
 
 (defmacro when (x & body)
   `(if ~x (do ~@body)))
@@ -46,9 +46,11 @@
 (defun second (x)
   (first (first x)))
 
-
 (defmacro cond (& xs)
   (if (> (count xs) 0)
       (list 'if (first (first xs))
             (second (first xs))
             (cons 'cond (rest xs)))))
+
+(defun empty? (x)
+  (= 0 (count x)))
