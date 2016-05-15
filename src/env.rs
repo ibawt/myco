@@ -30,7 +30,7 @@ impl EnvGeneration {
     }
 
     fn find(&self, key: &str) -> Option<&Entry> {
-        self.value.iter().find(|entry| entry.key.as_ref() == key )
+        self.value.iter().rev().find(|entry| entry.key.as_ref() == key )
     }
 }
 
@@ -71,7 +71,7 @@ impl Env {
     fn find(&self, key: &str) -> Option<Atom> {
         let gen = self.0.borrow();
         let value = &gen.value;
-        match value.iter().find(|entry| entry.key.as_ref() == key) {
+        match value.iter().rev().find(|entry| entry.key.as_ref() == key) {
             Some(ref entry) => {
                 // println!("found {} it here in: {:p}", key, self);
                 Some(entry.value.clone())
@@ -90,7 +90,6 @@ impl Env {
     pub fn bind_mut(&mut self, params: &[Atom], args: &[Atom]) {
         let mut params_iter = params.iter();
         let mut args_iter = args.iter();
-
         while let Some(&Atom::Symbol(ref sym)) = params_iter.next() {
             if sym.as_ref() == "&" {
                 if let Some(&Atom::Symbol(ref splat)) = params_iter.next() {

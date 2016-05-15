@@ -1,7 +1,6 @@
 use atom::*;
 use errors::*;
 use std::iter::*;
-use std::io::prelude::*;
 
 pub fn tokenize(line: &str) -> ParseResult {
     let mut chars = line.chars().peekable();

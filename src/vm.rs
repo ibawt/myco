@@ -347,8 +347,9 @@ fn eval_native_borrow(v: &mut VirtualMachine, n: Native, len: usize) -> AtomResu
 fn recur_borrow(v: &mut VirtualMachine, len: usize) {
     let &mut VirtualMachine { ref mut stack, ref mut frames, fp, sp } = v;
     let frame = &mut frames[fp];
-    println!("len = {}", len);
-    frame.program.env.bind_mut(&frame.program.params, &stack[sp..]);
+    // println!("len = {}", len);
+    // println!("sp = {}, stack length: {}", sp, stack.len());
+    frame.program.env.bind_mut(&frame.program.params, &stack[sp-len..]);
     frame.pc = 0;
 }
 
@@ -408,6 +409,7 @@ impl VirtualMachine {
                 },
                 LOAD(sym) => {
                     let value = self.current_frame().program.env.get(sym.as_ref()).unwrap_or(Atom::Nil);
+                    // println!("load({}) = {}", sym, value);
                     self.push(value);
                 },
                 CONST(ref atom) => {
@@ -428,7 +430,7 @@ impl VirtualMachine {
                     for _ in 0..arity {
                         try!(self.pop());
                     }
-                    println!("recur???");
+                    // println!("recur???");
                     // let program = &mut self.frames[self.fp].program;
                     // program.env.bind_mut(&program.params, &self.stack[self.sp-arity..]);
                     // for p in program.params.iter() {
@@ -505,11 +507,13 @@ mod tests {
     use parser::*;
     use atom::*;
     use env::*;
+    use base_lib;
 
     fn run_expr(s: &str) -> Atom {
         let p = tokenize(s).unwrap();
         let mut out = Vec::new();
         let mut env = Env::new(None);
+        base_lib::init(&mut env).unwrap();
         compile(p, &mut out, &mut env).unwrap();
         let mut vm = VirtualMachine::new();
         let mut f = empty_frame();
@@ -558,9 +562,15 @@ mod tests {
     }
 
     #[test]
-    fn run_suite() {
-        let suite = include_str!("../test/suite.lisp");
-        assert_eq!(Atom::from(true), run_expr(suite));
+    fn recur_test() {
+        let s = include_str!("../test/recur.lisp");
+        assert_eq!(Atom::from(0), run_expr(s));
     }
+
+    // #[test]
+    // fn run_suite() {
+    //     // let suite = include_str!("../test/suite.lisp");
+    //     // assert_eq!(Atom::from(true), run_expr(suite));
+    // }
 
 }
