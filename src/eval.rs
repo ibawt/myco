@@ -43,17 +43,31 @@ fn quote(list: &[Atom]) -> AtomResult {
     list.first().map(|atom| atom.clone()).ok_or(invalid_arg("quote"))
 }
 
+use vm;
+
 fn make_proc(list: &[Atom], env: &Env) -> AtomResult {
     let p = try!(list[1].as_list());
     let mut body = Vec::with_capacity(list.len());
-    body.push(Atom::Form(Form::Do));
+    let mut env = Env::new(Some(env.clone()));
 
-    for i in list.iter().skip(2) {
-        body.push(i.clone());
-    }
-    Ok(Atom::Function(Function::Proc(Procedure{ params: p.clone(),
-                                                body: Rc::new(body),
-                                                closures: Env::new(Some(env.clone()))})))
+    try!(vm::compile(list[2].clone(), &mut body, &mut env));
+    body.push(vm::Instruction::RETURN);
+    let func = CompiledFunction {
+        body: body,
+        params:p.clone(),
+        env: env
+    };
+
+    Ok(Atom::Function(Function::Compiled(func)))
+    // body.push(Atom::Form(Form::Do));
+
+
+    // for i in list.iter().skip(2) {
+    //     body.push(i.clone());
+    // }
+    // Ok(Atom::Function(Function::Proc(Procedure{ params: p.clone(),
+    //                                             body: Rc::new(body),
+    //                                             closures: Env::new(Some(env.clone()))})))
 }
 
 pub fn macro_form(args: &[Atom], env: &mut Env) -> AtomResult {

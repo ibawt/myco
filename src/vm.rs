@@ -331,7 +331,6 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<
             }
         },
         _ => {
-            println!("list[0]={}", list[0]);
             return Err(Error::NotAFunction)
         }
     }

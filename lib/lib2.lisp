@@ -2,4 +2,4 @@
   (if (empty? coll)
       out
       (recur f (rest coll)
-             (cons (f (first coll)) out))))
+             (append (f (first coll)) out))))

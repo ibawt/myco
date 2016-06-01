@@ -44,6 +44,12 @@ fn append(args: &[Atom], _: &Env) -> AtomResult {
         (_, &Atom::Nil) => {
             Ok(Atom::list(vec![a.clone()]))
         }
+        (_, &Atom::List(ref l)) => {
+            let mut list: Vec<Atom> = l.iter().map(|n| n.clone()).collect();
+            list.push(a.clone());
+
+            Ok(Atom::list(list))
+        }
         _ => {
             Err(invalid_arg("append"))
         }
