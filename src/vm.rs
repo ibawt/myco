@@ -430,13 +430,6 @@ impl VirtualMachine {
                     for _ in 0..arity {
                         try!(self.pop());
                     }
-                    // println!("recur???");
-                    // let program = &mut self.frames[self.fp].program;
-                    // program.env.bind_mut(&program.params, &self.stack[self.sp-arity..]);
-                    // for p in program.params.iter() {
-                    //     try!(self.pop());
-                    // }
-                    // self.current_frame().pc = 0;
                     continue;
                 }
                 DCALL(arity) => {
@@ -452,7 +445,7 @@ impl VirtualMachine {
                             continue; // don't advance PC of the new frame
                         },
                         _ => {
-                            println!("not a function: {:?}", func);
+                            println!("func is: {:?}", func);
                             return Err(Error::NotAFunction)
                         }
                     }
