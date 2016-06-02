@@ -106,10 +106,20 @@ fn expand_quasiquote(node: &Atom, env: &Env) -> AtomResult {
     if rest.len() == 0 {
         Ok(Atom::list(vec![try!(expand_quasiquote(&list[0], env))]))
     } else {
-        Ok(Atom::list(vec![//Atom::Function(Function::Native(Native::Cons)),
+        Ok(Atom::list(vec![Atom::Function(Function::Native(Native::Cons)),
             try!(expand_quasiquote(&list[0], env)),
             try!(expand_quasiquote(&Atom::list(rest), env))]))
     }
+}
+
+#[allow(dead_code)]
+fn print_instructions(instructions: &[Instruction]) -> String {
+    let mut s = String::new();
+    for i in instructions {
+        let l = format!("{:?}\n", i);
+        s.push_str(&l);
+    }
+    s
 }
 
 fn macro_expand(node: Atom, env: &mut Env) -> Result<Atom, Error> {
@@ -145,7 +155,7 @@ fn macro_expand(node: Atom, env: &mut Env) -> Result<Atom, Error> {
 }
 
 pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<(), Error> {
-    // println!("compiling: {}", node);
+    //println!("compiling: {}", node);
     match node {
         Atom::List(ref list) => {
             if list.is_empty() {
@@ -196,6 +206,7 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<
                 Form::If => {
                     match list.len() {
                         4 => {
+                            // if with ELSE
                             try!(compile(list[1].clone(), out, env));
                             out.push(JUMP_IFNOT(0));
                             let else_jump_pos = out.len() -1;
@@ -211,6 +222,7 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<
                             out[out_jump] = JUMP(out.len());
                         },
                         3 => {
+                            // no ELSE
                             try!(compile(list[1].clone(), out, env));
                             out.push(JUMP_IFNOT(0));
                             let else_jump_pos = out.len() -1;
@@ -443,6 +455,10 @@ impl VirtualMachine {
                             self.fp += 1;
                             continue; // don't advance PC of the new frame
                         },
+                        Atom::Function(_) => {
+                            println!("compiled functions only!");
+                            return Err(Error::NotImplemented)
+                        }
                         _ => {
                             println!("func is: {:?}", func);
                             return Err(Error::NotAFunction)
