@@ -8,7 +8,7 @@ use std::cell::RefCell;
 #[derive(Debug,PartialEq)]
 struct EnvGeneration {
     value: Vec<Entry>,
-    parent: Option<Env>
+    parent: Option<Env>,
 }
 
 impl fmt::Display for EnvGeneration {
@@ -25,19 +25,19 @@ impl EnvGeneration {
     fn new(parent: Option<Env>) -> EnvGeneration {
         EnvGeneration {
             value: Vec::new(),
-            parent: parent
+            parent: parent,
         }
     }
 
     fn find(&self, key: &str) -> Option<&Entry> {
-        self.value.iter().rev().find(|entry| entry.key.as_ref() == key )
+        self.value.iter().rev().find(|entry| entry.key.as_ref() == key)
     }
 }
 
 #[derive (Debug, Clone, PartialEq)]
 struct Entry {
     key: symbol::InternedStr,
-    value: Atom
+    value: Atom,
 }
 
 impl fmt::Display for Entry {
@@ -75,7 +75,7 @@ impl Env {
             Some(ref entry) => {
                 // println!("found {} it here in: {:p}", key, self);
                 Some(entry.value.clone())
-            },
+            }
             None => {
                 if let Some(ref parent) = gen.parent {
                     // println!("looking for {} in parent: {}", key, parent);
@@ -93,10 +93,10 @@ impl Env {
         while let Some(&Atom::Symbol(ref sym)) = params_iter.next() {
             if sym.as_ref() == "&" {
                 if let Some(&Atom::Symbol(ref splat)) = params_iter.next() {
-                    let vals = args_iter.map(|a| a.clone()).collect();
+                    let vals = args_iter.cloned().collect();
                     self.0.borrow_mut().value.push(Entry {
-                        key: splat.clone(),
-                        value: Atom::list(vals)
+                        key: *splat,
+                        value: Atom::list(vals),
                     });
                     // arg_map.push(Entry { key: splat.clone(), value: Atom::list(vals) });
                     break;
@@ -106,7 +106,7 @@ impl Env {
                     // println!("setting {} to {} in {}", sym, arg, self);
                     self.0.borrow_mut().value.push(Entry {
                         key: *sym,
-                        value: arg.clone()
+                        value: arg.clone(),
                     });
                     // self.define()
                     // arg_map.push(Entry { key: sym.clone(), value: arg.clone() });
@@ -129,21 +129,26 @@ impl Env {
         while let Some(&Atom::Symbol(ref sym)) = params_iter.next() {
             if sym.as_ref() == "&" {
                 if let Some(&Atom::Symbol(ref splat)) = params_iter.next() {
-                    let vals = args_iter.map(|a| a.clone()).collect();
-                    arg_map.push(Entry { key: splat.clone(), value: Atom::list(vals) });
+                    let vals = args_iter.cloned().collect();
+                    arg_map.push(Entry {
+                        key: *splat,
+                        value: Atom::list(vals),
+                    });
                     break;
                 }
             } else {
                 args_iter.next().map(|arg| {
-                    // println!("setting {} to {}", sym, arg);
-                    arg_map.push(Entry { key: sym.clone(), value: arg.clone() });
+                    arg_map.push(Entry {
+                        key: *sym,
+                        value: arg.clone(),
+                    });
                 });
             }
         }
 
         let env_gen = EnvGeneration {
             value: arg_map,
-            parent: Some(self.clone())
+            parent: Some(self.clone()),
         };
         Env(Rc::new(RefCell::new(env_gen)))
     }
@@ -155,11 +160,11 @@ impl Env {
     pub fn define(&mut self, key: symbol::InternedStr, value: Atom) -> Result<Atom, Error> {
         if let Some(_) = self.0.borrow().find(key.as_ref()) {
             // println!("env is: {}", self);
-            return Err(invalid_arg(&format!("define has entry already: {}", key.as_ref())))
+            return Err(invalid_arg(&format!("define has entry already: {}", key.as_ref())));
         }
         self.0.borrow_mut().value.push(Entry {
             key: key,
-            value: value
+            value: value,
         });
         Ok(Atom::Symbol(key))
     }
@@ -168,12 +173,9 @@ impl Env {
         {
             // set in current generation
             let mut gen = self.0.borrow_mut();
-            match gen.value.iter_mut().find(|entry| entry.key == key) {
-                Some(mut entry) => {
-                    entry.value = value;
-                    return Ok(Atom::Symbol(key))
-                },
-                _ => ()
+            if let Some(mut entry) = gen.value.iter_mut().find(|entry| entry.key == key) {
+                entry.value = value;
+                return Ok(Atom::Symbol(key));
             }
         }
 
@@ -200,7 +202,8 @@ mod tests {
 
         let env2 = Env::new(Some(env.clone()));
 
-        assert_eq!(Atom::String("bar".to_owned()), env2.get(intern("foo").as_ref()).unwrap());
+        assert_eq!(Atom::String("bar".to_owned()),
+                   env2.get(intern("foo").as_ref()).unwrap());
     }
 
     #[test]
@@ -213,7 +216,8 @@ mod tests {
 
         let body = e.get("body").unwrap();
 
-        assert_eq!(Atom::list(vec![Atom::from(0), Atom::from(1), Atom::from(2)]), body);
+        assert_eq!(Atom::list(vec![Atom::from(0), Atom::from(1), Atom::from(2)]),
+                   body);
     }
 
     #[test]

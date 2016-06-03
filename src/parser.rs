@@ -8,19 +8,13 @@ pub fn tokenize(line: &str) -> ParseResult {
     let mut v = vec![Atom::Form(Form::Do)];
 
     while let Some(_) = chars.peek() {
-        match read_tokens(&mut chars) {
-            Ok(a) => {
-                v.push(a);
-            },
-            Err(Error::EoF) => {
-                ()
-            }
-            _ => ()
+        if let Ok(a) = read_tokens(&mut chars) {
+            v.push(a);
         }
     }
 
     if v.len() == 1 {
-        return Err(Error::EoF)
+        return Err(Error::EoF);
     }
 
     Ok(Atom::list(v))
@@ -33,12 +27,12 @@ use std::str::Chars;
 #[derive (Debug, PartialEq)]
 enum Token {
     Atom(Atom),
-    Open,        // (
-    Close,       // )
-    Quote,       // '
-    QuasiQuote,  // `
-    Unquote,     // ~
-    Splice,      // ~@
+    Open, // (
+    Close, // )
+    Quote, // '
+    QuasiQuote, // `
+    Unquote, // ~
+    Splice, // ~@
 }
 
 fn read_string(iter: &mut Peekable<Chars>) -> Result<Option<Token>, Error> {
@@ -49,36 +43,36 @@ fn read_string(iter: &mut Peekable<Chars>) -> Result<Option<Token>, Error> {
                 if let Some(escaped) = iter.next() {
                     s.push(escaped);
                 } else {
-                    return Err(Error::EoF)
+                    return Err(Error::EoF);
                 }
-            },
+            }
             Some('"') => {
                 let t = Token::Atom(Atom::String(s));
 
-                return Ok(Some(t))
-            },
+                return Ok(Some(t));
+            }
             Some(c) => s.push(c),
-            None => return Err(Error::EoF)
+            None => return Err(Error::EoF),
         }
     }
 }
 
-fn read_atom(c: char, iter: &mut Peekable<Chars>) -> Result<Option<Token>,Error> {
+fn read_atom(c: char, iter: &mut Peekable<Chars>) -> Result<Option<Token>, Error> {
     let mut s = String::new();
     s.push(c);
     loop {
         if let Some(&')') = iter.peek() {
-            return Ok(Some(Token::Atom(Atom::parse(&s))))
+            return Ok(Some(Token::Atom(Atom::parse(&s))));
         }
 
         if let Some(c) = iter.next() {
             if !c.is_whitespace() {
                 s.push(c);
             } else {
-                return Ok(Some(Token::Atom(Atom::parse(&s))))
+                return Ok(Some(Token::Atom(Atom::parse(&s))));
             }
         } else {
-            return Ok(Some(Token::Atom(Atom::parse(&s))))
+            return Ok(Some(Token::Atom(Atom::parse(&s))));
         }
     }
 }
@@ -96,30 +90,30 @@ fn next(iter: &mut Peekable<Chars>) -> Result<Option<Token>, Error> {
                     match *try!(iter.peek().ok_or(Error::EoF)) {
                         '@' => {
                             iter.next();
-                            return Ok(Some(Token::Splice))
+                            return Ok(Some(Token::Splice));
                         }
-                        _ => return Ok(Some(Token::Unquote))
+                        _ => return Ok(Some(Token::Unquote)),
                     }
-                },
-                ';' =>  {
+                }
+                ';' => {
                     loop {
                         match iter.next() {
                             Some('\n') => break,
                             Some(_) => (),
-                            None => return Ok(None)
+                            None => return Ok(None),
                         }
                     }
-                },
+                }
                 _ if c.is_whitespace() => (),
-                _ => return read_atom(c, iter)
+                _ => return read_atom(c, iter),
             }
         } else {
-            return Ok(None)
+            return Ok(None);
         }
     }
 }
 
-fn make_quote_form(f: Form, chars: &mut Peekable<Chars> ) -> ParseResult {
+fn make_quote_form(f: Form, chars: &mut Peekable<Chars>) -> ParseResult {
     let mut list = Vec::with_capacity(2);
     list.push(Atom::Form(f));
     list.push(try!(read_tokens(chars)));
@@ -137,11 +131,9 @@ fn read_tokens(chars: &mut Peekable<Chars>) -> ParseResult {
                 match chars.peek() {
                     Some(&')') => {
                         chars.next();
-                        break
-                    },
-                    None => {
-                        return Err(Error::EoF)
+                        break;
                     }
+                    None => return Err(Error::EoF),
                     _ => {
                         let token = try!(read_tokens(chars));
                         node.push(token);
@@ -150,22 +142,12 @@ fn read_tokens(chars: &mut Peekable<Chars>) -> ParseResult {
             }
 
             Ok(Atom::list(node))
-        },
-        Token::Close => {
-            Err(Error::Parser)
-        },
-        Token::Quote => {
-            make_quote_form(Form::Quote, chars)
-        },
-        Token::QuasiQuote => {
-            make_quote_form(Form::QuasiQuote, chars)
         }
-        Token::Unquote => {
-            make_quote_form(Form::Unquote, chars)
-        },
-        Token::Splice => {
-            make_quote_form(Form::Splice, chars)
-        }
+        Token::Close => Err(Error::Parser),
+        Token::Quote => make_quote_form(Form::Quote, chars),
+        Token::QuasiQuote => make_quote_form(Form::QuasiQuote, chars),
+        Token::Unquote => make_quote_form(Form::Unquote, chars),
+        Token::Splice => make_quote_form(Form::Splice, chars),
         Token::Atom(x) => Ok(x),
     }
 }
@@ -183,7 +165,7 @@ mod tests {
     fn as_list(n: &Atom) -> &[Atom] {
         match *n {
             Atom::List(ref l) => l,
-            _ => panic!("don't get here!")
+            _ => panic!("don't get here!"),
         }
     }
 
@@ -198,7 +180,7 @@ mod tests {
     fn second(a: Atom) -> Atom {
         match a {
             Atom::List(ref l) => l[1].clone(),
-            _ => panic!()
+            _ => panic!(),
         }
     }
 
@@ -209,14 +191,17 @@ mod tests {
         assert_eq!(Atom::from(512), second(tokenize("512").unwrap()));
         assert_eq!(Atom::from(-512), second(tokenize("-512").unwrap()));
         assert_eq!(Atom::from(5.0f64), second(tokenize("5.0").unwrap()));
-        assert_eq!(Atom::string("foo bar"), second(tokenize("\"foo bar\"").unwrap()));
+        assert_eq!(Atom::string("foo bar"),
+                   second(tokenize("\"foo bar\"").unwrap()));
         assert_eq!(Atom::symbol("foo"), second(tokenize("foo").unwrap()));
     }
 
     #[test]
     fn string_escaping() {
-        assert_eq!(Atom::string("foo'bar"), second(tokenize("\"foo\\'bar\"").unwrap()));
-        assert_eq!(Atom::string("foo\"bar"), second(tokenize("\"foo\\\"bar\"").unwrap()));
+        assert_eq!(Atom::string("foo'bar"),
+                   second(tokenize("\"foo\\'bar\"").unwrap()));
+        assert_eq!(Atom::string("foo\"bar"),
+                   second(tokenize("\"foo\\\"bar\"").unwrap()));
     }
 
     #[test]
@@ -227,7 +212,7 @@ mod tests {
 
         assert_eq!(3, l.len());
 
-        let xx : Vec<Atom> = vec![make_atom_node("+"), make_atom_node("1"), make_atom_node("2")];
+        let xx: Vec<Atom> = vec![make_atom_node("+"), make_atom_node("1"), make_atom_node("2")];
 
         for pair in xx.iter().zip(l.iter()) {
             assert_eq!(pair.0, pair.1);
@@ -240,15 +225,15 @@ mod tests {
 
         let l = as_list(&x);
 
-        assert_eq!( atom("+"), *as_atom(&l[0]));
-        assert_eq!( atom("1"), *as_atom(&l[1]));
+        assert_eq!(atom("+"), *as_atom(&l[0]));
+        assert_eq!(atom("1"), *as_atom(&l[1]));
 
         let l2 = as_list(&l[2]);
 
-        assert_eq!( 3, l.len());
-        assert_eq!( atom("*"), *as_atom(&l2[0]));
-        assert_eq!( atom("2"), *as_atom(&l2[1]));
-        assert_eq!( atom("2"), *as_atom(&l2[2]));
+        assert_eq!(3, l.len());
+        assert_eq!(atom("*"), *as_atom(&l2[0]));
+        assert_eq!(atom("2"), *as_atom(&l2[1]));
+        assert_eq!(atom("2"), *as_atom(&l2[2]));
     }
 
     #[test]
@@ -257,15 +242,15 @@ mod tests {
 
         let l = as_list(&x);
 
-        assert_eq!( atom("+"), *as_atom(&l[0]));
-        assert_eq!( atom("1"), *as_atom(&l[1]));
+        assert_eq!(atom("+"), *as_atom(&l[0]));
+        assert_eq!(atom("1"), *as_atom(&l[1]));
 
         let l2 = as_list(&l[2]);
 
-        assert_eq!( 3, l2.len());
-        assert_eq!( atom("+"), *as_atom(&l2[0]));
-        assert_eq!( atom("2"), *as_atom(&l2[1]));
-        assert_eq!( atom("3"), *as_atom(&l2[2]));
+        assert_eq!(3, l2.len());
+        assert_eq!(atom("+"), *as_atom(&l2[0]));
+        assert_eq!(atom("2"), *as_atom(&l2[1]));
+        assert_eq!(atom("3"), *as_atom(&l2[2]));
 
         assert_eq!(atom("4"), *as_atom(&l[3]));
     }
@@ -279,7 +264,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn eof() {
-         tokenize("").unwrap();
+        tokenize("").unwrap();
     }
 
     #[test]

@@ -17,7 +17,7 @@ mod funcs;
 mod vm;
 mod base_lib;
 
-use parser::{tokenize};
+use parser::tokenize;
 use env::*;
 use errors::Error;
 use std::env::args;
@@ -42,7 +42,7 @@ fn repl() {
     println!("Rust Lisp!");
     let mut env = Env::new(None);
 
-    let mut vm = VirtualMachine::new();
+    let mut vm = VirtualMachine::default();
 
     base_lib::init(&mut env).unwrap();
 
@@ -55,14 +55,19 @@ fn repl() {
             .and_then(|node| {
                 run_node(&mut vm, node, &mut env)
                 // eval(node, &mut env)
-            }).unwrap();
+            })
+            .unwrap();
         println!("{}", a);
     }
 
     let mut lines: String = String::new();
 
     loop {
-        let prompt = if lines.is_empty() { ">" } else  { "" };
+        let prompt = if lines.is_empty() {
+            ">"
+        } else {
+            ""
+        };
         match readline::readline(prompt) {
             Some(s) => {
                 if s == "quit" {
@@ -70,22 +75,20 @@ fn repl() {
                 }
                 lines.push_str(&s);
 
-                let result = tokenize(&lines)
-                    .and_then(|node| run_node(&mut vm, node, &mut env));
+                let result = tokenize(&lines).and_then(|node| run_node(&mut vm, node, &mut env));
 
                 match result {
                     Ok(r) => {
                         println!("{}", r);
                         lines.clear();
-                    },
-                    Err(Error::EoF) => {
-                    },
+                    }
+                    Err(Error::EoF) => {}
                     Err(e) => {
                         println!("Error in evaluation: {:?}", e);
                         lines.clear();
                     }
                 }
-            },
+            }
             None => {
                 println!("Exiting...");
                 break;

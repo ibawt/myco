@@ -4,24 +4,25 @@ use std::cell::RefCell;
 use std::ops::Deref;
 use std::fmt;
 
-// lifted from https://github.com/Marwes/haskell-compiler/blob/b805f4a448a16a42751d662f40bdce351d914251/src/interner.rs
-
 #[derive (Eq, PartialEq, Clone, Copy, Default, Hash, Debug)]
 pub struct InternedStr(usize);
 
-#[derive (Debug)]
+#[derive (Debug, Default)]
 struct Interner {
     indices: HashMap<String, usize>,
-    strings: Vec<String>
+    strings: Vec<String>,
 }
 
 impl Interner {
     fn new() -> Interner {
-        Interner { indices: HashMap::new(), strings: vec![] }
+        Interner {
+            indices: HashMap::new(),
+            strings: vec![],
+        }
     }
 
     fn intern(&mut self, s: &str) -> InternedStr {
-        match self.indices.get(s).map(|x| *x) {
+        match self.indices.get(s).cloned() {
             Some(index) => InternedStr(index),
             None => {
                 let index = self.strings.len();
