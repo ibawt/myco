@@ -31,21 +31,21 @@ fn append(args: &[Atom], _: &Env) -> AtomResult {
         return Err(invalid_arg("append"))
     }
 
-    let ref a = args[0];
-    let ref b = args[1];
+    let a = &args[0];
+    let b = &args[1];
 
     match (a, b) {
         (&Atom::List(ref a), &Atom::List(ref b)) => {
-            Ok(Atom::list(a.iter().chain(b.iter()).map(|n| n.clone()).collect()))
+            Ok(Atom::list(a.iter().chain(b.iter()).cloned().collect()))
         },
         (&Atom::List(ref a), &Atom::Nil) => {
-            Ok(Atom::list(a.iter().map(|n| n.clone()).collect()))
+            Ok(Atom::list(a.iter().cloned().collect()))
         }
         (_, &Atom::Nil) => {
             Ok(Atom::list(vec![a.clone()]))
         }
         (_, &Atom::List(ref l)) => {
-            let mut list: Vec<Atom> = l.iter().map(|n| n.clone()).collect();
+            let mut list: Vec<Atom> = l.iter().cloned().collect();
             list.push(a.clone());
 
             Ok(Atom::list(list))
@@ -89,11 +89,11 @@ fn rest(args: &[Atom], _: &Env) -> AtomResult {
         return Ok(Atom::Nil)
     }
     let list = try!(args[0].as_list());
-    Ok(Atom::list(list.iter().skip(1).map(|x| x.clone()).collect()))
+    Ok(Atom::list(list.iter().skip(1).cloned().collect()))
 }
 
 fn list(args: &[Atom], _: &Env) -> AtomResult {
-    Ok(Atom::list(args.iter().map(|n| n.clone()).collect()))
+    Ok(Atom::list(args.iter().cloned().collect()))
 }
 
 fn not(args: &[Atom], _: &Env) -> AtomResult {
@@ -138,7 +138,7 @@ fn apply(f: &Function, args: &[Atom], env: &mut Env) -> AtomResult {
         Function::Native(func) => {
             eval_native(func, args, env)
         },
-        _ => return Err(invalid_arg("apply"))
+        _ => Err(invalid_arg("apply"))
     }
 }
 
@@ -189,10 +189,10 @@ fn reduce(args: &[Atom], env: &mut Env) -> AtomResult {
 
     let mut args = vec![];
 
-    for i in 0..list.len() {
+    for i in list.iter().cloned() {
         args.clear();
         args.push(acc);
-        args.push(list[i].clone());
+        args.push(i);
 
         acc = try!(apply(func, &args, env));
     }

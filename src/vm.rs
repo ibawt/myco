@@ -25,7 +25,7 @@ impl Frame {
     }
 }
 
-#[derive (Debug)]
+#[derive (Debug, Default)]
 pub struct VirtualMachine {
     pub stack: Vec<Atom>,
     pub frames: Vec<Frame>,
@@ -76,34 +76,25 @@ fn expand_quasiquote(node: &Atom, env: &Env) -> AtomResult {
     }
 
     let list = try!(node.as_list());
-    match list[0] {
-        Atom::Form(Form::Unquote) => {
-            try!(expect_arg_length(list, 2));
-            return Ok(list[1].clone())
-        },
-        _ => ()
+    if let Atom::Form(Form::Unquote) = list[0] {
+        try!(expect_arg_length(list, 2));
+        return Ok(list[1].clone())
     }
 
     if list[0].is_pair() {
-        match list[0] {
-            Atom::List(ref sublist) => {
-                match sublist[0] {
-                    Atom::Form(Form::Splice) => {
-                        let append = Atom::Function(Function::Native(Native::Append));
-                        let rest = list[1..].iter().map(|n| n.clone()).collect();
-                        return Ok(Atom::list(vec![append, sublist[1].clone(),
-                                                  Atom::list(rest)]))
-                    },
-                    _ => ()
-                }
-            },
-            _ => ()
+        if let Atom::List(ref sublist) = list[0] {
+            if let Atom::Form(Form::Splice) = sublist[0] {
+                let append = Atom::Function(Function::Native(Native::Append));
+                let rest = list[1..].iter().cloned().collect();
+                return Ok(Atom::list(vec![append, sublist[1].clone(),
+                                          Atom::list(rest)]))
+            }
         }
     }
 
-    let rest: Vec<Atom> = list[1..].iter().map(|n| n.clone()).collect();
+    let rest: Vec<Atom> = list[1..].iter().cloned().collect();
 
-    if rest.len() == 0 {
+    if rest.is_empty() {
         Ok(Atom::list(vec![try!(expand_quasiquote(&list[0], env))]))
     } else {
         Ok(Atom::list(vec![Atom::Function(Function::Native(Native::Cons)),
@@ -155,7 +146,6 @@ fn macro_expand(node: Atom, env: &mut Env) -> Result<Atom, Error> {
 }
 
 pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<(), Error> {
-    //println!("compiling: {}", node);
     match node {
         Atom::List(ref list) => {
             if list.is_empty() {
@@ -178,7 +168,7 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<
                 list
             }
         },
-        c @ _ => {
+        c => {
             out.push(CONST(c));
             return Ok(())
         }
@@ -276,8 +266,8 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<
                 },
                 Form::Do => {
                     if list.len() > 2 {
-                        for i in 1..list.len()-1 {
-                            try!(compile(list[i].clone(), out, env));
+                        for i in list.iter().take(list.len()-1).skip(1) {
+                            try!(compile(i.clone(), out, env));
                             out.push(POP);
                         }
                     }
@@ -365,15 +355,6 @@ fn recur_borrow(v: &mut VirtualMachine, len: usize) {
 }
 
 impl VirtualMachine {
-    pub fn new() -> VirtualMachine {
-        VirtualMachine {
-            stack: vec![],
-            frames: vec![],
-            sp: 0,
-            fp: 0
-        }
-    }
-
     pub fn reset(&mut self) {
         self.stack.clear();
         self.frames.clear();
@@ -382,7 +363,7 @@ impl VirtualMachine {
     }
 
     fn next_instruction(&self) -> Option<Instruction> {
-        self.frames[self.fp].current_instruction().map(|n| n.clone())
+        self.frames[self.fp].current_instruction().cloned()
     }
 
     fn current_frame(&mut self) -> &mut Frame {
@@ -494,9 +475,9 @@ impl VirtualMachine {
     fn pop(&mut self) -> AtomResult {
         if self.sp > 0 {
             self.sp -= 1;
-            return self.stack.pop().ok_or(Error::RuntimeAssertion)
+            self.stack.pop().ok_or(Error::RuntimeAssertion)
         } else {
-            return Err(Error::RuntimeAssertion)
+            Err(Error::RuntimeAssertion)
         }
     }
 }
@@ -523,7 +504,7 @@ mod tests {
         let mut env = Env::new(None);
         base_lib::init(&mut env).unwrap();
         compile(p, &mut out, &mut env).unwrap();
-        let mut vm = VirtualMachine::new();
+        let mut vm = VirtualMachine::default();
         let mut f = empty_frame();
         f.program.env = env;
         f.program.body = out;

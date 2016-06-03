@@ -280,7 +280,7 @@ fn find_form(t: &str) -> Option<Atom> {
 }
 
 fn find_special_atoms(t: &str) -> Option<Atom> {
-    if t.starts_with(":") {
+    if t.starts_with(':') {
         return Some(Atom::Keyword(symbol::intern(&t[1..])))
     }
 
@@ -294,7 +294,7 @@ fn find_special_atoms(t: &str) -> Option<Atom> {
 }
 
 macro_rules! some {
-    ($e:expr) => (match $e { Some(e) => return e, None => ()})
+    ($e:expr) => (if let Some(e) = $e { return e })
 }
 
 fn default_parse(token: &str) -> Atom {
@@ -314,8 +314,8 @@ impl Atom {
         default_parse(token)
     }
 
-    pub fn as_bool(self) -> bool {
-        match self {
+    pub fn as_bool(&self) -> bool {
+        match *self {
             Atom::Boolean(b) => b,
             Atom::Nil => false,
             _ => true

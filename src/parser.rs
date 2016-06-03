@@ -8,14 +8,8 @@ pub fn tokenize(line: &str) -> ParseResult {
     let mut v = vec![Atom::Form(Form::Do)];
 
     while let Some(_) = chars.peek() {
-        match read_tokens(&mut chars) {
-            Ok(a) => {
-                v.push(a);
-            },
-            Err(Error::EoF) => {
-                ()
-            }
-            _ => ()
+        if let Ok(a) = read_tokens(&mut chars) {
+            v.push(a);
         }
     }
 

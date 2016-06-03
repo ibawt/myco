@@ -9,7 +9,7 @@ use std::fmt;
 #[derive (Eq, PartialEq, Clone, Copy, Default, Hash, Debug)]
 pub struct InternedStr(usize);
 
-#[derive (Debug)]
+#[derive (Debug, Default)]
 struct Interner {
     indices: HashMap<String, usize>,
     strings: Vec<String>
@@ -21,7 +21,7 @@ impl Interner {
     }
 
     fn intern(&mut self, s: &str) -> InternedStr {
-        match self.indices.get(s).map(|x| *x) {
+        match self.indices.get(s).cloned() {
             Some(index) => InternedStr(index),
             None => {
                 let index = self.strings.len();

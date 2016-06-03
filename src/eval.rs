@@ -40,7 +40,7 @@ fn define(args: &[Atom], env: &mut Env) -> AtomResult {
 
 fn quote(list: &[Atom]) -> AtomResult {
     try!(expect_arg_length(list, 1));
-    list.first().map(|atom| atom.clone()).ok_or(invalid_arg("quote"))
+    list.first().cloned().ok_or(invalid_arg("quote"))
 }
 
 fn make_proc(list: &[Atom], env: &Env) -> AtomResult {
@@ -87,32 +87,23 @@ fn expand_quasiquote(node: &Atom, env: &mut Env) -> AtomResult {
     }
 
     let list = try!(node.as_list());
-    match list[0] {
-        Atom::Form(Form::Unquote) => {
-            try!(expect_arg_length(list, 2));
-            return Ok(list[1].clone())
-        },
-        _ => ()
+    if let Atom::Form(Form::Unquote) = list[0] {
+        try!(expect_arg_length(list, 2));
+        return Ok(list[1].clone())
     }
 
     if list[0].is_pair() {
-        match list[0] {
-            Atom::List(ref sublist) => {
-                match sublist[0] {
-                    Atom::Form(Form::Splice) => {
-                        let append = Atom::Function(Function::Native(Native::Append));
-                        let rest = list[1..].iter().map(|n| n.clone()).collect();
-                        return Ok(Atom::list(vec![append, sublist[1].clone(),
-                                                  Atom::list(rest)]))
-                    },
-                    _ => ()
-                }
-            },
-            _ => ()
+        if let Atom::List(ref sublist) = list[0] {
+            if let Atom::Form(Form::Splice) = sublist[0] {
+                let append = Atom::Function(Function::Native(Native::Append));
+                let rest = list[1..].iter().cloned().collect();
+                return Ok(Atom::list(vec![append, sublist[1].clone(),
+                                          Atom::list(rest)]))
+            }
         }
     }
 
-    let rest = list[1..].iter().map(|n| n.clone()).collect();
+    let rest = list[1..].iter().cloned().collect();
     Ok(Atom::list(vec![Atom::Function(Function::Native(Native::Cons)),
                        try!(expand_quasiquote(&list[0], env)),
                        try!(expand_quasiquote(&Atom::list(rest), env))]))
@@ -128,7 +119,7 @@ fn eval_special_forms(f: Form, list: &[Atom], env: &mut Env) -> AtomResult {
             macro_form(&list[1..], env)
         }
         Fn => {
-            make_proc(&list, env)
+            make_proc(list, env)
         },
         Quote => {
             quote(&list[1..])
@@ -260,8 +251,8 @@ pub fn eval(node: Atom, env: &mut Env) -> Result<Atom, Error> {
                             return Ok(Atom::Nil)
                         }
                         if list.len() > 2 {
-                            for i in 1..list.len()-1 {
-                                try!(eval(list[i].clone(), cur_env));
+                            for i in list.iter().take(list.len()-1).skip(1).cloned() {
+                                try!(eval(i, cur_env));
                             }
                         }
                         cur_node = list[list.len()-1].clone();
@@ -285,7 +276,7 @@ pub fn eval(node: Atom, env: &mut Env) -> Result<Atom, Error> {
                         }
                     },
                     _ => {
-                        return eval_special_forms(f, &list, cur_env)
+                        return eval_special_forms(f, list, cur_env)
                     }
                 }
             },

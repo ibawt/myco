@@ -93,9 +93,9 @@ impl Env {
         while let Some(&Atom::Symbol(ref sym)) = params_iter.next() {
             if sym.as_ref() == "&" {
                 if let Some(&Atom::Symbol(ref splat)) = params_iter.next() {
-                    let vals = args_iter.map(|a| a.clone()).collect();
+                    let vals = args_iter.cloned().collect();
                     self.0.borrow_mut().value.push(Entry {
-                        key: splat.clone(),
+                        key: *splat,
                         value: Atom::list(vals)
                     });
                     // arg_map.push(Entry { key: splat.clone(), value: Atom::list(vals) });
@@ -129,14 +129,13 @@ impl Env {
         while let Some(&Atom::Symbol(ref sym)) = params_iter.next() {
             if sym.as_ref() == "&" {
                 if let Some(&Atom::Symbol(ref splat)) = params_iter.next() {
-                    let vals = args_iter.map(|a| a.clone()).collect();
-                    arg_map.push(Entry { key: splat.clone(), value: Atom::list(vals) });
+                    let vals = args_iter.cloned().collect();
+                    arg_map.push(Entry { key: *splat, value: Atom::list(vals) });
                     break;
                 }
             } else {
                 args_iter.next().map(|arg| {
-                    // println!("setting {} to {}", sym, arg);
-                    arg_map.push(Entry { key: sym.clone(), value: arg.clone() });
+                    arg_map.push(Entry { key: *sym, value: arg.clone() });
                 });
             }
         }
@@ -168,12 +167,9 @@ impl Env {
         {
             // set in current generation
             let mut gen = self.0.borrow_mut();
-            match gen.value.iter_mut().find(|entry| entry.key == key) {
-                Some(mut entry) => {
-                    entry.value = value;
-                    return Ok(Atom::Symbol(key))
-                },
-                _ => ()
+            if let Some(mut entry) = gen.value.iter_mut().find(|entry| entry.key == key) {
+                entry.value = value;
+                return Ok(Atom::Symbol(key))
             }
         }
 

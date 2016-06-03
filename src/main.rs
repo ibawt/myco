@@ -42,7 +42,7 @@ fn repl() {
     println!("Rust Lisp!");
     let mut env = Env::new(None);
 
-    let mut vm = VirtualMachine::new();
+    let mut vm = VirtualMachine::default();
 
     base_lib::init(&mut env).unwrap();
 

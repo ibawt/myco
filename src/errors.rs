@@ -27,14 +27,6 @@ impl PartialEq for Error {
     fn eq(&self, r: &Error) -> bool {
         match (self, r) {
             (&EoF, &EoF) => true,
-            (&UnexpectedType, &UnexpectedType) => true,
-            (&Parser, &Parser) => true,
-            (&InvalidArguments(_), &InvalidArguments(_)) => true,
-            (&NotAFunction, &NotAFunction) => true,
-            (&RuntimeAssertion, &RuntimeAssertion) => true,
-            (&NotEnoughArguments, &NotEnoughArguments) => true,
-            (&NotImplemented, &NotImplemented) => true,
-            (&Io(_), &Io(_)) => true,
             _ => false
         }
     }
