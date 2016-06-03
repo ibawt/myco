@@ -18,7 +18,7 @@ pub enum Form {
     Splice,
     MacroExpand,
     Eval,
-    Recur
+    Recur,
 }
 
 impl fmt::Display for Form {
@@ -39,7 +39,7 @@ impl fmt::Display for Form {
             If => "if",
             QuasiQuote => "quasiquote",
             Eval => "eval",
-            Recur => "recur"
+            Recur => "recur",
         };
         write!(f, "{}", s)
     }
@@ -50,7 +50,7 @@ impl fmt::Display for Form {
 pub struct Procedure {
     pub params: List,
     pub body: List,
-    pub closures: Env
+    pub closures: Env,
 }
 
 use vm::Instruction;
@@ -59,7 +59,7 @@ use vm::Instruction;
 pub struct CompiledFunction {
     pub body: Vec<Instruction>,
     pub params: List,
-    pub env: Env
+    pub env: Env,
 }
 
 #[derive (Debug, Clone, PartialEq)]
@@ -100,7 +100,7 @@ pub enum Atom {
     Boolean(bool),
     Function(Function),
     Form(Form),
-    Nil
+    Nil,
 }
 
 #[derive (Debug, PartialEq, Clone, Copy)]
@@ -129,7 +129,7 @@ pub enum Native {
     Filter,
     Reduce,
     Count,
-    Apply
+    Apply,
 }
 
 impl fmt::Display for Native {
@@ -161,7 +161,7 @@ impl fmt::Display for Native {
             Filter => write!(f, "filter"),
             Reduce => write!(f, "reduce"),
             Count => write!(f, "count"),
-            Apply => write!(f, "apply")
+            Apply => write!(f, "apply"),
         }
     }
 }
@@ -200,27 +200,15 @@ impl fmt::Display for Atom {
                     }
                 }
                 write!(f, ")")
-            },
-            Keyword(s) => {
-                write!(f, ":{}", s)
             }
-            Form(form) => {
-                write!(f, "{}", form)
-            }
-            Function(ref func) => {
-                write!(f, "{}", func)
-            }
-            String(ref s) => {
-                write!(f, "\"{}\"", s)
-            },
-            Nil => {
-                write!(f, "nil")
-            },
-            Number(n) => {
-                write!(f, "{}", n)
-            },
+            Keyword(s) => write!(f, ":{}", s),
+            Form(form) => write!(f, "{}", form),
+            Function(ref func) => write!(f, "{}", func),
+            String(ref s) => write!(f, "\"{}\"", s),
+            Nil => write!(f, "nil"),
+            Number(n) => write!(f, "{}", n),
             Boolean(b) => write!(f, "{}", b),
-            Symbol(ref s) => write!(f, "{}", s)
+            Symbol(ref s) => write!(f, "{}", s),
         }
     }
 }
@@ -255,7 +243,7 @@ fn find_native(t: &str) -> Option<Atom> {
         "reduce" => Reduce,
         "count" => Count,
         "apply" => Apply,
-        _ => return None
+        _ => return None,
     };
     Some(Atom::Function(Function::Native(native)))
 }
@@ -274,21 +262,21 @@ fn find_form(t: &str) -> Option<Atom> {
         "macroexpand" => MacroExpand,
         "defmacro" => Macro,
         "recur" => Recur,
-        _ => return None
+        _ => return None,
     };
     Some(Atom::Form(form))
 }
 
 fn find_special_atoms(t: &str) -> Option<Atom> {
     if t.starts_with(':') {
-        return Some(Atom::Keyword(symbol::intern(&t[1..])))
+        return Some(Atom::Keyword(symbol::intern(&t[1..])));
     }
 
     let atom = match t {
         "true" => Atom::Boolean(true),
         "false" => Atom::Boolean(false),
-        "nil" =>  Atom::Nil,
-        _ => return None
+        "nil" => Atom::Nil,
+        _ => return None,
     };
     Some(atom)
 }
@@ -299,10 +287,10 @@ macro_rules! some {
 
 fn default_parse(token: &str) -> Atom {
     some!(token.parse::<i64>().ok().map(|n| Atom::Number(Number::Integer(n))));
-    token.parse::<f64>().ok()
-          .map_or_else(
-              || Atom::Symbol(symbol::intern(token)),
-              |f| Atom::Number(Number::Float(f)))
+    token.parse::<f64>()
+        .ok()
+        .map_or_else(|| Atom::Symbol(symbol::intern(token)),
+                     |f| Atom::Number(Number::Float(f)))
 }
 
 
@@ -318,35 +306,35 @@ impl Atom {
         match *self {
             Atom::Boolean(b) => b,
             Atom::Nil => false,
-            _ => true
+            _ => true,
         }
     }
 
     pub fn as_string(&self) -> Result<&str, Error> {
         match *self {
             Atom::String(ref s) => Ok(s),
-            _ => Err(Error::UnexpectedType)
+            _ => Err(Error::UnexpectedType),
         }
     }
 
     pub fn as_symbol(&self) -> Result<&symbol::InternedStr, Error> {
         match *self {
             Atom::Symbol(ref sym) => Ok(sym),
-            _ => Err(Error::UnexpectedType)
+            _ => Err(Error::UnexpectedType),
         }
     }
 
     pub fn as_list(&self) -> Result<&List, Error> {
         match *self {
             Atom::List(ref l) => Ok(l),
-            _ => Err(Error::UnexpectedType)
+            _ => Err(Error::UnexpectedType),
         }
     }
 
     pub fn as_number(&self) -> Result<Number, Error> {
         match *self {
             Atom::Number(n) => Ok(n),
-            _ => Err(Error::UnexpectedType)
+            _ => Err(Error::UnexpectedType),
         }
     }
 
@@ -354,7 +342,7 @@ impl Atom {
     pub fn as_function(&self) -> Result<&Function, Error> {
         match *self {
             Atom::Function(ref f) => Ok(f),
-            _ => Err(Error::UnexpectedType)
+            _ => Err(Error::UnexpectedType),
         }
     }
 
@@ -371,7 +359,7 @@ impl Atom {
     pub fn is_pair(&self) -> bool {
         match *self {
             Atom::List(ref list) => !list.is_empty(),
-            _ => false
+            _ => false,
         }
     }
 

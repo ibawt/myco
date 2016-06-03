@@ -14,7 +14,7 @@ pub enum Error {
     RuntimeAssertion,
     NotEnoughArguments,
     NotImplemented,
-    Io(io::Error)
+    Io(io::Error),
 }
 
 use std::cmp::PartialEq;
@@ -27,7 +27,7 @@ impl PartialEq for Error {
     fn eq(&self, r: &Error) -> bool {
         match (self, r) {
             (&EoF, &EoF) => true,
-            _ => false
+            _ => false,
         }
     }
 }
@@ -55,7 +55,7 @@ impl error::Error for Error {
             NotAFunction => "NotAFunction",
             NotEnoughArguments => "NotEnoughArguments",
             NotImplemented => "NotImplemented",
-            Io(ref e) => e.description()
+            Io(ref e) => e.description(),
         }
     }
 }

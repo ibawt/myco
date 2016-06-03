@@ -11,7 +11,7 @@ use errors::Error::*;
 
 fn cons(args: &[Atom], _: &Env) -> AtomResult {
     if args.len() != 2 {
-        return Err(invalid_arg("cons"))
+        return Err(invalid_arg("cons"));
     }
     if let Atom::Nil = args[1] {
         return Ok(Atom::list(vec![args[0].clone()]));
@@ -28,7 +28,7 @@ fn cons(args: &[Atom], _: &Env) -> AtomResult {
 
 fn append(args: &[Atom], _: &Env) -> AtomResult {
     if args.len() != 2 {
-        return Err(invalid_arg("append"))
+        return Err(invalid_arg("append"));
     }
 
     let a = &args[0];
@@ -37,22 +37,16 @@ fn append(args: &[Atom], _: &Env) -> AtomResult {
     match (a, b) {
         (&Atom::List(ref a), &Atom::List(ref b)) => {
             Ok(Atom::list(a.iter().chain(b.iter()).cloned().collect()))
-        },
-        (&Atom::List(ref a), &Atom::Nil) => {
-            Ok(Atom::list(a.iter().cloned().collect()))
         }
-        (_, &Atom::Nil) => {
-            Ok(Atom::list(vec![a.clone()]))
-        }
+        (&Atom::List(ref a), &Atom::Nil) => Ok(Atom::list(a.iter().cloned().collect())),
+        (_, &Atom::Nil) => Ok(Atom::list(vec![a.clone()])),
         (_, &Atom::List(ref l)) => {
             let mut list: Vec<Atom> = l.iter().cloned().collect();
             list.push(a.clone());
 
             Ok(Atom::list(list))
         }
-        _ => {
-            Err(invalid_arg("append"))
-        }
+        _ => Err(invalid_arg("append")),
     }
 }
 
@@ -68,7 +62,7 @@ fn print(args: &[Atom], _: &Env) -> AtomResult {
 fn first(args: &[Atom], _: &Env) -> AtomResult {
     if let Some(p) = args.first() {
         if let Atom::Nil = *p {
-            return Ok(Atom::Nil)
+            return Ok(Atom::Nil);
         }
         let list = try!(p.as_list());
         if let Some(f) = list.first() {
@@ -83,10 +77,10 @@ fn first(args: &[Atom], _: &Env) -> AtomResult {
 
 fn rest(args: &[Atom], _: &Env) -> AtomResult {
     if args.len() < 1 {
-        return Err(NotEnoughArguments)
+        return Err(NotEnoughArguments);
     }
     if let Atom::Nil = args[0] {
-        return Ok(Atom::Nil)
+        return Ok(Atom::Nil);
     }
     let list = try!(args[0].as_list());
     Ok(Atom::list(list.iter().skip(1).cloned().collect()))
@@ -97,13 +91,15 @@ fn list(args: &[Atom], _: &Env) -> AtomResult {
 }
 
 fn not(args: &[Atom], _: &Env) -> AtomResult {
-    args.first().ok_or(NotEnoughArguments)
-        .map(|a|
-             Atom::from(match *a {
-                 Atom::Boolean(b) => !b,
-                 Atom::Nil => true,
-                 _ => false
-             }))
+    args.first()
+        .ok_or(NotEnoughArguments)
+        .map(|a| {
+            Atom::from(match *a {
+                Atom::Boolean(b) => !b,
+                Atom::Nil => true,
+                _ => false,
+            })
+        })
 }
 
 fn type_of(args: &[Atom], _: &Env) -> AtomResult {
@@ -118,7 +114,7 @@ fn type_of(args: &[Atom], _: &Env) -> AtomResult {
             Atom::Boolean(_) => "bool",
             Atom::Function(_) => "function",
             Atom::Form(_) => "special_form",
-            Atom::Nil => "nil"
+            Atom::Nil => "nil",
         };
 
         Ok(Atom::symbol(s))
@@ -134,11 +130,9 @@ fn apply(f: &Function, args: &[Atom], env: &mut Env) -> AtomResult {
             let mut e = Env::new(Some(p.closures.clone())).bind(&p.params, args);
 
             eval::eval(Atom::List(p.body.clone()), &mut e)
-        },
-        Function::Native(func) => {
-            eval_native(func, args, env)
-        },
-        _ => Err(invalid_arg("apply"))
+        }
+        Function::Native(func) => eval_native(func, args, env),
+        _ => Err(invalid_arg("apply")),
     }
 }
 
@@ -172,13 +166,9 @@ fn filter(arg: &[Atom], env: &mut Env) -> AtomResult {
 
 fn count(args: &[Atom], _: &mut Env) -> AtomResult {
     match args[0] {
-        Atom::List(ref l) => {
-            Ok(Atom::Number(Number::Integer(l.len() as i64)))
-        },
-        Atom::Nil => {
-            Ok(Atom::Number(Number::Integer(0)))
-        },
-        _ => Err(UnexpectedType)
+        Atom::List(ref l) => Ok(Atom::Number(Number::Integer(l.len() as i64))),
+        Atom::Nil => Ok(Atom::Number(Number::Integer(0))),
+        _ => Err(UnexpectedType),
     }
 }
 
@@ -224,7 +214,7 @@ pub fn eval_native(n: Native, args: &[Atom], env: &mut Env) -> AtomResult {
     match n {
         Add => add(args, env),
         Sub => sub(args, env),
-        Equal => equals( args, env),
+        Equal => equals(args, env),
         GreaterThanOrEqual => cmp(args, env, Comparison::GreaterThanOrEqual),
         GreaterThan => cmp(args, env, Comparison::GreaterThan),
         LessThanOrEqual => cmp(args, env, Comparison::LessThanOrEqual),
@@ -246,7 +236,7 @@ pub fn eval_native(n: Native, args: &[Atom], env: &mut Env) -> AtomResult {
         Filter => filter(args, env),
         Reduce => reduce(args, env),
         Count => count(args, env),
-        Apply => apply(try!(args[1].as_function()), &args[1..], env)
+        Apply => apply(try!(args[1].as_function()), &args[1..], env),
     }
 }
 
@@ -254,7 +244,7 @@ fn equals(args: &[Atom], _: &Env) -> AtomResult {
     if let Some(v) = args.first() {
         for i in args.iter().skip(1) {
             if v != i {
-                return Ok(Atom::Boolean(false))
+                return Ok(Atom::Boolean(false));
             }
         }
         Ok(Atom::Boolean(true))
@@ -277,7 +267,7 @@ enum Comparison {
     LessThan,
     GreaterThan,
     LessThanOrEqual,
-    GreaterThanOrEqual
+    GreaterThanOrEqual,
 }
 
 use self::Comparison::*;
@@ -288,7 +278,7 @@ fn error(_: &[Atom], _: &Env) -> AtomResult {
 
 fn cmp(v: &[Atom], _: &Env, cmp: Comparison) -> AtomResult {
     if v.len() < 2 {
-        return Err(NotEnoughArguments)
+        return Err(NotEnoughArguments);
     }
 
     let initial = try!(v[0].as_number());
@@ -298,11 +288,11 @@ fn cmp(v: &[Atom], _: &Env, cmp: Comparison) -> AtomResult {
             LessThan => initial < d,
             GreaterThan => initial > d,
             LessThanOrEqual => initial <= d,
-            GreaterThanOrEqual => initial >= d
+            GreaterThanOrEqual => initial >= d,
         };
 
         if !b {
-            return Ok(Atom::Boolean(false))
+            return Ok(Atom::Boolean(false));
         }
     }
     Ok(Atom::Boolean(true))
@@ -310,7 +300,7 @@ fn cmp(v: &[Atom], _: &Env, cmp: Comparison) -> AtomResult {
 
 fn sub(v: &[Atom], _: &Env) -> AtomResult {
     if v.len() < 1 {
-        return Err(invalid_arg("sub"))
+        return Err(invalid_arg("sub"));
     }
 
     let mut result = try!(v[0].as_number());
@@ -324,7 +314,7 @@ fn sub(v: &[Atom], _: &Env) -> AtomResult {
 
 fn mul(v: &[Atom], _: &Env) -> AtomResult {
     if v.len() < 2 {
-        return Err(NotEnoughArguments)
+        return Err(NotEnoughArguments);
     }
 
     let mut initial = try!(v[0].as_number());
@@ -337,7 +327,7 @@ fn mul(v: &[Atom], _: &Env) -> AtomResult {
 
 fn div(v: &[Atom], _: &Env) -> AtomResult {
     if v.len() < 2 {
-        return Err(NotEnoughArguments)
+        return Err(NotEnoughArguments);
     }
 
     let mut initial = try!(v[0].as_number());
@@ -345,7 +335,7 @@ fn div(v: &[Atom], _: &Env) -> AtomResult {
     for i in v.iter().skip(1) {
         let d = try!(i.as_number());
         if d.is_zero() {
-            return Err(RuntimeAssertion)
+            return Err(RuntimeAssertion);
         }
         initial = initial / d;
     }

@@ -2,7 +2,7 @@ use funcs::*;
 use env::*;
 use atom::*;
 use errors::*;
-use std::fmt::{Write};
+use std::fmt::Write;
 use std::string::*;
 use smallvec::SmallVec;
 use std::rc::Rc;
@@ -10,7 +10,7 @@ use std::rc::Rc;
 #[allow(dead_code)]
 pub fn print_list(list: &[Atom]) -> String {
     let mut s = String::new();
-    write!(&mut s,"(").unwrap();
+    write!(&mut s, "(").unwrap();
 
     if let Some(first) = list.first() {
         write!(&mut s, "{}", first).unwrap();
@@ -51,21 +51,23 @@ fn make_proc(list: &[Atom], env: &Env) -> AtomResult {
     for i in list.iter().skip(2) {
         body.push(i.clone());
     }
-    Ok(Atom::Function(Function::Proc(Procedure{ params: p.clone(),
-                                                body: Rc::new(body),
-                                                closures: Env::new(Some(env.clone()))})))
+    Ok(Atom::Function(Function::Proc(Procedure {
+        params: p.clone(),
+        body: Rc::new(body),
+        closures: Env::new(Some(env.clone())),
+    })))
 }
 
 pub fn macro_form(args: &[Atom], env: &mut Env) -> AtomResult {
     if args.len() < 3 {
-        return Err(invalid_arg("not enough args"))
+        return Err(invalid_arg("not enough args"));
     }
 
     let name = try!(args[0].as_symbol());
 
     let params = try!(args[1].as_list()).clone();
 
-    let mut body = Vec::with_capacity(args.len()-1);
+    let mut body = Vec::with_capacity(args.len() - 1);
     body.push(Atom::Form(Form::Do));
 
     for node in &args[2..] {
@@ -75,7 +77,7 @@ pub fn macro_form(args: &[Atom], env: &mut Env) -> AtomResult {
     let p = Procedure {
         body: Rc::new(body),
         params: params,
-        closures: Env::new(Some(env.clone()))
+        closures: Env::new(Some(env.clone())),
     };
 
     env.define(*name, Atom::Function(Function::Macro(p)))
@@ -83,13 +85,13 @@ pub fn macro_form(args: &[Atom], env: &mut Env) -> AtomResult {
 
 fn expand_quasiquote(node: &Atom, env: &mut Env) -> AtomResult {
     if !node.is_pair() {
-        return Ok(Atom::list(vec![Atom::Form(Form::Quote), node.clone()]))
+        return Ok(Atom::list(vec![Atom::Form(Form::Quote), node.clone()]));
     }
 
     let list = try!(node.as_list());
     if let Atom::Form(Form::Unquote) = list[0] {
         try!(expect_arg_length(list, 2));
-        return Ok(list[1].clone())
+        return Ok(list[1].clone());
     }
 
     if list[0].is_pair() {
@@ -97,8 +99,7 @@ fn expand_quasiquote(node: &Atom, env: &mut Env) -> AtomResult {
             if let Atom::Form(Form::Splice) = sublist[0] {
                 let append = Atom::Function(Function::Native(Native::Append));
                 let rest = list[1..].iter().cloned().collect();
-                return Ok(Atom::list(vec![append, sublist[1].clone(),
-                                          Atom::list(rest)]))
+                return Ok(Atom::list(vec![append, sublist[1].clone(), Atom::list(rest)]));
             }
         }
     }
@@ -112,34 +113,22 @@ fn expand_quasiquote(node: &Atom, env: &mut Env) -> AtomResult {
 fn eval_special_forms(f: Form, list: &[Atom], env: &mut Env) -> AtomResult {
     use atom::Form::*;
     match f {
-        Def => {
-            define(&list[1..], env)
-        },
-        Macro => {
-            macro_form(&list[1..], env)
-        }
-        Fn => {
-            make_proc(list, env)
-        },
-        Quote => {
-            quote(&list[1..])
-        },
-        MacroExpand => {
-            macro_expand(list[1].clone(), env)
-        },
-        _ => Err(invalid_arg("eval special form"))
+        Def => define(&list[1..], env),
+        Macro => macro_form(&list[1..], env),
+        Fn => make_proc(list, env),
+        Quote => quote(&list[1..]),
+        MacroExpand => macro_expand(list[1].clone(), env),
+        _ => Err(invalid_arg("eval special form")),
     }
 }
 
 pub fn eval_node(node: Atom, env: &mut Env) -> Result<Atom, Error> {
     match node {
-        Atom::Symbol(sym) => {
-            Ok(env.get(sym.as_ref()).unwrap_or(Atom::Nil))
-        },
+        Atom::Symbol(sym) => Ok(env.get(sym.as_ref()).unwrap_or(Atom::Nil)),
         Atom::List(ref list) => {
             Ok(Atom::list(try!(list.iter().map(|n| eval(n.clone(), env)).collect())))
-        },
-        _ => Ok(node)
+        }
+        _ => Ok(node),
     }
 }
 
@@ -149,12 +138,12 @@ fn macro_expand(node: Atom, env: &mut Env) -> Result<Atom, Error> {
             match list[0] {
                 Atom::Symbol(ref sym) => {
                     if let Some(Atom::Function(Function::Macro(ref m))) = env.get(sym.as_ref()) {
-                        return macro_expand(try!(eval_macro(m, &list[1..], env)), env)
+                        return macro_expand(try!(eval_macro(m, &list[1..], env)), env);
                     }
-                },
+                }
                 Atom::Form(Form::Fn) => {
                     if list.len() < 3 {
-                        return Err(Error::NotEnoughArguments)
+                        return Err(Error::NotEnoughArguments);
                     }
 
                     let mut out = Vec::with_capacity(list.len());
@@ -163,13 +152,15 @@ fn macro_expand(node: Atom, env: &mut Env) -> Result<Atom, Error> {
                     for i in &list[2..] {
                         out.push(try!(macro_expand(i.clone(), env)));
                     }
-                    return Ok(Atom::list(out))
+                    return Ok(Atom::list(out));
                 }
-                _ => ()
+                _ => (),
             }
-            return Ok(Atom::list(try!(list.iter().map(|n| macro_expand(n.clone(), env)).collect())))
-        },
-        _ => ()
+            return Ok(Atom::list(try!(list.iter()
+                .map(|n| macro_expand(n.clone(), env))
+                .collect())));
+        }
+        _ => (),
     }
 
     Ok(node)
@@ -197,29 +188,29 @@ pub fn eval(node: Atom, env: &mut Env) -> Result<Atom, Error> {
         match cur_node {
             Atom::List(ref list) => {
                 if list.is_empty() {
-                    return Ok(Atom::Nil)
+                    return Ok(Atom::Nil);
                 }
                 ()
-            },
-            _ => return eval_node(cur_node, cur_env)
+            }
+            _ => return eval_node(cur_node, cur_env),
         }
 
         let expanded_node = try!(macro_expand(cur_node, cur_env));
         let mut list2 = match expanded_node {
             Atom::List(l) => l,
-            _ => return Ok(expanded_node)
+            _ => return Ok(expanded_node),
         };
-
-        let list = Rc::get_mut(&mut list2).unwrap(); // FIXME: hack either lists should be immutable or not
+        // FIXME: hack either lists should be immutable or not
+        let list = Rc::get_mut(&mut list2).unwrap();
 
         match list[0] {
             Atom::Symbol(_) | Atom::List(_) => {
                 list[0] = try!(eval(list[0].clone(), cur_env));
             }
-            _ => ()
+            _ => (),
         }
 
-        //println!("evaling: {}", print_list(&list));
+        // println!("evaling: {}", print_list(&list));
 
         match list[0] {
             Atom::Form(f) => {
@@ -244,25 +235,25 @@ pub fn eval(node: Atom, env: &mut Env) -> Result<Atom, Error> {
                         let symbol = try!(list[1].as_symbol());
                         let value = try!(eval(list[2].clone(), cur_env));
 
-                        return cur_env.set(*symbol, value)
-                    },
+                        return cur_env.set(*symbol, value);
+                    }
                     Form::Do => {
                         if list.len() == 1 {
-                            return Ok(Atom::Nil)
+                            return Ok(Atom::Nil);
                         }
                         if list.len() > 2 {
-                            for i in list.iter().take(list.len()-1).skip(1).cloned() {
+                            for i in list.iter().take(list.len() - 1).skip(1).cloned() {
                                 try!(eval(i, cur_env));
                             }
                         }
-                        cur_node = list[list.len()-1].clone();
-                    },
+                        cur_node = list[list.len() - 1].clone();
+                    }
                     Form::QuasiQuote => {
                         cur_node = try!(expand_quasiquote(&list[1], cur_env));
-                    },
+                    }
                     Form::If => {
                         if list.len() < 2 {
-                            return Err(Error::NotEnoughArguments)
+                            return Err(Error::NotEnoughArguments);
                         }
 
                         let condition = try!(eval(list[1].clone(), cur_env)).as_bool();
@@ -272,33 +263,28 @@ pub fn eval(node: Atom, env: &mut Env) -> Result<Atom, Error> {
                         } else if list.len() > 3 {
                             cur_node = list[3].clone();
                         } else {
-                            return Ok(Atom::Boolean(false))
+                            return Ok(Atom::Boolean(false));
                         }
-                    },
-                    _ => {
-                        return eval_special_forms(f, list, cur_env)
                     }
+                    _ => return eval_special_forms(f, list, cur_env),
                 }
-            },
+            }
             Atom::Function(ref func) => {
-                let args: SmallVec<[Atom;4]> = try!(list.iter().skip(1).map(|n| eval(n.clone(), cur_env)).collect());
+                let args: SmallVec<[Atom; 4]> =
+                    try!(list.iter().skip(1).map(|n| eval(n.clone(), cur_env)).collect());
                 // println!("args are: {}", print_list(&args));
                 match *func {
                     Function::Proc(ref p) => {
                         *cur_env = Env::new(Some(p.closures.clone())).bind(&p.params, &args);
                         cur_node = Atom::List(p.body.clone());
-                    },
-                    Function::Native(native) => {
-                        return eval_native(native, &args, cur_env)
-                    },
-                    _ => {
-                        panic!("no macros here!")
                     }
+                    Function::Native(native) => return eval_native(native, &args, cur_env),
+                    _ => panic!("no macros here!"),
                 }
-            },
+            }
             _ => {
                 println!("{} isnt' a function", list[0]);
-                return Err(Error::NotAFunction)
+                return Err(Error::NotAFunction);
             }
         }
     }
@@ -313,14 +299,18 @@ mod tests {
 
     #[test]
     fn if_special_form() {
-        let x = eval(tokenize("(if (= 1 1) true false)").unwrap(), &mut Env::new(None)).unwrap();
+        let x = eval(tokenize("(if (= 1 1) true false)").unwrap(),
+                     &mut Env::new(None))
+            .unwrap();
 
         assert_eq!(Atom::from(true), x);
     }
 
     #[test]
     fn if_special_form_false() {
-        let x = eval(tokenize("(if (= 1 2) true false)").unwrap(), &mut Env::new(None)).unwrap();
+        let x = eval(tokenize("(if (= 1 2) true false)").unwrap(),
+                     &mut Env::new(None))
+            .unwrap();
 
         assert_eq!(Atom::Boolean(false), x);
     }
@@ -381,13 +371,12 @@ mod tests {
     fn teval(s: &str) -> Atom {
         let mut env = Env::new(None);
         tokenize(s)
-            .and_then(|n| eval(n, &mut env)).unwrap()
+            .and_then(|n| eval(n, &mut env))
+            .unwrap()
     }
 
     fn teval_env(s: &str, env: &mut Env) -> AtomResult {
-        tokenize(s).and_then(|n| {
-            eval(n, env)
-        })
+        tokenize(s).and_then(|n| eval(n, env))
     }
 
     #[test]
@@ -440,7 +429,7 @@ mod tests {
         let r = teval_env("(foo 1 2)", &mut env).unwrap();
 
         assert_eq!(teval("'(1 2)"), r);
-        //assert_eq!(teval("'(1 2)"), teval_env("(foo '(1 2))", &mut env).unwrap());
+        // assert_eq!(teval("'(1 2)"), teval_env("(foo '(1 2))", &mut env).unwrap());
     }
 
     #[test]
@@ -458,7 +447,8 @@ mod tests {
     fn more_complex_macro() {
         let mut env = Env::new(None);
         teval_env("(defmacro unless (p a b) `(if (not ~p) ~a ~b))", &mut env).unwrap();
-        assert_eq!(teval("3"), teval_env("(unless false 3 5)", &mut env).unwrap());
+        assert_eq!(teval("3"),
+                   teval_env("(unless false 3 5)", &mut env).unwrap());
     }
 
     // #[test]
@@ -479,17 +469,22 @@ mod tests {
     fn tailcall_function() {
         let mut env = Env::new(None);
 
-        teval_env("(def sum2 (fn (n acc) (if (= n 0) acc (sum2 (- n 1) (+ n acc)))))", &mut env).unwrap();
+        teval_env("(def sum2 (fn (n acc) (if (= n 0) acc (sum2 (- n 1) (+ n acc)))))",
+                  &mut env)
+            .unwrap();
 
         assert_eq!(teval_env("(sum2 10 0)", &mut env).unwrap(), teval("55"));
-        assert_eq!(teval_env("(sum2 10000 0)", &mut env).unwrap(), teval("50005000"));
+        assert_eq!(teval_env("(sum2 10000 0)", &mut env).unwrap(),
+                   teval("50005000"));
 
 
         teval_env("(def foo (fn (n) (if (= n 0) 0 (bar (- n 1)))))", &mut env).unwrap();
         teval_env("(def bar (fn (n) (if (= n 0) 0 (foo (- n 1)))))", &mut env).unwrap();
 
         assert_eq!(teval_env("(foo 10000)", &mut env).unwrap(), teval("0"));
-        teval_env("(def sum-to (fn (n) (if (= n 0) 0 (+ n (sum-to (- n 1))))))", &mut env).unwrap();
+        teval_env("(def sum-to (fn (n) (if (= n 0) 0 (+ n (sum-to (- n 1))))))",
+                  &mut env)
+            .unwrap();
         assert_eq!(teval_env("(sum-to 10)", &mut env).unwrap(), teval("55"));
     }
 
@@ -505,7 +500,9 @@ mod tests {
     #[test]
     fn non_tco() {
         let mut e = Env::new(None);
-        teval_env("(def sum-to (fn (n) (if (= n 0) 0 (+ n (sum-to (- n 1))))))", &mut e).unwrap();
+        teval_env("(def sum-to (fn (n) (if (= n 0) 0 (+ n (sum-to (- n 1))))))",
+                  &mut e)
+            .unwrap();
         assert_eq!(teval("55"), teval_env("(sum-to 10)", &mut e).unwrap());
     }
 
@@ -514,10 +511,10 @@ mod tests {
     #[bench]
     fn recursion_bench(b: &mut Bencher) {
         let mut env = Env::new(None);
-        teval_env("(def sum2 (fn (n acc) (if (= n 0) acc (sum2 (- n 1) (+ n acc)))))", &mut env).unwrap();
+        teval_env("(def sum2 (fn (n acc) (if (= n 0) acc (sum2 (- n 1) (+ n acc)))))",
+                  &mut env)
+            .unwrap();
 
-        b.iter(|| {
-            teval_env("(sum2 100 0)", &mut env).unwrap()
-        })
+        b.iter(|| teval_env("(sum2 100 0)", &mut env).unwrap())
     }
 }
