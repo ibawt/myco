@@ -17,7 +17,8 @@ pub enum Form {
     Unquote,
     Splice,
     MacroExpand,
-    Eval
+    Eval,
+    Recur
 }
 
 impl fmt::Display for Form {
@@ -37,7 +38,8 @@ impl fmt::Display for Form {
             MacroExpand => "macroexpand",
             If => "if",
             QuasiQuote => "quasiquote",
-            Eval => "eval"
+            Eval => "eval",
+            Recur => "recur"
         };
         write!(f, "{}", s)
     }
@@ -51,11 +53,21 @@ pub struct Procedure {
     pub closures: Env
 }
 
+use vm::Instruction;
+
+#[derive (Debug, Clone, PartialEq)]
+pub struct CompiledFunction {
+    pub body: Vec<Instruction>,
+    pub params: List,
+    pub env: Env
+}
+
 #[derive (Debug, Clone, PartialEq)]
 pub enum Function {
     Native(Native),
     Proc(Procedure),
-    Macro(Procedure)
+    Compiled(CompiledFunction),
+    Macro(Procedure),
 }
 
 impl fmt::Display for Function {
@@ -65,13 +77,18 @@ impl fmt::Display for Function {
         match *self {
             Native(n) => write!(f, "{}", n),
             Proc(_) => write!(f, "proc"),
-            Macro(_) => write!(f, "macro")
+            Compiled(_) => write!(f, "compiled-proc"),
+            Macro(_) => write!(f, "macro"),
         }
     }
 }
 use std::rc::Rc;
 
 pub type List = Rc<Vec<Atom>>;
+
+pub fn empty_list() -> List {
+    Rc::new(Vec::new())
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Atom {
@@ -112,6 +129,7 @@ pub enum Native {
     Filter,
     Reduce,
     Count,
+    Apply
 }
 
 impl fmt::Display for Native {
@@ -142,7 +160,8 @@ impl fmt::Display for Native {
             Barf => write!(f, "barf"),
             Filter => write!(f, "filter"),
             Reduce => write!(f, "reduce"),
-            Count => write!(f, "count")
+            Count => write!(f, "count"),
+            Apply => write!(f, "apply")
         }
     }
 }
@@ -235,6 +254,7 @@ fn find_native(t: &str) -> Option<Atom> {
         "filter" => Filter,
         "reduce" => Reduce,
         "count" => Count,
+        "apply" => Apply,
         _ => return None
     };
     Some(Atom::Function(Function::Native(native)))
@@ -253,6 +273,7 @@ fn find_form(t: &str) -> Option<Atom> {
         "if" => If,
         "macroexpand" => MacroExpand,
         "defmacro" => Macro,
+        "recur" => Recur,
         _ => return None
     };
     Some(Atom::Form(form))
@@ -357,6 +378,10 @@ impl Atom {
     pub fn list(v: Vec<Atom>) -> Atom {
         Atom::List(Rc::new(v))
     }
+}
+
+pub fn to_list(v: Vec<Atom>) -> List {
+    Rc::new(v)
 }
 
 #[cfg(test)]

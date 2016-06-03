@@ -1,7 +1,7 @@
 use atom::*;
 use symbol;
 use errors::*;
-
+use std::fmt;
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -9,6 +9,16 @@ use std::cell::RefCell;
 struct EnvGeneration {
     value: Vec<Entry>,
     parent: Option<Env>
+}
+
+impl fmt::Display for EnvGeneration {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        try!(writeln!(f, "EnvGeneration[{:p}]", self));
+        for i in &self.value {
+            try!(write!(f, "\t{}", i));
+        }
+        Ok(())
+    }
 }
 
 impl EnvGeneration {
@@ -20,7 +30,7 @@ impl EnvGeneration {
     }
 
     fn find(&self, key: &str) -> Option<&Entry> {
-        self.value.iter().find(|entry| entry.key.as_ref() == key )
+        self.value.iter().rev().find(|entry| entry.key.as_ref() == key )
     }
 }
 
@@ -30,8 +40,28 @@ struct Entry {
     value: Atom
 }
 
+impl fmt::Display for Entry {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} => {}", self.key, self.value)
+    }
+}
+
 #[derive (Debug, Clone, PartialEq)]
 pub struct Env(Rc<RefCell<EnvGeneration>>);
+
+impl fmt::Display for Env {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let gen = self.0.borrow();
+        try!(write!(f, "Top-level: EnvGeneration: {}\n", *gen));
+
+        if let Some(ref parent) = gen.parent {
+            try!(write!(f, "parent: {}\n", parent));
+        } else {
+            try!(write!(f, "no parent\n"));
+        }
+        Ok(())
+    }
+}
 
 impl Env {
     pub fn new(parent: Option<Env>) -> Env {
@@ -41,18 +71,54 @@ impl Env {
     fn find(&self, key: &str) -> Option<Atom> {
         let gen = self.0.borrow();
         let value = &gen.value;
-        match value.iter().find(|entry| entry.key.as_ref() == key) {
+        match value.iter().rev().find(|entry| entry.key.as_ref() == key) {
             Some(ref entry) => {
+                // println!("found {} it here in: {:p}", key, self);
                 Some(entry.value.clone())
             },
             None => {
                 if let Some(ref parent) = gen.parent {
+                    // println!("looking for {} in parent: {}", key, parent);
                     parent.find(key)
                 } else {
                     None
                 }
             }
         }
+    }
+
+    pub fn bind_mut(&mut self, params: &[Atom], args: &[Atom]) {
+        let mut params_iter = params.iter();
+        let mut args_iter = args.iter();
+        while let Some(&Atom::Symbol(ref sym)) = params_iter.next() {
+            if sym.as_ref() == "&" {
+                if let Some(&Atom::Symbol(ref splat)) = params_iter.next() {
+                    let vals = args_iter.map(|a| a.clone()).collect();
+                    self.0.borrow_mut().value.push(Entry {
+                        key: splat.clone(),
+                        value: Atom::list(vals)
+                    });
+                    // arg_map.push(Entry { key: splat.clone(), value: Atom::list(vals) });
+                    break;
+                }
+            } else {
+                args_iter.next().map(|arg| {
+                    // println!("setting {} to {} in {}", sym, arg, self);
+                    self.0.borrow_mut().value.push(Entry {
+                        key: *sym,
+                        value: arg.clone()
+                    });
+                    // self.define()
+                    // arg_map.push(Entry { key: sym.clone(), value: arg.clone() });
+                });
+            }
+        }
+
+        // let env_gen = EnvGeneration {
+        //     value: arg_map,
+        //     parent: Some(self.clone())
+        // };
+        // Env(Rc::new(RefCell::new(env_gen)))
     }
 
     pub fn bind(&mut self, params: &[Atom], args: &[Atom]) -> Env {
@@ -69,6 +135,7 @@ impl Env {
                 }
             } else {
                 args_iter.next().map(|arg| {
+                    // println!("setting {} to {}", sym, arg);
                     arg_map.push(Entry { key: sym.clone(), value: arg.clone() });
                 });
             }
@@ -87,7 +154,8 @@ impl Env {
 
     pub fn define(&mut self, key: symbol::InternedStr, value: Atom) -> Result<Atom, Error> {
         if let Some(_) = self.0.borrow().find(key.as_ref()) {
-            return Err(Error::InvalidArguments)
+            // println!("env is: {}", self);
+            return Err(invalid_arg(&format!("define has entry already: {}", key.as_ref())))
         }
         self.0.borrow_mut().value.push(Entry {
             key: key,
@@ -112,7 +180,7 @@ impl Env {
         if let Some(ref mut parent) = self.0.borrow_mut().parent {
             parent.set(key, value)
         } else {
-            Err(Error::InvalidArguments)
+            Err(invalid_arg("in set"))
         }
     }
 }
@@ -154,7 +222,11 @@ mod tests {
 
         env.define(intern("foo"), Atom::string("bar")).unwrap();
 
-        assert_eq!(Err(Error::InvalidArguments), env.set(intern("bar"), Atom::string("foo")));
+        if let Err(Error::InvalidArguments(_)) = env.set(intern("bar"), Atom::string("foo")) {
+            assert!(true);
+        } else {
+            assert!(false);
+        }
 
         let mut env2 = Env::new(Some(env.clone()));
 
