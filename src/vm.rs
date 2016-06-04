@@ -281,7 +281,10 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<
                         bindings.push(bind_exp[0].clone());
                         try!(compile(bind_exp[1].clone(), out, env));
                     }
+
                     let mut body = Vec::new();
+
+                    try!(compile(list[2].clone(), &mut body, env));
 
                     body.push(RETURN);
 
@@ -515,8 +518,9 @@ impl VirtualMachine {
     fn pop(&mut self) -> AtomResult {
         if self.sp > 0 {
             self.sp -= 1;
-            self.stack.pop().ok_or(Error::RuntimeAssertion)
+            Ok(self.stack.pop().unwrap())//ok_or(Error::RuntimeAssertion)
         } else {
+            println!("StackUnderflow!");
             Err(Error::RuntimeAssertion)
         }
     }
@@ -601,10 +605,14 @@ mod tests {
         assert_eq!(Atom::from(0), run_expr(s));
     }
 
+    #[test]
+    fn map_test() {
+        assert_eq!(run_expr("'(1 2)"), run_expr("(map* (fn (x) (+ x 1)) '(0 1))"));
+    }
+
     // #[test]
     // fn run_suite() {
     //     // let suite = include_str!("../test/suite.lisp");
     //     // assert_eq!(Atom::from(true), run_expr(suite));
     // }
-
 }
