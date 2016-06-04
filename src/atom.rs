@@ -58,6 +58,7 @@ use vm::Instruction;
 #[derive (Debug, Clone, PartialEq)]
 pub struct CompiledFunction {
     pub body: Vec<Instruction>,
+    pub source: List,
     pub params: List,
     pub env: Env,
 }
@@ -70,14 +71,22 @@ pub enum Function {
     Macro(Procedure),
 }
 
+
 impl fmt::Display for Function {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Function::*;
+        use vm;
+        use eval;
 
         match *self {
             Native(n) => write!(f, "{}", n),
             Proc(_) => write!(f, "proc"),
-            Compiled(_) => write!(f, "compiled-proc"),
+            Compiled(ref func) => {
+                try!(write!(f, "compiled-proc:\n"));
+                try!(write!(f, "params: {}\n", eval::print_list(&func.params)));
+                try!(write!(f, "source: {}\n", eval::print_list(&func.source)));
+                write!(f, "instructions: {}\n", vm::print_instructions(&func.body))
+            }
             Macro(_) => write!(f, "macro"),
         }
     }

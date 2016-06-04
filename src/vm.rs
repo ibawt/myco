@@ -51,6 +51,57 @@ pub enum Instruction {
     RECUR(usize),
 }
 
+pub fn default_run_node(node: Atom, env: &mut Env) -> AtomResult {
+    let mut vm = VirtualMachine::default();
+    let mut out = vec![];
+    let mut e = env.clone();
+    try!(compile(node, &mut out, &mut e));
+    let mut frame = empty_frame();
+    frame.program.env = e;
+    frame.program.body = out;
+    vm.frames.push(frame);
+    vm.run()
+}
+
+use std::fmt;
+
+impl fmt::Display for Instruction {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        use self::Instruction::*;
+        match *self {
+            CONST(ref a) => {
+                write!(fmt, "CONST({})", a)
+            }
+            LOAD(ref a) => {
+                write!(fmt, "LOAD({})", *a)
+            }
+            DEFINE(ref a) => {
+                write!(fmt, "DEFINE({})", *a)
+            }
+            POP => {
+                write!(fmt, "POP")
+            }
+            STORE(ref a) => {
+                write!(fmt, "STORE({})", *a)
+            }
+            JUMP_IFNOT(i) => {
+                write!(fmt, "JUMP_IFNOT({})", i)
+            }
+            JUMP(i) => write!(fmt, "JUMP({})", i),
+            RETURN => write!(fmt, "RETURN"),
+            CALL(ref func, arity) => {
+                write!(fmt, "CALL({}, {})", func, arity)
+            },
+            DCALL(arity) => {
+                write!(fmt, "DCALL({})", arity)
+            },
+            RECUR(arity) => {
+                write!(fmt, "RECUR({})", arity)
+            }
+        }
+    }
+}
+
 fn compile_node(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<(), Error> {
     match node {
         Atom::Symbol(sym) => out.push(Instruction::LOAD(sym)),
@@ -59,7 +110,6 @@ fn compile_node(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result
                 try!(compile(n.clone(), out, env));
             }
         }
-        // handle constants
         _ => {
             out.push(Instruction::CONST(node.clone()));
         }
@@ -68,7 +118,6 @@ fn compile_node(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result
 }
 
 fn expand_quasiquote(node: &Atom, env: &Env) -> AtomResult {
-    // println!("expand_quasiquote: {}", node);
     if !node.is_pair() {
         return Ok(Atom::list(vec![Atom::Form(Form::Quote), node.clone()]));
     }
@@ -101,13 +150,10 @@ fn expand_quasiquote(node: &Atom, env: &Env) -> AtomResult {
 }
 
 #[allow(dead_code)]
-fn print_instructions(instructions: &[Instruction]) -> String {
-    let mut s = String::new();
-    for i in instructions {
-        let l = format!("{:?}\n", i);
-        s.push_str(&l);
-    }
-    s
+pub fn print_instructions(instructions: &[Instruction]) -> String {
+    instructions.iter().enumerate()
+        .map(|(i,n)| format!("{:2} - {}\n", i, n))
+        .collect()
 }
 
 fn macro_expand(node: Atom, env: &mut Env) -> Result<Atom, Error> {
@@ -146,6 +192,7 @@ fn macro_expand(node: Atom, env: &mut Env) -> Result<Atom, Error> {
 }
 
 pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<(), Error> {
+    println!("compiling: {}", node);
     match node {
         Atom::List(ref list) => {
             if list.is_empty() {
@@ -224,7 +271,7 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<
                     return Ok(());
                 }
                 Form::Let => {
-                    let mut new_env = Env::new(Some(env.clone()));
+                    let new_env = Env::new(Some(env.clone()));
                     let bind_list = try!(list[1].as_list());
                     let mut bindings = Vec::new();
 
@@ -235,13 +282,14 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<
                         try!(compile(bind_exp[1].clone(), out, env));
                     }
                     let mut body = Vec::new();
-                    try!(compile(list[2].clone(), &mut body, &mut new_env));
+
                     body.push(RETURN);
 
                     let arity = bindings.len();
 
                     let func = CompiledFunction {
                         body: body,
+                        source: list.clone(),
                         params: to_list(bindings),
                         env: new_env,
                     };
@@ -278,6 +326,7 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<
                     body.push(RETURN);
                     let func = CompiledFunction {
                         body: body,
+                        source: list.clone(),
                         params: try!(list[1].as_list()).clone(),
                         env: env,
                     };
@@ -367,8 +416,9 @@ impl VirtualMachine {
     }
 
     pub fn run(&mut self) -> AtomResult {
-        println!("running...");
+        println!("VirtualMachine::run()");
         while let Some(instruction) = self.next_instruction() {
+            println!("{} - {}", self.current_frame().pc, instruction);
             match instruction {
                 JUMP_IFNOT(addr) => {
                     if !try!(self.pop()).as_bool() {
@@ -427,12 +477,13 @@ impl VirtualMachine {
                             self.fp += 1;
                             continue; // don't advance PC of the new frame
                         }
-                        Atom::Function(_) => {
+                        Atom::Function(Function::Proc(ref f)) => {
                             println!("compiled functions only!");
+                            println!("{}", print_list(&f.body));
                             return Err(Error::NotImplemented);
                         }
                         _ => {
-                            println!("func is: {:?}", func);
+                            println!("attempted to call: {:?}", func);
                             return Err(Error::NotAFunction);
                         }
                     }
@@ -474,6 +525,7 @@ impl VirtualMachine {
 pub fn empty_frame() -> Frame {
     Frame::new(CompiledFunction {
         body: Vec::new(),
+        source: empty_list(),
         params: empty_list(),
         env: Env::new(None),
     })

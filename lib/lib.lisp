@@ -44,7 +44,7 @@
        ~@body)))
 
 (defun second (x)
-  (first (first x)))
+ (first (rest x)))
 
 (defmacro cond (& xs)
   (if (> (count xs) 0)
@@ -52,5 +52,5 @@
             (second (first xs))
             (cons 'cond (rest xs)))))
 
-(defun empty? (x)
-  (= 0 (count x)))
+(defmacro empty? (x)
+  `(= 0 (count ~x)))
