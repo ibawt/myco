@@ -154,7 +154,8 @@ impl VirtualMachine {
                             continue; // don't advance PC of the new frame
                         }
                         Atom::Function(Function::Native(f)) => {
-                            let x = try!(eval_native(f, arg_list, &mut self.frames[self.fp].program.env));
+                            let x = try!(eval_native(f, arg_list,
+                                                     &mut self.frames[self.fp].program.env));
                             self.push(x);
                         }
                         Atom::Function(Function::Proc(ref f)) => {

@@ -85,7 +85,9 @@ impl fmt::Display for Function {
                 try!(write!(f, "compiled-proc:\n"));
                 try!(write!(f, "params: {}\n", eval::print_list(&func.params)));
                 try!(write!(f, "source: {}\n", eval::print_list(&func.source)));
-                write!(f, "instructions: {}\n", opcodes::print_instructions(&func.body))
+                write!(f,
+                       "instructions: {}\n",
+                       opcodes::print_instructions(&func.body))
             }
             Macro(_) => write!(f, "macro"),
         }

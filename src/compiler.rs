@@ -263,8 +263,8 @@ pub fn compile(node: Atom, out: &mut Vec<Opcode>, env: &mut Env) -> Result<(), E
                 // }
                 Function::Native(Native::Apply) => {
                     out.push(Opcode::APPLY);
-                    return Ok(())
-                },
+                    return Ok(());
+                }
                 Function::Native(_) => {
                     out.push(Opcode::CALL(func.clone(), list.len() - 1));
                     return Ok(());

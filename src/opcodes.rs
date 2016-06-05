@@ -13,7 +13,7 @@ pub enum Opcode {
     JUMP_IFNOT(usize), // jumps if the stack is falsy
     JUMP(usize), // jumps to PC
     RETURN, // pops the frame
-    APPLY,  //
+    APPLY, //
     CALL(Function, usize), // calls a noncompiled or native function
     DCALL(usize), // calls the function at the top of the stack
     RECUR(usize), // tail recursion
