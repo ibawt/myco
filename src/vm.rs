@@ -142,6 +142,32 @@ impl VirtualMachine {
                     }
                     continue;
                 }
+                APPLY => {
+                    let args = try!(self.pop());
+                    let func = try!(self.pop());
+                    let arg_list = try!(args.as_list());
+                    match func {
+                        Atom::Function(Function::Compiled(mut f)) => {
+                            f.env.bind_mut(&f.params, arg_list);
+                            self.frames.push(Frame::new(f.clone()));
+                            self.fp += 1;
+                            continue; // don't advance PC of the new frame
+                        }
+                        Atom::Function(Function::Native(f)) => {
+                            let x = try!(eval_native(f, arg_list, &mut self.frames[self.fp].program.env));
+                            self.push(x);
+                        }
+                        Atom::Function(Function::Proc(ref f)) => {
+                            println!("compiled functions only!");
+                            println!("{}", print_list(&f.body));
+                            return Err(Error::NotImplemented);
+                        }
+                        _ => {
+                            println!("attempted to call: {}", func);
+                            return Err(Error::NotAFunction);
+                        }
+                    }
+                }
                 DCALL(arity) => {
                     let func = try!(self.pop());
                     match func {
@@ -264,6 +290,13 @@ mod tests {
     fn map_test() {
         assert_eq!(run_expr("'(1 2)"),
                    run_expr("(map* (fn (x) (+ x 1)) '(0 1))"));
+    }
+
+    #[test]
+    fn apply_test() {
+        assert_eq!(Atom::from(0), run_expr("(apply (fn (x) 0) '())"));
+        assert_eq!(Atom::from(3), run_expr("(apply (fn (x y) (+ x y 1)) '(1 1))"));
+        assert_eq!(Atom::from(1), run_expr("(apply (fn (x & y) (count y)) '(1 1))"));
     }
 
     #[test]

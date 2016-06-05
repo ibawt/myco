@@ -257,6 +257,10 @@ pub fn compile(node: Atom, out: &mut Vec<Opcode>, env: &mut Env) -> Result<(), E
                 try!(compile(n.clone(), out, env));
             }
             match *func {
+                Function::Native(Native::Apply) => {
+                    out.push(Opcode::APPLY);
+                    return Ok(())
+                },
                 Function::Native(_) => {
                     out.push(Opcode::CALL(func.clone(), list.len() - 1));
                     return Ok(());

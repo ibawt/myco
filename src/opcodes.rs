@@ -13,6 +13,7 @@ pub enum Opcode {
     JUMP_IFNOT(usize), // jumps if the stack is falsy
     JUMP(usize), // jumps to PC
     RETURN, // pops the frame
+    APPLY,  //
     CALL(Function, usize), // calls a noncompiled or native function
     DCALL(usize), // calls the function at the top of the stack
     RECUR(usize), // tail recursion
@@ -38,6 +39,7 @@ impl fmt::Display for Opcode {
             JUMP_IFNOT(i) => write!(fmt, "JUMP_IFNOT({})", i),
             JUMP(i) => write!(fmt, "JUMP({})", i),
             RETURN => write!(fmt, "RETURN"),
+            APPLY => write!(fmt, "APPLY"),
             CALL(ref func, arity) => write!(fmt, "CALL({}, {})", func, arity),
             DCALL(arity) => write!(fmt, "DCALL({})", arity),
             RECUR(arity) => write!(fmt, "RECUR({})", arity),
