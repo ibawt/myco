@@ -15,6 +15,7 @@ mod parser;
 mod env;
 mod eval;
 mod funcs;
+mod compiler;
 mod vm;
 mod base_lib;
 
@@ -30,7 +31,7 @@ use atom::*;
 fn run_node(vm: &mut VirtualMachine, node: Atom, env: &mut Env) -> AtomResult {
     let mut out = vec![];
     let mut e = env.clone();
-    vm::compile(node, &mut out, &mut e).unwrap();
+    try!(compiler::compile(node, &mut out, &mut e));
     let mut frame = vm::empty_frame();
     frame.program.env = e;
     frame.program.body = out;
