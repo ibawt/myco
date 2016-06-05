@@ -49,6 +49,12 @@ impl fmt::Display for Entry {
 #[derive (Debug, Clone, PartialEq)]
 pub struct Env(Rc<RefCell<EnvGeneration>>);
 
+impl Default for Env {
+    fn default() -> Env {
+        Env::new(None)
+    }
+}
+
 impl fmt::Display for Env {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let gen = self.0.borrow();

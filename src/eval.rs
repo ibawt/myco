@@ -491,10 +491,15 @@ mod tests {
 
     use base_lib;
 
+    fn init_lib(e: &mut Env) {
+        eval(base_lib::library().unwrap(), e).unwrap();
+    }
+
     #[test]
     fn let_tests() {
         let mut e = Env::new(None);
-        base_lib::init(&mut e).unwrap();
+        init_lib(&mut e);
+
         teval_env(include_str!("../test/let.lisp"), &mut e).unwrap();
     }
 

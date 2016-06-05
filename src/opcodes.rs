@@ -5,17 +5,17 @@ use atom::*;
 #[derive (Debug, Clone, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum Opcode {
-    CONST(Atom),           // pushes the atom on the stack
-    LOAD(InternedStr),     // loads then pushes the value
-    DEFINE(InternedStr),   // sets the symbol to value on the top of the stack
-    POP,                   // pops one off the stack
-    STORE(InternedStr),    // sets the value to top of stack
-    JUMP_IFNOT(usize),     // jumps if the stack is falsy
-    JUMP(usize),           // jumps to PC
-    RETURN,                // pops the frame
+    CONST(Atom), // pushes the atom on the stack
+    LOAD(InternedStr), // loads then pushes the value
+    DEFINE(InternedStr), // sets the symbol to value on the top of the stack
+    POP, // pops one off the stack
+    STORE(InternedStr), // sets the value to top of stack
+    JUMP_IFNOT(usize), // jumps if the stack is falsy
+    JUMP(usize), // jumps to PC
+    RETURN, // pops the frame
     CALL(Function, usize), // calls a noncompiled or native function
-    DCALL(usize),          // calls the function at the top of the stack
-    RECUR(usize),          // tail recursion
+    DCALL(usize), // calls the function at the top of the stack
+    RECUR(usize), // tail recursion
 }
 
 #[allow(dead_code)]

@@ -1,11 +1,8 @@
-use atom::*;
-use env::*;
-use parser::*;
+use atom::Atom;
+use parser::tokenize;
 use errors::Error;
-use vm;
 
-pub fn init(env: &mut Env) -> Result<Atom, Error> {
+pub fn library() -> Result<Atom, Error> {
     let lib = include_str!("../lib/lib.lisp");
-
-    tokenize(lib).and_then(|node| vm::default_run_node(node, env))
+    tokenize(lib)
 }

@@ -8,9 +8,9 @@ use opcodes::Opcode::*;
 use compiler;
 
 #[derive (Debug, Clone)]
-pub struct Frame {
-    pub program: CompiledFunction,
-    pub pc: usize,
+struct Frame {
+    program: CompiledFunction,
+    pc: usize,
 }
 
 impl Frame {
@@ -26,24 +26,36 @@ impl Frame {
     }
 }
 
-#[derive (Debug, Default)]
+#[derive (Debug)]
 pub struct VirtualMachine {
     stack: Vec<Atom>,
     frames: Vec<Frame>,
     fp: usize,
     sp: usize,
+    root: Env,
 }
 
-pub fn default_run_node(node: Atom, env: &mut Env) -> AtomResult {
-    let mut vm = VirtualMachine::default();
-    let mut out = vec![];
-    let mut e = env.clone();
-    try!(compiler::compile(node, &mut out, &mut e));
-    let mut frame = empty_frame();
-    frame.program.env = e;
-    frame.program.body = out;
-    vm.frames.push(frame);
-    vm.run()
+impl Default for VirtualMachine {
+    fn default() -> VirtualMachine {
+        use base_lib;
+        let mut vm = VirtualMachine {
+            stack: vec![],
+            frames: vec![],
+            fp: 0,
+            sp: 0,
+            root: Env::default(),
+        };
+        base_lib::library()
+            .and_then(|n| vm.run_node(n))
+            .expect("base library should always compile!");
+
+        // TODO: we shouldn't technically need to do this
+        vm.fp = 0;
+        vm.sp = 0;
+        vm.stack.clear();
+        vm.frames.clear();
+        vm
+    }
 }
 
 fn eval_native_borrow(v: &mut VirtualMachine, n: Native, len: usize) -> AtomResult {
@@ -52,18 +64,28 @@ fn eval_native_borrow(v: &mut VirtualMachine, n: Native, len: usize) -> AtomResu
 }
 
 fn recur_borrow(v: &mut VirtualMachine, len: usize) {
-    let &mut VirtualMachine { ref mut stack, ref mut frames, fp, sp } = v;
+    let &mut VirtualMachine { ref mut stack, ref mut frames, fp, sp, .. } = v;
     let frame = &mut frames[fp];
     frame.program.env.bind_mut(&frame.program.params, &stack[sp - len..]);
     frame.pc = 0;
 }
 
 impl VirtualMachine {
-    pub fn reset(&mut self) {
-        self.stack.clear();
-        self.frames.clear();
-        self.sp = 0;
-        self.fp = 0;
+    pub fn run_node(&mut self, node: Atom) -> AtomResult {
+        let mut out = vec![];
+        let source = try!(node.as_list()).clone();
+        let mut e = self.root.clone();
+        try!(compiler::compile(node, &mut out, &mut e));
+
+        let frame = Frame::new(CompiledFunction {
+            body: out,
+            source: source,
+            params: empty_list(),
+            env: e,
+        });
+
+        self.frames.push(frame);
+        self.run()
     }
 
     fn next_instruction(&self) -> Option<Opcode> {
@@ -183,19 +205,6 @@ impl VirtualMachine {
             Err(Error::RuntimeAssertion)
         }
     }
-
-    pub fn push_frame(&mut self, f: Frame) {
-        self.frames.push(f)
-    }
-}
-
-pub fn empty_frame() -> Frame {
-    Frame::new(CompiledFunction {
-        body: Vec::new(),
-        source: empty_list(),
-        params: empty_list(),
-        env: Env::new(None),
-    })
 }
 
 #[cfg(test)]
@@ -203,22 +212,10 @@ mod tests {
     use super::*;
     use parser::*;
     use atom::*;
-    use env::*;
-    use base_lib;
-    use compiler;
-
     fn run_expr(s: &str) -> Atom {
         let p = tokenize(s).unwrap();
-        let mut out = Vec::new();
-        let mut env = Env::new(None);
-        base_lib::init(&mut env).unwrap();
-        compiler::compile(p, &mut out, &mut env).unwrap();
         let mut vm = VirtualMachine::default();
-        let mut f = empty_frame();
-        f.program.env = env;
-        f.program.body = out;
-        vm.frames.push(f);
-        vm.run().unwrap()
+        vm.run_node(p).unwrap()
     }
 
     #[test]
