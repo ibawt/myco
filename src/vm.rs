@@ -49,11 +49,6 @@ impl Default for VirtualMachine {
             .and_then(|n| vm.run_node(n))
             .expect("base library should always compile!");
 
-        // TODO: we shouldn't technically need to do this
-        vm.fp = 0;
-        vm.sp = 0;
-        vm.stack.clear();
-        vm.frames.clear();
         vm
     }
 }
@@ -83,7 +78,6 @@ impl VirtualMachine {
             params: empty_list(),
             env: e,
         });
-
         self.frames.push(frame);
         self.run()
     }
@@ -101,7 +95,6 @@ impl VirtualMachine {
     }
 
     pub fn run(&mut self) -> AtomResult {
-        // println!("VirtualMachine::run()");
         while let Some(instruction) = self.next_instruction() {
             // println!("{} - {}", self.current_frame().pc, instruction);
             match instruction {
@@ -188,6 +181,7 @@ impl VirtualMachine {
             }
             self.current_frame().pc += 1;
         }
+        self.frames.pop().unwrap();
         self.pop()
     }
 
