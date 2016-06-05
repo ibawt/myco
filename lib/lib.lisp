@@ -60,3 +60,17 @@
       out
       (recur f (rest coll)
              (append (f (first coll)) out))))
+
+(defun filter (f coll out)
+  (if (empty? coll)
+      out
+      (recur f (rest coll)
+             (if (f (first coll))
+                 (append (first coll) out)
+                 out))))
+
+(defun reduce (f acc coll)
+  (if (empty? coll)
+      acc
+      (recur f (f acc (first coll))
+             (rest coll))))

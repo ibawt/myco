@@ -134,8 +134,6 @@ pub enum Native {
     Type,
     Slurp,
     Barf,
-    Filter,
-    Reduce,
     Count,
     Apply,
 }
@@ -165,8 +163,6 @@ impl fmt::Display for Native {
             Type => write!(f, "type-of"),
             Slurp => write!(f, "slurp"),
             Barf => write!(f, "barf"),
-            Filter => write!(f, "filter"),
-            Reduce => write!(f, "reduce"),
             Count => write!(f, "count"),
             Apply => write!(f, "apply"),
         }
@@ -245,8 +241,6 @@ fn find_native(t: &str) -> Option<Atom> {
         "type-of" => Type,
         "slurp" => Slurp,
         "barf" => Barf,
-        "filter" => Filter,
-        "reduce" => Reduce,
         "count" => Count,
         "apply" => Apply,
         _ => return None,

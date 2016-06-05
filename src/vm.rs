@@ -281,6 +281,12 @@ mod tests {
     }
 
     #[test]
+    fn filter_test() {
+        assert_eq!(Atom::list(vec![Atom::from(0)]),
+                   run_expr("(filter (fn (x) (= 0 x)) '(1 1 1 1 0 1))"));
+    }
+
+    #[test]
     fn recur_test() {
         let s = include_str!("../test/recur.lisp");
         assert_eq!(Atom::from(0), run_expr(s));
@@ -290,6 +296,12 @@ mod tests {
     fn map_test() {
         assert_eq!(run_expr("'(1 2)"),
                    run_expr("(map (fn (x) (+ x 1)) '(0 1))"));
+    }
+
+    #[test]
+    fn reduce_test() {
+        assert_eq!(Atom::from(0),
+                   run_expr("(reduce (fn (acc i) (- acc i)) 5 '(1 1 1 1 1))"));
     }
 
     #[test]

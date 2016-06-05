@@ -136,47 +136,12 @@ fn apply(f: &Function, args: &[Atom], env: &mut Env) -> AtomResult {
     }
 }
 
-fn filter(arg: &[Atom], env: &mut Env) -> AtomResult {
-    let list = try!(arg[1].as_list());
-    let func = try!(arg[0].as_function());
-
-    let mut out = Vec::with_capacity(list.len());
-
-    for (i, node) in list.iter().enumerate() {
-        if try!(apply(func, &list[i..], env)).as_bool() {
-            out.push(node.clone());
-        }
-    }
-
-    out.shrink_to_fit();
-
-    Ok(Atom::list(out))
-}
-
 fn count(args: &[Atom], _: &mut Env) -> AtomResult {
     match args[0] {
         Atom::List(ref l) => Ok(Atom::Number(Number::Integer(l.len() as i64))),
         Atom::Nil => Ok(Atom::Number(Number::Integer(0))),
         _ => Err(UnexpectedType),
     }
-}
-
-fn reduce(args: &[Atom], env: &mut Env) -> AtomResult {
-    let list = try!(args[1].as_list());
-    let func = try!(args[0].as_function());
-    let mut acc = args[2].clone();
-
-    let mut args = vec![];
-
-    for i in list.iter().cloned() {
-        args.clear();
-        args.push(acc);
-        args.push(i);
-
-        acc = try!(apply(func, &args, env));
-    }
-
-    Ok(acc)
 }
 
 fn slurp(args: &[Atom], _: &mut Env) -> AtomResult {
@@ -221,8 +186,6 @@ pub fn eval_native(n: Native, args: &[Atom], env: &mut Env) -> AtomResult {
         Type => type_of(args, env),
         Slurp => slurp(args, env),
         Barf => barf(args, env),
-        Filter => filter(args, env),
-        Reduce => reduce(args, env),
         Count => count(args, env),
         Apply => apply(try!(args[1].as_function()), &args[1..], env),
     }
