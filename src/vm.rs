@@ -1,10 +1,10 @@
 use atom::*;
 use env::Env;
 use errors::*;
-use symbol::*;
 use funcs::*;
 use eval::*;
-use self::Instruction::*;
+use opcodes::*;
+use opcodes::Opcode::*;
 
 #[derive (Debug, Clone)]
 pub struct Frame {
@@ -20,43 +20,17 @@ impl Frame {
         }
     }
 
-    fn current_instruction(&self) -> Option<&Instruction> {
+    fn current_instruction(&self) -> Option<&Opcode> {
         self.program.body.get(self.pc)
     }
 }
 
 #[derive (Debug, Default)]
 pub struct VirtualMachine {
-    pub stack: Vec<Atom>,
-    pub frames: Vec<Frame>,
+    stack: Vec<Atom>,
+    frames: Vec<Frame>,
     fp: usize,
     sp: usize,
-}
-
-
-#[derive (Debug, Clone, PartialEq)]
-#[allow(non_camel_case_types)]
-pub enum Instruction {
-    CONST(Atom), // pushes the atom on the stack
-    LOAD(InternedStr), // loads then pushes the value
-    DEFINE(InternedStr), // sets the symbol to value on the top of the stack
-    POP, // pops one off the stack
-    STORE(InternedStr),
-    // FUNCTION,
-    JUMP_IFNOT(usize),
-    JUMP(usize),
-    RETURN, // pops the frame
-    CALL(Function, usize), // calls a noncompiled or native function
-    DCALL(usize), // calls the function at the top of the stack
-    RECUR(usize),
-}
-
-#[allow(dead_code)]
-pub fn print_instructions(instructions: &[Instruction]) -> String {
-    instructions.iter()
-        .enumerate()
-        .map(|(i, n)| format!("{:2} - {}\n", i, n))
-        .collect()
 }
 
 pub fn default_run_node(node: Atom, env: &mut Env) -> AtomResult {
@@ -69,27 +43,6 @@ pub fn default_run_node(node: Atom, env: &mut Env) -> AtomResult {
     frame.program.body = out;
     vm.frames.push(frame);
     vm.run()
-}
-
-use std::fmt;
-
-impl fmt::Display for Instruction {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        use self::Instruction::*;
-        match *self {
-            CONST(ref a) => write!(fmt, "CONST({})", a),
-            LOAD(ref a) => write!(fmt, "LOAD({})", *a),
-            DEFINE(ref a) => write!(fmt, "DEFINE({})", *a),
-            POP => write!(fmt, "POP"),
-            STORE(ref a) => write!(fmt, "STORE({})", *a),
-            JUMP_IFNOT(i) => write!(fmt, "JUMP_IFNOT({})", i),
-            JUMP(i) => write!(fmt, "JUMP({})", i),
-            RETURN => write!(fmt, "RETURN"),
-            CALL(ref func, arity) => write!(fmt, "CALL({}, {})", func, arity),
-            DCALL(arity) => write!(fmt, "DCALL({})", arity),
-            RECUR(arity) => write!(fmt, "RECUR({})", arity),
-        }
-    }
 }
 
 
@@ -160,16 +113,16 @@ fn macro_expand(node: Atom, env: &mut Env) -> Result<Atom, Error> {
     Ok(node)
 }
 
-fn compile_node(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<(), Error> {
+fn compile_node(node: Atom, out: &mut Vec<Opcode>, env: &mut Env) -> Result<(), Error> {
     match node {
-        Atom::Symbol(sym) => out.push(Instruction::LOAD(sym)),
+        Atom::Symbol(sym) => out.push(Opcode::LOAD(sym)),
         Atom::List(ref list) => {
             for n in list.iter() {
                 try!(compile(n.clone(), out, env));
             }
         }
         _ => {
-            out.push(Instruction::CONST(node.clone()));
+            out.push(Opcode::CONST(node.clone()));
         }
     }
     Ok(())
@@ -177,7 +130,7 @@ fn compile_node(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result
 
 fn compile_form(form: Form,
                 list: &List,
-                out: &mut Vec<Instruction>,
+                out: &mut Vec<Opcode>,
                 env: &mut Env)
                 -> Result<(), Error> {
     match form {
@@ -294,11 +247,11 @@ fn compile_form(form: Form,
     Ok(())
 }
 
-pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<(), Error> {
+pub fn compile(node: Atom, out: &mut Vec<Opcode>, env: &mut Env) -> Result<(), Error> {
     match node {
         Atom::List(ref list) => {
             if list.is_empty() {
-                out.push(Instruction::CONST(node.clone()));
+                out.push(Opcode::CONST(node.clone()));
                 return Ok(());
             }
             ()
@@ -346,7 +299,7 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<
             }
             match *func {
                 Function::Native(_) => {
-                    out.push(Instruction::CALL(func.clone(), list.len() - 1));
+                    out.push(Opcode::CALL(func.clone(), list.len() - 1));
                     return Ok(());
                 }
                 Function::Compiled(_) => {
@@ -382,7 +335,7 @@ impl VirtualMachine {
         self.fp = 0;
     }
 
-    fn next_instruction(&self) -> Option<Instruction> {
+    fn next_instruction(&self) -> Option<Opcode> {
         self.frames[self.fp].current_instruction().cloned()
     }
 
@@ -498,6 +451,10 @@ impl VirtualMachine {
             println!("StackUnderflow!");
             Err(Error::RuntimeAssertion)
         }
+    }
+
+    pub fn push_frame(&mut self, f: Frame) {
+        self.frames.push(f)
     }
 }
 

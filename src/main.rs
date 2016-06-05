@@ -10,6 +10,7 @@ mod errors;
 mod number;
 mod symbol;
 mod atom;
+mod opcodes;
 mod parser;
 mod env;
 mod eval;
@@ -34,7 +35,7 @@ fn run_node(vm: &mut VirtualMachine, node: Atom, env: &mut Env) -> AtomResult {
     frame.program.env = e;
     frame.program.body = out;
     vm.reset();
-    vm.frames.push(frame);
+    vm.push_frame(frame);
     vm.run()
 }
 

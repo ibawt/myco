@@ -2,6 +2,7 @@ use errors::Error;
 use number::*;
 use symbol;
 use env::Env;
+use opcodes::Opcode;
 
 #[derive (Debug, Clone, PartialEq, Copy)]
 pub enum Form {
@@ -53,11 +54,10 @@ pub struct Procedure {
     pub closures: Env,
 }
 
-use vm::Instruction;
 
 #[derive (Debug, Clone, PartialEq)]
 pub struct CompiledFunction {
-    pub body: Vec<Instruction>,
+    pub body: Vec<Opcode>,
     pub source: List,
     pub params: List,
     pub env: Env,
@@ -75,7 +75,7 @@ pub enum Function {
 impl fmt::Display for Function {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Function::*;
-        use vm;
+        use opcodes;
         use eval;
 
         match *self {
@@ -85,7 +85,7 @@ impl fmt::Display for Function {
                 try!(write!(f, "compiled-proc:\n"));
                 try!(write!(f, "params: {}\n", eval::print_list(&func.params)));
                 try!(write!(f, "source: {}\n", eval::print_list(&func.source)));
-                write!(f, "instructions: {}\n", vm::print_instructions(&func.body))
+                write!(f, "instructions: {}\n", opcodes::print_instructions(&func.body))
             }
             Macro(_) => write!(f, "macro"),
         }
