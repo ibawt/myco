@@ -53,8 +53,9 @@ pub enum Instruction {
 
 #[allow(dead_code)]
 pub fn print_instructions(instructions: &[Instruction]) -> String {
-    instructions.iter().enumerate()
-        .map(|(i,n)| format!("{:2} - {}\n", i, n))
+    instructions.iter()
+        .enumerate()
+        .map(|(i, n)| format!("{:2} - {}\n", i, n))
         .collect()
 }
 
@@ -76,35 +77,17 @@ impl fmt::Display for Instruction {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         use self::Instruction::*;
         match *self {
-            CONST(ref a) => {
-                write!(fmt, "CONST({})", a)
-            }
-            LOAD(ref a) => {
-                write!(fmt, "LOAD({})", *a)
-            }
-            DEFINE(ref a) => {
-                write!(fmt, "DEFINE({})", *a)
-            }
-            POP => {
-                write!(fmt, "POP")
-            }
-            STORE(ref a) => {
-                write!(fmt, "STORE({})", *a)
-            }
-            JUMP_IFNOT(i) => {
-                write!(fmt, "JUMP_IFNOT({})", i)
-            }
+            CONST(ref a) => write!(fmt, "CONST({})", a),
+            LOAD(ref a) => write!(fmt, "LOAD({})", *a),
+            DEFINE(ref a) => write!(fmt, "DEFINE({})", *a),
+            POP => write!(fmt, "POP"),
+            STORE(ref a) => write!(fmt, "STORE({})", *a),
+            JUMP_IFNOT(i) => write!(fmt, "JUMP_IFNOT({})", i),
             JUMP(i) => write!(fmt, "JUMP({})", i),
             RETURN => write!(fmt, "RETURN"),
-            CALL(ref func, arity) => {
-                write!(fmt, "CALL({}, {})", func, arity)
-            },
-            DCALL(arity) => {
-                write!(fmt, "DCALL({})", arity)
-            },
-            RECUR(arity) => {
-                write!(fmt, "RECUR({})", arity)
-            }
+            CALL(ref func, arity) => write!(fmt, "CALL({}, {})", func, arity),
+            DCALL(arity) => write!(fmt, "DCALL({})", arity),
+            RECUR(arity) => write!(fmt, "RECUR({})", arity),
         }
     }
 }
@@ -192,7 +175,11 @@ fn compile_node(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result
     Ok(())
 }
 
-fn compile_form(form: Form, list: &List, out: &mut Vec<Instruction>, env: &mut Env) -> Result<(), Error> {
+fn compile_form(form: Form,
+                list: &List,
+                out: &mut Vec<Instruction>,
+                env: &mut Env)
+                -> Result<(), Error> {
     match form {
         Form::Recur => {
             for n in list.iter().skip(1) {
@@ -344,9 +331,7 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<
     }
 
     match list[0] {
-        Atom::Form(f) => {
-            return compile_form(f, &list, out, env)
-        }
+        Atom::Form(f) => return compile_form(f, &list, out, env),
         Atom::Symbol(_) => {
             for n in list.iter().skip(1) {
                 try!(compile(n.clone(), out, env));
@@ -597,7 +582,8 @@ mod tests {
 
     #[test]
     fn map_test() {
-        assert_eq!(run_expr("'(1 2)"), run_expr("(map* (fn (x) (+ x 1)) '(0 1))"));
+        assert_eq!(run_expr("'(1 2)"),
+                   run_expr("(map* (fn (x) (+ x 1)) '(0 1))"));
     }
 
     #[test]
