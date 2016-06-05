@@ -5,6 +5,18 @@ use std::fmt;
 use std::rc::Rc;
 use std::cell::RefCell;
 
+#[derive (Debug, Clone, PartialEq)]
+struct Entry {
+    key: symbol::InternedStr,
+    value: Atom,
+}
+
+impl fmt::Display for Entry {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} => {}", self.key, self.value)
+    }
+}
+
 #[derive(Debug,PartialEq)]
 struct EnvGeneration {
     value: Vec<Entry>,
@@ -34,17 +46,6 @@ impl EnvGeneration {
     }
 }
 
-#[derive (Debug, Clone, PartialEq)]
-struct Entry {
-    key: symbol::InternedStr,
-    value: Atom,
-}
-
-impl fmt::Display for Entry {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} => {}", self.key, self.value)
-    }
-}
 
 #[derive (Debug, Clone, PartialEq)]
 pub struct Env(Rc<RefCell<EnvGeneration>>);
@@ -79,12 +80,10 @@ impl Env {
         let value = &gen.value;
         match value.iter().rev().find(|entry| entry.key.as_ref() == key) {
             Some(ref entry) => {
-                // println!("found {} it here in: {:p}", key, self);
                 Some(entry.value.clone())
             }
             None => {
                 if let Some(ref parent) = gen.parent {
-                    // println!("looking for {} in parent: {}", key, parent);
                     parent.find(key)
                 } else {
                     None
@@ -104,27 +103,17 @@ impl Env {
                         key: *splat,
                         value: Atom::list(vals),
                     });
-                    // arg_map.push(Entry { key: splat.clone(), value: Atom::list(vals) });
                     break;
                 }
             } else {
                 args_iter.next().map(|arg| {
-                    // println!("setting {} to {} in {}", sym, arg, self);
                     self.0.borrow_mut().value.push(Entry {
                         key: *sym,
                         value: arg.clone(),
                     });
-                    // self.define()
-                    // arg_map.push(Entry { key: sym.clone(), value: arg.clone() });
                 });
             }
         }
-
-        // let env_gen = EnvGeneration {
-        //     value: arg_map,
-        //     parent: Some(self.clone())
-        // };
-        // Env(Rc::new(RefCell::new(env_gen)))
     }
 
     pub fn bind(&mut self, params: &[Atom], args: &[Atom]) -> Env {
