@@ -195,28 +195,29 @@ pub fn eval(node: Atom, env: &mut Env) -> Result<Atom, Error> {
             _ => return eval_node(cur_node, cur_env),
         }
 
-        let expanded_node = try!(macro_expand(cur_node, cur_env));
-        let mut list2 = match expanded_node {
+        let list = match try!(macro_expand(cur_node, cur_env)) {
             Atom::List(l) => l,
-            _ => return Ok(expanded_node),
+            node => return Ok(node),
         };
-        // FIXME: hack either lists should be immutable or not
-        let list = Rc::get_mut(&mut list2).unwrap();
 
-        match list[0] {
+        let list = match list[0] {
             Atom::Symbol(_) | Atom::List(_) => {
-                list[0] = try!(eval(list[0].clone(), cur_env));
+                let atom = try!(eval(list[0].clone(), cur_env));
+                let mut new_list = Vec::with_capacity(list.len());
+                new_list.push(atom);
+                for i in &list[1..] {
+                    new_list.push(i.clone());
+                }
+                Rc::new(new_list)
             }
-            _ => (),
-        }
-
-        // println!("evaling: {}", print_list(&list));
+            _ => list,
+        };
 
         match list[0] {
             Atom::Form(f) => {
                 match f {
                     Form::Let => {
-                        try!(expect_arg_length(list, 3));
+                        try!(expect_arg_length(&list, 3));
                         let mut env = Env::new(Some(cur_env.clone()));
 
                         let bind_list = try!(list[1].as_list());
@@ -230,7 +231,7 @@ pub fn eval(node: Atom, env: &mut Env) -> Result<Atom, Error> {
                         cur_node = try!(eval(list[2].clone(), &mut env));
                     }
                     Form::Set => {
-                        try!(expect_arg_length(list, 3));
+                        try!(expect_arg_length(&list, 3));
 
                         let symbol = try!(list[1].as_symbol());
                         let value = try!(eval(list[2].clone(), cur_env));
@@ -266,7 +267,7 @@ pub fn eval(node: Atom, env: &mut Env) -> Result<Atom, Error> {
                             return Ok(Atom::Boolean(false));
                         }
                     }
-                    _ => return eval_special_forms(f, list, cur_env),
+                    _ => return eval_special_forms(f, &list, cur_env),
                 }
             }
             Atom::Function(ref func) => {
