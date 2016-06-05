@@ -47,7 +47,7 @@ impl Default for VirtualMachine {
         };
         base_lib::library()
             .and_then(|n| vm.run_node(n))
-            .expect("base library should always compile!");
+            .expect("base library should always compile and run!");
 
         vm
     }
@@ -289,7 +289,7 @@ mod tests {
     #[test]
     fn map_test() {
         assert_eq!(run_expr("'(1 2)"),
-                   run_expr("(map* (fn (x) (+ x 1)) '(0 1))"));
+                   run_expr("(map (fn (x) (+ x 1)) '(0 1))"));
     }
 
     #[test]

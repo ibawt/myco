@@ -136,17 +136,6 @@ fn apply(f: &Function, args: &[Atom], env: &mut Env) -> AtomResult {
     }
 }
 
-fn map(args: &[Atom], env: &mut Env) -> AtomResult {
-    let list = try!(args[1].as_list());
-    let func = try!(args[0].as_function());
-
-    let mut out = Vec::with_capacity(list.len());
-    for i in 0..list.len() {
-        out.push(try!(apply(func, &list[i..], env)));
-    }
-    Ok(Atom::list(out))
-}
-
 fn filter(arg: &[Atom], env: &mut Env) -> AtomResult {
     let list = try!(arg[1].as_list());
     let func = try!(arg[0].as_function());
@@ -230,7 +219,6 @@ pub fn eval_native(n: Native, args: &[Atom], env: &mut Env) -> AtomResult {
         Print => print(args, env),
         Error => error(args, env),
         Type => type_of(args, env),
-        Map => map(args, env),
         Slurp => slurp(args, env),
         Barf => barf(args, env),
         Filter => filter(args, env),
