@@ -153,9 +153,9 @@ fn filter(arg: &[Atom], env: &mut Env) -> AtomResult {
 
     let mut out = Vec::with_capacity(list.len());
 
-    for i in 0..list.len() {
+    for (i,node) in list.iter().enumerate() {
         if try!(apply(func, &list[i..], env)).as_bool() {
-            out.push(list[i].clone());
+            out.push(node.clone());
         }
     }
 

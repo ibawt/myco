@@ -40,7 +40,7 @@ fn define(args: &[Atom], env: &mut Env) -> AtomResult {
 
 fn quote(list: &[Atom]) -> AtomResult {
     try!(expect_arg_length(list, 1));
-    list.first().cloned().ok_or(invalid_arg("quote"))
+    list.first().cloned().ok_or(Error::RuntimeAssertion)
 }
 
 fn make_proc(list: &[Atom], env: &Env) -> AtomResult {
