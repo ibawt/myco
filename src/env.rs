@@ -79,9 +79,7 @@ impl Env {
         let gen = self.0.borrow();
         let value = &gen.value;
         match value.iter().rev().find(|entry| entry.key.as_ref() == key) {
-            Some(ref entry) => {
-                Some(entry.value.clone())
-            }
+            Some(ref entry) => Some(entry.value.clone()),
             None => {
                 if let Some(ref parent) = gen.parent {
                     parent.find(key)
