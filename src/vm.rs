@@ -204,10 +204,10 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<
         _ => return compile_node(node, out, env),
     }
 
-    let n = try!(macro_expand(node, env));
+    // let n =
 
-    let list = match n {
-        Atom::List(ref list) => {
+    let list = match try!(macro_expand(node, env)) {
+        Atom::List(list) => {
             if list.is_empty() {
                 out.push(CONST(Atom::Nil));
                 return Ok(());
@@ -610,9 +610,9 @@ mod tests {
         assert_eq!(run_expr("'(1 2)"), run_expr("(map* (fn (x) (+ x 1)) '(0 1))"));
     }
 
-    // #[test]
-    // fn run_suite() {
-    //     // let suite = include_str!("../test/suite.lisp");
-    //     // assert_eq!(Atom::from(true), run_expr(suite));
-    // }
+    #[test]
+    fn run_suite() {
+        let suite = include_str!("../test/suite.lisp");
+        assert_eq!(Atom::from(true), run_expr(suite));
+    }
 }
