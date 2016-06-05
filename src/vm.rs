@@ -191,6 +191,130 @@ fn macro_expand(node: Atom, env: &mut Env) -> Result<Atom, Error> {
     Ok(node)
 }
 
+fn compile_form(form: Form, list: &List, out: &mut Vec<Instruction>, env: &mut Env) -> Result<(), Error> {
+    match form {
+        Form::Recur => {
+            for n in list.iter().skip(1) {
+                try!(compile(n.clone(), out, env));
+            }
+            out.push(RECUR(list.len() - 1));
+            return Ok(());
+        }
+        Form::If => {
+            match list.len() {
+                4 => {
+                    // if with ELSE
+                    try!(compile(list[1].clone(), out, env));
+                    out.push(JUMP_IFNOT(0));
+                    let else_jump_pos = out.len() - 1;
+                    try!(compile(list[2].clone(), out, env));
+
+                    out.push(JUMP(0));
+                    let out_jump = out.len() - 1;
+
+                    out[else_jump_pos] = JUMP_IFNOT(out.len());
+
+                    try!(compile(list[3].clone(), out, env));
+
+                    out[out_jump] = JUMP(out.len());
+                }
+                3 => {
+                    // no ELSE
+                    try!(compile(list[1].clone(), out, env));
+                    out.push(JUMP_IFNOT(0));
+                    let else_jump_pos = out.len() - 1;
+                    try!(compile(list[2].clone(), out, env));
+                    out[else_jump_pos] = JUMP_IFNOT(out.len());
+                }
+                _ => return Err(invalid_arg("invalid number for forms for if")),
+            }
+            return Ok(());
+        }
+        Form::Let => {
+            let new_env = Env::new(Some(env.clone()));
+            let bind_list = try!(list[1].as_list());
+            let mut bindings = Vec::new();
+
+            for binding in bind_list.iter() {
+                let bind_exp = try!(binding.as_list());
+                try!(expect_arg_length(bind_exp, 2));
+                bindings.push(bind_exp[0].clone());
+                try!(compile(bind_exp[1].clone(), out, env));
+            }
+
+            let mut body = Vec::new();
+
+            try!(compile(list[2].clone(), &mut body, env));
+
+            body.push(RETURN);
+
+            let arity = bindings.len();
+
+            let func = CompiledFunction {
+                body: body,
+                source: list.clone(),
+                params: to_list(bindings),
+                env: new_env,
+            };
+
+            out.push(CONST(Atom::Function(Function::Compiled(func))));
+            out.push(DCALL(arity));
+            return Ok(());
+        }
+        Form::Set => {
+            let sym = try!(list[1].as_symbol());
+            try!(compile(list[2].clone(), out, env));
+            out.push(STORE(*sym));
+            return Ok(());
+        }
+        Form::Def => {
+            let sym = try!(list[1].as_symbol());
+            try!(compile(list[2].clone(), out, env));
+            out.push(DEFINE(*sym));
+            return Ok(());
+        }
+        Form::Do => {
+            if list.len() > 2 {
+                for i in list.iter().take(list.len() - 1).skip(1) {
+                    try!(compile(i.clone(), out, env));
+                    out.push(POP);
+                }
+            }
+            return compile(list[list.len() - 1].clone(), out, env);
+        }
+        Form::Fn => {
+            let mut body = Vec::new();
+            let mut env = Env::new(Some(env.clone()));
+            try!(compile(list[2].clone(), &mut body, &mut env));
+            body.push(RETURN);
+            let func = CompiledFunction {
+                body: body,
+                source: list.clone(),
+                params: try!(list[1].as_list()).clone(),
+                env: env,
+            };
+            out.push(CONST(Atom::Function(Function::Compiled(func))));
+            return Ok(());
+        }
+        Form::Macro => {
+            try!(macro_form(&list[1..], env));
+            out.push(CONST(Atom::Nil));
+            return Ok(());
+        }
+        Form::Quote => {
+            out.push(CONST(list[1].clone()));
+            return Ok(());
+        }
+        Form::QuasiQuote => {
+            let expanded = try!(expand_quasiquote(&list[1], env));
+            // println!("expanded: {}", expanded);
+            try!(compile(expanded, out, env));
+            return Ok(());
+        }
+        _ => return Err(Error::NotImplemented),
+    }
+}
+
 pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<(), Error> {
     println!("compiling: {}", node);
     match node {
@@ -203,8 +327,6 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<
         }
         _ => return compile_node(node, out, env),
     }
-
-    // let n =
 
     let list = match try!(macro_expand(node, env)) {
         Atom::List(list) => {
@@ -232,127 +354,7 @@ pub fn compile(node: Atom, out: &mut Vec<Instruction>, env: &mut Env) -> Result<
 
     match list[0] {
         Atom::Form(f) => {
-            match f {
-                Form::Recur => {
-                    for n in list.iter().skip(1) {
-                        try!(compile(n.clone(), out, env));
-                    }
-                    out.push(RECUR(list.len() - 1));
-                    return Ok(());
-                }
-                Form::If => {
-                    match list.len() {
-                        4 => {
-                            // if with ELSE
-                            try!(compile(list[1].clone(), out, env));
-                            out.push(JUMP_IFNOT(0));
-                            let else_jump_pos = out.len() - 1;
-                            try!(compile(list[2].clone(), out, env));
-
-                            out.push(JUMP(0));
-                            let out_jump = out.len() - 1;
-
-                            out[else_jump_pos] = JUMP_IFNOT(out.len());
-
-                            try!(compile(list[3].clone(), out, env));
-
-                            out[out_jump] = JUMP(out.len());
-                        }
-                        3 => {
-                            // no ELSE
-                            try!(compile(list[1].clone(), out, env));
-                            out.push(JUMP_IFNOT(0));
-                            let else_jump_pos = out.len() - 1;
-                            try!(compile(list[2].clone(), out, env));
-                            out[else_jump_pos] = JUMP_IFNOT(out.len());
-                        }
-                        _ => return Err(invalid_arg("invalid number for forms for if")),
-                    }
-                    return Ok(());
-                }
-                Form::Let => {
-                    let new_env = Env::new(Some(env.clone()));
-                    let bind_list = try!(list[1].as_list());
-                    let mut bindings = Vec::new();
-
-                    for binding in bind_list.iter() {
-                        let bind_exp = try!(binding.as_list());
-                        try!(expect_arg_length(bind_exp, 2));
-                        bindings.push(bind_exp[0].clone());
-                        try!(compile(bind_exp[1].clone(), out, env));
-                    }
-
-                    let mut body = Vec::new();
-
-                    try!(compile(list[2].clone(), &mut body, env));
-
-                    body.push(RETURN);
-
-                    let arity = bindings.len();
-
-                    let func = CompiledFunction {
-                        body: body,
-                        source: list.clone(),
-                        params: to_list(bindings),
-                        env: new_env,
-                    };
-
-                    out.push(CONST(Atom::Function(Function::Compiled(func))));
-                    out.push(DCALL(arity));
-                    return Ok(());
-                }
-                Form::Set => {
-                    let sym = try!(list[1].as_symbol());
-                    try!(compile(list[2].clone(), out, env));
-                    out.push(STORE(*sym));
-                    return Ok(());
-                }
-                Form::Def => {
-                    let sym = try!(list[1].as_symbol());
-                    try!(compile(list[2].clone(), out, env));
-                    out.push(DEFINE(*sym));
-                    return Ok(());
-                }
-                Form::Do => {
-                    if list.len() > 2 {
-                        for i in list.iter().take(list.len() - 1).skip(1) {
-                            try!(compile(i.clone(), out, env));
-                            out.push(POP);
-                        }
-                    }
-                    return compile(list[list.len() - 1].clone(), out, env);
-                }
-                Form::Fn => {
-                    let mut body = Vec::new();
-                    let mut env = Env::new(Some(env.clone()));
-                    try!(compile(list[2].clone(), &mut body, &mut env));
-                    body.push(RETURN);
-                    let func = CompiledFunction {
-                        body: body,
-                        source: list.clone(),
-                        params: try!(list[1].as_list()).clone(),
-                        env: env,
-                    };
-                    out.push(CONST(Atom::Function(Function::Compiled(func))));
-                    return Ok(());
-                }
-                Form::Macro => {
-                    try!(macro_form(&list[1..], env));
-                    out.push(CONST(Atom::Nil));
-                    return Ok(());
-                }
-                Form::Quote => {
-                    out.push(CONST(list[1].clone()));
-                    return Ok(());
-                }
-                Form::QuasiQuote => {
-                    let expanded = try!(expand_quasiquote(&list[1], env));
-                    // println!("expanded: {}", expanded);
-                    try!(compile(expanded, out, env));
-                    return Ok(());
-                }
-                _ => return Err(Error::NotImplemented),
-            }
+            return compile_form(f, &list, out, env)
         }
         Atom::Symbol(_) => {
             for n in list.iter().skip(1) {
