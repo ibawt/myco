@@ -90,8 +90,7 @@ impl VirtualMachine {
 
     pub fn eval_string(&mut self, s: &str) -> AtomResult {
         use parser;
-        parser::tokenize(s)
-            .and_then(|a| self.run_node(a))
+        parser::tokenize(s).and_then(|a| self.run_node(a))
     }
 
     fn next_instruction(&self) -> Option<Opcode> {
@@ -166,7 +165,8 @@ impl VirtualMachine {
                             continue; // don't advance PC of the new frame
                         }
                         Atom::Function(Function::Native(f)) => {
-                            let x = try!(eval_native(f, arg_list,
+                            let x = try!(eval_native(f,
+                                                     arg_list,
                                                      &mut self.frames[self.fp].program.env));
                             self.push(x);
                         }
@@ -330,8 +330,10 @@ mod tests {
     #[test]
     fn apply_test() {
         assert_eq!(Atom::from(0), run_expr("(apply (fn (x) 0) '())"));
-        assert_eq!(Atom::from(3), run_expr("(apply (fn (x y) (+ x y 1)) '(1 1))"));
-        assert_eq!(Atom::from(1), run_expr("(apply (fn (x & y) (count y)) '(1 1))"));
+        assert_eq!(Atom::from(3),
+                   run_expr("(apply (fn (x y) (+ x y 1)) '(1 1))"));
+        assert_eq!(Atom::from(1),
+                   run_expr("(apply (fn (x & y) (count y)) '(1 1))"));
     }
 
     #[test]
