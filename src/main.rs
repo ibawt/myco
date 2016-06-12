@@ -48,22 +48,27 @@ fn repl() {
         };
         match readline::readline(prompt) {
             Some(s) => {
-                if s == "quit" {
-                    return;
-                }
-                lines.push_str(&s);
-
-                let result = vm.eval_string(&lines);
-
-                match result {
-                    Ok(r) => {
-                        println!("{}", r);
-                        lines.clear();
+                match &s[..] {
+                    "quit" => return,
+                    ",print-stack" => {
+                        vm.print_stack();
                     }
-                    Err(Error::EoF) => {}
-                    Err(e) => {
-                        println!("Error in evaluation: {:?}", e);
-                        lines.clear();
+                    _ => {
+                        lines.push_str(&s);
+
+                        let result = vm.eval_string(&lines);
+
+                        match result {
+                            Ok(r) => {
+                                println!("{}", r);
+                                lines.clear();
+                            }
+                            Err(Error::EoF) => {}
+                            Err(e) => {
+                                println!("Error in evaluation: {:?}", e);
+                                lines.clear();
+                            }
+                        }
                     }
                 }
             }

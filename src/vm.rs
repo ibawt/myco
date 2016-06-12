@@ -82,6 +82,12 @@ impl VirtualMachine {
         self.run()
     }
 
+    pub fn print_stack(&self) {
+        for (i, item) in self.stack.iter().rev().enumerate() {
+            println!("{}: {}", -(i as i32), item);
+        }
+    }
+
     pub fn eval_string(&mut self, s: &str) -> AtomResult {
         use parser;
         parser::tokenize(s)
