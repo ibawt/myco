@@ -104,11 +104,11 @@ impl Env {
                     break;
                 }
             } else {
-                args_iter.next().map(|arg| {
-                    self.0.borrow_mut().value.push(Entry {
-                        key: *sym,
-                        value: arg.clone(),
-                    });
+                let arg = args_iter.next().cloned().unwrap_or(Atom::Nil);
+
+                self.0.borrow_mut().value.push(Entry {
+                    key: *sym,
+                    value: arg,
                 });
             }
         }
@@ -130,11 +130,11 @@ impl Env {
                     break;
                 }
             } else {
-                args_iter.next().map(|arg| {
-                    arg_map.push(Entry {
-                        key: *sym,
-                        value: arg.clone(),
-                    });
+                let arg = args_iter.next().cloned().unwrap_or(Atom::Nil);
+
+                self.0.borrow_mut().value.push(Entry {
+                    key: *sym,
+                    value: arg,
                 });
             }
         }
