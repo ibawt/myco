@@ -82,6 +82,12 @@ impl VirtualMachine {
         self.run()
     }
 
+    pub fn eval_string(&mut self, s: &str) -> AtomResult {
+        use parser;
+        parser::tokenize(s)
+            .and_then(|a| self.run_node(a))
+    }
+
     fn next_instruction(&self) -> Option<Opcode> {
         self.frames[self.fp].current_instruction().cloned()
     }
@@ -112,9 +118,9 @@ impl VirtualMachine {
                     try!(self.pop());
                 }
                 RETURN => {
+                    self.frames.pop();
                     if self.fp > 0 {
                         self.fp -= 1;
-                        self.frames.pop();
                     } else {
                         return self.pop();
                     }
@@ -297,7 +303,17 @@ mod tests {
     fn map_test() {
         assert_eq!(run_expr("'(1 2)"),
                    run_expr("(map (fn (x) (+ x 1)) '(0 1))"));
+
     }
+
+    #[test]
+    fn map_leak_test() {
+        let mut vm = VirtualMachine::default();
+        let l = Atom::list(vec![Atom::from(1), Atom::from(2)]);
+        assert_eq!(l, vm.eval_string("(map (fn (x) (+ x 1)) '(0 1))").unwrap());
+        assert_eq!(l, vm.eval_string("(map (fn (x) (+ x 1)) '(0 1))").unwrap());
+    }
+
 
     #[test]
     fn reduce_test() {

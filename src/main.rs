@@ -19,7 +19,6 @@ mod compiler;
 mod vm;
 mod base_lib;
 
-use parser::tokenize;
 use errors::Error;
 use std::env::args;
 use std::fs::File;
@@ -35,9 +34,7 @@ fn repl() {
         let mut s = String::new();
         file.read_to_string(&mut s).unwrap();
 
-        let a = tokenize(&s)
-            .and_then(|node| vm.run_node(node))
-            .unwrap();
+        let a = vm.eval_string(&s).unwrap();
         println!("{}", a);
     }
 
@@ -56,7 +53,7 @@ fn repl() {
                 }
                 lines.push_str(&s);
 
-                let result = tokenize(&lines).and_then(|node| vm.run_node(node));
+                let result = vm.eval_string(&lines);
 
                 match result {
                     Ok(r) => {
