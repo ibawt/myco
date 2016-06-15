@@ -98,9 +98,8 @@ impl Env {
     fn num_gen(&self, c: usize) -> usize {
         let gen = self.0.borrow();
         if let Some(ref parent) = gen.parent {
-            return parent.num_gen(c + 1)
-        }
-        else {
+            return parent.num_gen(c + 1);
+        } else {
             c
         }
     }
@@ -139,36 +138,10 @@ impl Env {
         }
     }
 
-    pub fn bind(&mut self, params: &[Atom], args: &[Atom]) -> Env {
-        let mut arg_map = Vec::with_capacity(params.len());
-        let mut params_iter = params.iter();
-        let mut args_iter = args.iter();
-
-        while let Some(&Atom::Symbol(ref sym)) = params_iter.next() {
-            if sym.as_ref() == "&" {
-                if let Some(&Atom::Symbol(ref splat)) = params_iter.next() {
-                    let vals = args_iter.cloned().collect();
-                    arg_map.push(Entry {
-                        key: *splat,
-                        value: Atom::list(vals),
-                    });
-                    break;
-                }
-            } else {
-                let arg = args_iter.next().cloned().unwrap_or(Atom::Nil);
-
-                self.0.borrow_mut().value.push(Entry {
-                    key: *sym,
-                    value: arg,
-                });
-            }
-        }
-
-        let env_gen = EnvGeneration {
-            value: arg_map,
-            parent: Some(self.clone()),
-        };
-        Env(Rc::new(RefCell::new(env_gen)))
+    pub fn bind(&self, params: &[Atom], args: &[Atom]) -> Env {
+        let mut e = Env::new(Some(self.clone()));
+        e.bind_mut(params, args);
+        e
     }
 
     pub fn get(&self, key: &str) -> Option<Atom> {
@@ -226,7 +199,7 @@ mod tests {
 
     #[test]
     fn splat() {
-        let mut env = Env::new(None);
+        let env = Env::new(None);
 
         let params = vec![Atom::symbol("&"), Atom::symbol("body")];
 
