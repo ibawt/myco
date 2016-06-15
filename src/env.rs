@@ -90,6 +90,24 @@ impl Env {
         }
     }
 
+    pub fn num_generations(&self) -> usize {
+        self.num_gen(1)
+    }
+
+    fn num_gen(&self, c: usize) -> usize {
+        let gen = self.0.borrow();
+        if let Some(ref parent) = gen.parent {
+            return parent.num_gen(c + 1)
+        }
+        else {
+            c
+        }
+    }
+
+    pub fn generation_size(&self) -> usize {
+        self.0.borrow().value.len()
+    }
+
     pub fn bind_mut(&mut self, params: &[Atom], args: &[Atom]) {
         let mut params_iter = params.iter();
         let mut args_iter = args.iter();
@@ -105,6 +123,16 @@ impl Env {
                 }
             } else {
                 let arg = args_iter.next().cloned().unwrap_or(Atom::Nil);
+
+                {
+                    // tricking the borrow checker here
+                    let mut gen = self.0.borrow_mut();
+
+                    if let Some(mut entry) = gen.value.iter_mut().find(|entry| entry.key == *sym) {
+                        entry.value = arg;
+                        continue;
+                    }
+                }
 
                 self.0.borrow_mut().value.push(Entry {
                     key: *sym,
@@ -236,6 +264,25 @@ mod tests {
 
         assert_eq!(Atom::string("baz"), env2.get("foo").unwrap());
         assert_eq!(Atom::parse("0"), env.get("foo").unwrap());
+    }
+
+    #[test]
+    fn bind_mut() {
+        let mut env = Env::default();
+        let args = vec![Atom::from(0), Atom::from(1)];
+        let params = vec![Atom::symbol("a"), Atom::symbol("b")];
+        env.bind_mut(&params, &args);
+
+        assert_eq!(env.get("a").unwrap(), Atom::from(0));
+        assert_eq!(env.get("b").unwrap(), Atom::from(1));
+
+        env.bind_mut(&params, &vec![Atom::from(2), Atom::from(42)]);
+
+
+        assert_eq!(env.get("a").unwrap(), Atom::from(2));
+        assert_eq!(env.get("b").unwrap(), Atom::from(42));
+
+        assert_eq!(2, env.generation_size());
     }
 
 }
