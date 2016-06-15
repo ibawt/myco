@@ -90,6 +90,7 @@ impl Env {
         }
     }
 
+    #[allow(dead_code)]
     pub fn num_generations(&self) -> usize {
         self.num_gen(1)
     }
@@ -102,10 +103,6 @@ impl Env {
         else {
             c
         }
-    }
-
-    pub fn generation_size(&self) -> usize {
-        self.0.borrow().value.len()
     }
 
     pub fn bind_mut(&mut self, params: &[Atom], args: &[Atom]) {
@@ -282,7 +279,7 @@ mod tests {
         assert_eq!(env.get("a").unwrap(), Atom::from(2));
         assert_eq!(env.get("b").unwrap(), Atom::from(42));
 
-        assert_eq!(2, env.generation_size());
+        assert_eq!(2, env.0.borrow().value.len());
     }
 
 }
