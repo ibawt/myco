@@ -337,6 +337,11 @@ mod tests {
     }
 
     #[test]
+    fn cond_test() {
+        assert_eq!(Atom::from(0), run_expr("(cond (true 0))"));
+    }
+
+    #[test]
     fn run_suite() {
         let suite = include_str!("../test/suite.lisp");
         assert_eq!(Atom::from(true), run_expr(suite));
