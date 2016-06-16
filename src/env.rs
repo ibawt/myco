@@ -78,7 +78,7 @@ impl Env {
     fn find(&self, key: &str) -> Option<Atom> {
         let gen = self.0.borrow();
         let value = &gen.value;
-        match value.iter().rev().find(|entry| entry.key.as_ref() == key) {
+        match value.iter().find(|entry| entry.key.as_ref() == key) {
             Some(ref entry) => Some(entry.value.clone()),
             None => {
                 if let Some(ref parent) = gen.parent {
@@ -150,7 +150,6 @@ impl Env {
 
     pub fn define(&mut self, key: symbol::InternedStr, value: Atom) -> Result<Atom, Error> {
         if let Some(_) = self.0.borrow().find(key.as_ref()) {
-            // println!("env is: {}", self);
             return Err(invalid_arg(&format!("define has entry already: {}", key.as_ref())));
         }
         self.0.borrow_mut().value.push(Entry {
