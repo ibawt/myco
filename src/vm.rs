@@ -198,6 +198,14 @@ impl VirtualMachine {
                             println!("{}", print_list(&f.body));
                             return Err(Error::NotImplemented);
                         }
+                        Atom::Function(Function::Native(n)) => {
+                            let len = self.stack.len();
+                            let r = try!(eval_native_borrow(self, n, len - arity));
+                            for _ in 0..arity {
+                                try!(self.pop());
+                            }
+                            self.push(r);
+                        }
                         _ => {
                             println!("attempted to call: {}", func);
                             return Err(Error::NotAFunction);
@@ -348,6 +356,12 @@ mod tests {
         assert_eq!(Atom::from(0), run_expr("(cond (false 1) (true 0))"));
         assert_eq!(Atom::from(0),
                    run_expr("(cond (false 1) ((= 0 1) 2) (true 0))"));
+    }
+
+    #[test]
+    fn map_native_test() {
+        assert_eq!(Atom::list(vec![Atom::from(1), Atom::from(2)]),
+                   run_expr("(map + '(1 2))"));
     }
 
     #[test]
