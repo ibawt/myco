@@ -138,6 +138,7 @@ pub enum Native {
     Barf,
     Count,
     Apply,
+    Get,
 }
 
 impl fmt::Display for Native {
@@ -167,6 +168,7 @@ impl fmt::Display for Native {
             Barf => write!(f, "barf"),
             Count => write!(f, "count"),
             Apply => write!(f, "apply"),
+            Get => write!(f, "get"),
         }
     }
 }
@@ -245,6 +247,7 @@ fn find_native(t: &str) -> Option<Atom> {
         "barf" => Barf,
         "count" => Count,
         "apply" => Apply,
+        "get" => Get,
         _ => return None,
     };
     Some(Atom::Function(Function::Native(native)))

@@ -4,7 +4,6 @@ use atom::*;
 use errors::*;
 use std::fmt::Write;
 use std::string::*;
-use smallvec::SmallVec;
 use std::rc::Rc;
 
 #[allow(dead_code)]
@@ -271,7 +270,7 @@ pub fn eval(node: Atom, env: &mut Env) -> Result<Atom, Error> {
                 }
             }
             Atom::Function(ref func) => {
-                let args: SmallVec<[Atom; 4]> =
+                let args: Vec<Atom> =
                     try!(list.iter().skip(1).map(|n| eval(n.clone(), cur_env)).collect());
                 // println!("args are: {}", print_list(&args));
                 match *func {
@@ -280,7 +279,12 @@ pub fn eval(node: Atom, env: &mut Env) -> Result<Atom, Error> {
                         cur_node = Atom::List(p.body.clone());
                     }
                     Function::Native(native) => return eval_native(native, &args, cur_env),
-                    _ => panic!("no macros here!"),
+                    Function::Macro(ref mac) => cur_node = try!(eval_macro(mac, &args, cur_env)),
+                    Function::Compiled(_) => {
+                        println!("func = {}", func);
+                        panic!("compiled!")
+                    }
+                    // _ => panic!("no macros here!"),
                 }
             }
             _ => {

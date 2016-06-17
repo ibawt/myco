@@ -107,7 +107,7 @@ impl VirtualMachine {
 
     pub fn run(&mut self) -> AtomResult {
         while let Some(instruction) = self.next_instruction() {
-            // println!("{} - {}", self.current_frame().pc, instruction);
+            trace!("{} - {}", self.current_frame().pc, instruction);
             match instruction {
                 JUMP_IFNOT(addr) => {
                     if !try!(self.pop()).as_bool() {
@@ -337,8 +337,17 @@ mod tests {
     }
 
     #[test]
+    fn get_test() {
+        assert_eq!(Atom::from(0), run_expr("(get '(0 2) 0)"));
+        assert_eq!(Atom::from(0), run_expr("(get '(2 0) 1)"));
+    }
+
+    #[test]
     fn cond_test() {
         assert_eq!(Atom::from(0), run_expr("(cond (true 0))"));
+        assert_eq!(Atom::from(0), run_expr("(cond (false 1) (true 0))"));
+        assert_eq!(Atom::from(0),
+                   run_expr("(cond (false 1) ((= 0 1) 2) (true 0))"));
     }
 
     #[test]

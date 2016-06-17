@@ -5,13 +5,10 @@ authors = ["Ian Quick <ian.quick@gmail.com>"]
 license = "Apache-2.0"
 homepage = "https://github.com/ibawt/rust-lisp"
 
-[dependencies.readline]
-git = "https://github.com/ibawt/rust-readline.git"
-rev = "things"
-
 [dependencies]
-lazy_static = "0.1"
-smallvec = "0.1"
+log = "0.3"
+env_logger = "0.3"
+linenoise-rust = "0.2"
 
 [profile.release]
 debug=true

@@ -43,13 +43,13 @@
        (print "running test:" '~name)
        ~@body)))
 
-(defun second (x)
- (first (rest x)))
+(defmacro second (x)
+ `(first (rest ,x)))
 
 (defmacro cond (& xs)
   (if (> (count xs) 0)
       (list 'if (first (first xs))
-            (second (first xs))
+            (get (first xs) 1)
             (cons 'cond (rest xs)))))
 
 (defmacro empty? (x)

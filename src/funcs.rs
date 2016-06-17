@@ -163,6 +163,15 @@ fn barf(args: &[Atom], _: &mut Env) -> AtomResult {
     Ok(Atom::Boolean(true))
 }
 
+fn get(args: &[Atom], _: &mut Env) -> AtomResult {
+    if args.len() < 2 {
+        return Err(invalid_arg("get takes 2 args"));
+    }
+    let list = try!(args[0].as_list());
+    let ord = try!(args[1].as_number()).as_integer();
+    list.get(ord as usize).cloned().ok_or_else(|| invalid_arg("ord is out of range"))
+}
+
 pub fn eval_native(n: Native, args: &[Atom], env: &mut Env) -> AtomResult {
     use atom::Native::*;
     match n {
@@ -188,6 +197,7 @@ pub fn eval_native(n: Native, args: &[Atom], env: &mut Env) -> AtomResult {
         Barf => barf(args, env),
         Count => count(args, env),
         Apply => apply(try!(args[1].as_function()), &args[1..], env),
+        Get => get(args, env),
     }
 }
 

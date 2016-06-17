@@ -16,6 +16,13 @@ impl Number {
             Float(f) => f == 0.0,
         }
     }
+
+    pub fn as_integer(&self) -> i64 {
+        match *self {
+            Integer(i) => i,
+            Float(f) => f as i64,
+        }
+    }
 }
 
 impl fmt::Display for Number {

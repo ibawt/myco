@@ -1,10 +1,10 @@
 #![feature(test)]
 extern crate test;
 
-extern crate readline;
 #[macro_use]
-extern crate lazy_static;
-extern crate smallvec;
+extern crate log;
+extern crate env_logger;
+extern crate linenoise;
 
 mod errors;
 mod number;
@@ -26,7 +26,10 @@ use std::io::prelude::*;
 use vm::*;
 
 fn repl() {
+    env_logger::init().unwrap();
+
     println!("Rust Lisp!");
+
     let mut vm = VirtualMachine::default();
 
     for i in args().skip(1) {
@@ -46,7 +49,7 @@ fn repl() {
         } else {
             ""
         };
-        match readline::readline(prompt) {
+        match linenoise::input(prompt) {
             Some(s) => {
                 match &s[..] {
                     "quit" => return,
@@ -61,6 +64,7 @@ fn repl() {
                         match result {
                             Ok(r) => {
                                 println!("{}", r);
+                                linenoise::history_add(&lines);
                                 lines.clear();
                             }
                             Err(Error::EoF) => {}

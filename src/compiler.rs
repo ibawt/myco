@@ -233,6 +233,8 @@ pub fn compile(node: Atom, out: &mut Vec<Opcode>, env: &mut Env) -> Result<(), E
         }
     };
 
+    trace!("after macro expansion: {}", print_list(&list));
+
     if let Atom::List(_) = list[0] {
         for i in list.iter().skip(1) {
             try!(compile(i.clone(), out, env));
