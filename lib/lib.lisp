@@ -8,6 +8,9 @@
 (defmacro inc (x)
   `(+ 1 ~x))
 
+(defmacro dec (x)
+  `(- ~x 1))
+
 (defmacro assert (condition msg)
   `(if ~condition
      (do
@@ -44,7 +47,7 @@
        ~@body)))
 
 (defmacro second (x)
- `(first (rest ,x)))
+ `(get ~x 1))
 
 (defmacro cond (& xs)
   (if (> (count xs) 0)
