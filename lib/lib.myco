@@ -61,7 +61,7 @@
 (defun map (f coll out)
   (if (empty? coll)
       out
-      (recur f (rest coll)
+      (map f (rest coll)
              (append (f (first coll)) out))))
 
 (defun filter (f coll out)

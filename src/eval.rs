@@ -280,9 +280,9 @@ pub fn eval(node: Atom, env: &mut Env) -> Result<Atom, Error> {
                     }
                     Function::Native(native) => return eval_native(native, &args, cur_env),
                     Function::Macro(ref mac) => cur_node = try!(eval_macro(mac, &args, cur_env)),
-                    Function::Compiled(_) => {
-                        println!("func = {}", func);
-                        panic!("compiled!")
+                    Function::Compiled(ref cp) => {
+                        *cur_env = Env::new(Some(cp.env.clone())).bind(&cp.params, &args);
+                        cur_node = Atom::List(cp.source.clone());
                     }
                     // _ => panic!("no macros here!"),
                 }
@@ -504,7 +504,7 @@ mod tests {
         let mut e = Env::new(None);
         init_lib(&mut e);
 
-        teval_env(include_str!("../test/let.lisp"), &mut e).unwrap();
+        teval_env(include_str!("../test/let.myco"), &mut e).unwrap();
     }
 
     #[test]

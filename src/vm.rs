@@ -309,7 +309,7 @@ mod tests {
 
     #[test]
     fn recur_test() {
-        let s = include_str!("../test/recur.lisp");
+        let s = include_str!("../test/recur.myco");
         assert_eq!(Atom::from(0), run_expr(s));
     }
 
@@ -366,7 +366,7 @@ mod tests {
 
     #[test]
     fn run_suite() {
-        let suite = include_str!("../test/suite.lisp");
+        let suite = include_str!("../test/suite.myco");
         assert_eq!(Atom::from(true), run_expr(suite));
     }
 }
