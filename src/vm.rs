@@ -324,6 +324,11 @@ mod tests {
     }
 
     #[test]
+    fn load_test() {
+        assert_eq!(Atom::from(0), run_expr("(load \"test/recur.myco\")"));
+    }
+
+    #[test]
     fn map_test() {
         assert_eq!(run_expr("'(1 2)"),
                    run_expr("(map (fn (x) (+ x 1)) '(0 1))"));
