@@ -99,6 +99,12 @@ fn compile_form(form: Form,
             }
             out.push(RECUR(list.len() - 1));
         }
+        Form::Eval => {
+            for n in list.iter().skip(1) {
+                try!(compile(n.clone(), out, env));
+            }
+            out.push(EVAL);
+        }
         Form::If => {
             match list.len() {
                 4 => {

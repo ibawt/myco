@@ -77,3 +77,6 @@
       acc
       (recur f (f acc (first coll))
              (rest coll))))
+
+(defun load (file)
+  (eval (slurp file)))

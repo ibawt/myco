@@ -24,8 +24,7 @@
    (1 . error)
    (1 . fn)
    (1 . def)
-   (1 . do)
-   ))
+   (1 . do)))
 
 (autoload 'myco-mode "myco" "myco docs" t)
 (add-to-list 'auto-mode-alist '("\\.myco\\'" . myco-mode))

@@ -6,6 +6,7 @@ use eval::*;
 use opcodes::*;
 use opcodes::Opcode::*;
 use compiler;
+use parser::tokenize;
 
 #[derive (Debug, Clone)]
 struct Frame {
@@ -71,7 +72,6 @@ impl VirtualMachine {
         let source = try!(node.as_list()).clone();
         let mut e = self.root.clone();
         try!(compiler::compile(node, &mut out, &mut e));
-
         let frame = Frame::new(CompiledFunction {
             body: out,
             source: source,
@@ -114,6 +114,15 @@ impl VirtualMachine {
                         self.current_frame().pc = addr;
                         continue;
                     }
+                }
+                EVAL => {
+                    let e = try!(self.pop());
+                    let eval_string = try!(e.as_string());
+                    let tokens = try!(tokenize(eval_string));
+                    self.fp += 1;
+                    let value = self.run_node(tokens);
+                    self.fp -= 1;
+                    self.push(try!(value));
                 }
                 JUMP(addr) => {
                     self.current_frame().pc = addr;
@@ -242,6 +251,7 @@ impl VirtualMachine {
             self.sp -= 1;
             self.stack.pop().ok_or(Error::RuntimeAssertion)
         } else {
+            println!("stack = {:?}", &self.stack);
             println!("StackUnderflow!");
             Err(Error::RuntimeAssertion)
         }
@@ -362,6 +372,11 @@ mod tests {
     fn map_native_test() {
         assert_eq!(Atom::list(vec![Atom::from(1), Atom::from(2)]),
                    run_expr("(map + '(1 2))"));
+    }
+
+    #[test]
+    fn eval_test() {
+        assert_eq!(Atom::from(0), run_expr("(eval \"0\")"));
     }
 
     #[test]
