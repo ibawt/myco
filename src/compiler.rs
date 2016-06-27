@@ -38,6 +38,7 @@ fn expand_quasiquote(node: &Atom, env: &Env) -> AtomResult {
 }
 
 fn macro_expand(node: Atom, env: &mut Env) -> Result<Atom, Error> {
+    println!("macro_expand: {}", &node);
     match node {
         Atom::List(ref list) if !list.is_empty() => {
             match list[0] {

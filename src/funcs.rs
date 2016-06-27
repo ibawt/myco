@@ -129,7 +129,7 @@ fn apply(f: &Function, args: &[Atom], env: &mut Env) -> AtomResult {
         Function::Proc(ref p) => {
             let mut e = Env::new(Some(p.closures.clone())).bind(&p.params, args);
 
-            eval::eval(Atom::List(p.body.clone()), &mut e)
+            eval::eval(Atom::List(p.body.clone()), &mut e, None)
         }
         Function::Native(func) => eval_native(func, args, env),
         _ => Err(invalid_arg("apply")),

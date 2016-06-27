@@ -49,6 +49,7 @@ impl fmt::Display for Form {
 
 #[derive (Debug, Clone, PartialEq)]
 pub struct Procedure {
+    pub id: u32,
     pub params: List,
     pub body: List,
     pub closures: Env,
