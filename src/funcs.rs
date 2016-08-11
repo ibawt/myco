@@ -174,6 +174,9 @@ fn get(args: &[Atom], _: &mut Env) -> AtomResult {
 
 pub fn eval_native(n: Native, args: &[Atom], env: &mut Env) -> AtomResult {
     use atom::Native::*;
+    for i in args {
+        println!("ARG - {}", i)
+    }
     match n {
         Add => add(args, env),
         Sub => sub(args, env),

@@ -68,17 +68,21 @@ fn recur_borrow(v: &mut VirtualMachine, len: usize) {
 
 impl VirtualMachine {
     pub fn run_node(&mut self, node: Atom) -> AtomResult {
+        println!("about to run: {}", node);
         let mut out = vec![];
         let source = try!(node.as_list()).clone();
         let mut e = self.root.clone();
         try!(compiler::compile(node, &mut out, &mut e));
+        println!("IT COMPILED");
         let frame = Frame::new(CompiledFunction {
+            id: 0,
             body: out,
             source: source,
             params: empty_list(),
             env: e,
         });
         self.frames.push(frame);
+        println!("ABOUT TO RUN");
         self.run()
     }
 
@@ -106,8 +110,9 @@ impl VirtualMachine {
     }
 
     pub fn run(&mut self) -> AtomResult {
+        println!("VM::RUN!!");
         while let Some(instruction) = self.next_instruction() {
-            trace!("{} - {}", self.current_frame().pc, instruction);
+            println!("{} - {}", self.current_frame().pc, instruction);
             match instruction {
                 JUMP_IFNOT(addr) => {
                     if !try!(self.pop()).as_bool() {
@@ -230,6 +235,43 @@ impl VirtualMachine {
                                 try!(self.pop());
                             }
                             self.push(r);
+                        }
+                        Function::Continuation(nc) => {
+                            let len = self.stack.len();
+                            let k = try!(self.pop());
+                            println!("k = {}", k);
+                            let r = try!(eval_native_borrow(self, nc.native, len - arity));
+                            println!("r = {}", r);
+                            let arity = arity - 1;
+                            for _ in 0..arity {
+                                try!(self.pop());
+                            }
+                            self.push(r);
+                            println!("after push");
+                            match k {
+                                Atom::Function(Function::Compiled(mut f)) => {
+                                    let arity = 1;
+                                    println!("in here!");
+                                    self.print_stack();
+                                    f.env.bind_mut(&f.params, &self.stack[self.sp - arity..]);
+                                    for _ in 0..arity {
+                                        try!(self.pop());
+                                    }
+                                    self.frames.push(Frame::new(f.clone()));
+                                    self.fp += 1;
+                                    continue; // don't advance PC of the new frame
+                                },
+                                Atom::Function(Function::Native(native)) => {
+                                    let len = self.stack.len();
+                                    let arity = 1;
+                                    let r = try!(eval_native_borrow(self, native, len - arity));
+                                    for _ in 0..arity {
+                                        try!(self.pop());
+                                    }
+                                    self.push(r);
+                                },
+                                _ => return Err(Error::NotImplemented)
+                            }
                         }
                         _ => return Err(Error::NotImplemented),
                     }
@@ -382,6 +424,11 @@ mod tests {
     #[test]
     fn eval_test() {
         assert_eq!(Atom::from(0), run_expr("(eval \"0\")"));
+    }
+
+    #[test]
+    fn cont_test() {
+        assert_eq!(Atom::from(3), run_expr("(+/k 1 2 (fn (x) x))"));
     }
 
     #[test]

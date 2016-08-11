@@ -46,7 +46,6 @@ impl fmt::Display for Form {
     }
 }
 
-
 #[derive (Debug, Clone, PartialEq)]
 pub struct Procedure {
     pub id: u32,
@@ -55,9 +54,9 @@ pub struct Procedure {
     pub closures: Env,
 }
 
-
 #[derive (Debug, Clone, PartialEq)]
 pub struct CompiledFunction {
+    pub id: u32,
     pub body: Vec<Opcode>,
     pub source: List,
     pub params: List,
@@ -70,6 +69,7 @@ pub enum Function {
     Proc(Procedure),
     Compiled(CompiledFunction),
     Macro(Procedure),
+    Continuation(NativeContinuation),
 }
 
 
@@ -87,10 +87,13 @@ impl fmt::Display for Function {
                 try!(write!(f, "params: {}\n", eval::print_list(&func.params)));
                 try!(write!(f, "source: {}\n", eval::print_list(&func.source)));
                 write!(f,
-                       "instructions: {}\n",
+                       "instructions:\n{}",
                        opcodes::print_instructions(&func.body))
             }
             Macro(_) => write!(f, "macro"),
+            Continuation(ref c) => {
+                write!(f, "{}/k", c.native)
+            }
         }
     }
 }
@@ -140,6 +143,11 @@ pub enum Native {
     Count,
     Apply,
     Get,
+}
+
+#[derive (Debug, Copy, Clone, PartialEq)]
+pub struct NativeContinuation {
+    pub native: Native,
 }
 
 impl fmt::Display for Native {
@@ -225,6 +233,19 @@ pub type AtomResult = Result<Atom, Error>;
 
 fn find_native(t: &str) -> Option<Atom> {
     use self::Native::*;
+    if t.ends_with("/k") {
+        let n = find_native(&t[0..t.len()-2]);
+        match n {
+            None => return None,
+            Some(Atom::Function(Function::Native(n))) => {
+                return Some(Atom::Function(Function::Continuation(NativeContinuation{
+                    native: n
+                })))
+            },
+            _ => ()
+        };
+    }
+
     let native = match t {
         "+" => Add,
         "-" => Sub,

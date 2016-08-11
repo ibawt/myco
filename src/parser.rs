@@ -20,6 +20,17 @@ pub fn tokenize(line: &str) -> ParseResult {
     Ok(Atom::list(v))
 }
 
+pub fn tokenize_single(line: &str) -> ParseResult {
+    let mut chars = line.chars().peekable();
+
+    while let Some(_) = chars.peek() {
+        if let Ok(a) = read_tokens(&mut chars) {
+            return Ok(a)
+        }
+    }
+    Err(Error::EoF)
+}
+
 pub type ParseResult = Result<Atom, Error>;
 
 use std::str::Chars;

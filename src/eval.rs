@@ -317,7 +317,7 @@ pub fn eval(node: Atom, env: &mut Env, current_fn: Option<Function>) -> Result<A
                             n
                         })
                     }
-                    // _ => panic!("no macros here!"),
+                     _ => panic!("not implemented"),
                 }
             }
             _ => {

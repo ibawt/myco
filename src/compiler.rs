@@ -4,6 +4,119 @@ use env::*;
 use errors::*;
 use opcodes::*;
 use opcodes::Opcode::*;
+use symbol;
+use parser;
+
+static mut count: usize = 0;
+
+fn get_unique() -> usize {
+    unsafe {
+        let c = count;
+        count += 1;
+        c
+    }
+}
+
+fn reset_unique() {
+    unsafe {
+        count = 0;
+    }
+}
+
+fn next_symbol(prefix: char) -> Atom {
+    let c = get_unique();
+    let s = format!("{}{}", prefix, c);
+    Atom::symbol(&s)
+}
+
+use std::rc::Rc;
+
+fn cps_wrap_native(n: Native, args: &[Atom], cont: Atom) -> Vec<Atom> {
+    let f = Atom::Function(Function::Continuation(NativeContinuation{
+        native: n
+    }));
+
+    let mut v = vec![f];
+    for a in args {
+        v.push(a.clone());
+    }
+    v.push(cont);
+    v
+}
+
+fn split_args(n: &[Atom]) -> (Vec<Atom>, Vec<Atom>) {
+    let mut fns = vec![];
+    let mut literals = vec![];
+
+    for i in n {
+        match *i {
+            Atom::List(_) => {
+                fns.push(i.clone());
+            },
+            _ => {
+                literals.push(i.clone());
+            }
+        }
+    }
+
+    println!("{} splits fns: {}, literals: {}", print_list(n),
+             print_list(&fns), print_list(&literals));
+
+    (fns, literals)
+}
+
+pub fn cps_translate(node: Atom, cont: Atom) -> Result<Atom, Error> {
+    println!("cps_translate: {}, cont = {}", node, cont);
+    if let Atom::List(ref list) = node {
+        match list[0] {
+            Atom::Function(Function::Native(n)) => {
+                let native = Atom::Function(Function::Continuation(NativeContinuation{
+                    native: n
+                }));
+                // Example
+                // Input: (+ (+ 1 2) 1)
+                // Output: (+ 1 2 (fn (a0)
+                //                   (+ 1 a0 k)))
+                let (fns, literals) = split_args(&list[1..]);
+
+                if fns.is_empty() {
+                    let mut x = vec![native];
+                    for i in literals {
+                        x.push(i);
+                    }
+                    x.push(cont.clone());
+                    Ok(Atom::list(x))
+                } else {
+                    let arg_var = next_symbol('a');
+
+                    println!("n = {}", n);
+                    let f = format!("(fn ({}) ({} {} {} {}))",
+                                    arg_var,
+                                    native,
+                                    literals[0],
+                                    arg_var,
+                                    cont,
+                    );
+
+                    println!("f = {}", f);
+
+                    let x = try!(parser::tokenize_single(&f));
+
+                    let outer = try!(cps_translate(fns[0].clone(), x));
+
+                    println!("outer is {}", outer);
+
+                    Ok(outer)
+                }
+            }
+            _ => {
+                panic!("invalid function call!")
+            }
+        }
+    } else {
+        Ok(node)
+    }
+}
 
 fn expand_quasiquote(node: &Atom, env: &Env) -> AtomResult {
     if !node.is_pair() {
@@ -38,7 +151,7 @@ fn expand_quasiquote(node: &Atom, env: &Env) -> AtomResult {
 }
 
 fn macro_expand(node: Atom, env: &mut Env) -> Result<Atom, Error> {
-    println!("macro_expand: {}", &node);
+    trace!("macro_expand: {}", &node);
     match node {
         Atom::List(ref list) if !list.is_empty() => {
             match list[0] {
@@ -156,6 +269,7 @@ fn compile_form(form: Form,
             let arity = bindings.len();
 
             let func = CompiledFunction {
+                id: 0,
                 body: body,
                 source: list.clone(),
                 params: to_list(bindings),
@@ -190,6 +304,7 @@ fn compile_form(form: Form,
             try!(compile(list[2].clone(), &mut body, &mut env));
             body.push(RETURN);
             let func = CompiledFunction {
+                id: 0,
                 body: body,
                 source: list.clone(),
                 params: try!(list[1].as_list()).clone(),
@@ -273,6 +388,10 @@ pub fn compile(node: Atom, out: &mut Vec<Opcode>, env: &mut Env) -> Result<(), E
                 Function::Native(_) => {
                     out.push(Opcode::CALL(func.clone(), list.len() - 1));
                     return Ok(());
+                },
+                Function::Continuation(n) => {
+                    out.push(Opcode::CALL(func.clone(), list.len() - 1));
+                    return Ok(())
                 }
                 Function::Compiled(_) => {
                     out.push(CALL(func.clone(), list.len() - 1));
@@ -285,4 +404,60 @@ pub fn compile(node: Atom, out: &mut Vec<Opcode>, env: &mut Env) -> Result<(), E
     }
 
     Err(invalid_arg("bottom here"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use parser;
+    use atom::*;
+    use std::rc::Rc;
+    use env::Env;
+    use eval::print_list;
+    use vm;
+
+    use super::next_symbol;
+    use super::reset_unique;
+
+    fn run_node(node: Atom) -> AtomResult {
+        let mut vm = vm::VirtualMachine::default();
+        vm.run_node(node)
+    }
+
+    fn t(s: &str) -> Atom {
+        parser::tokenize_single(s).unwrap()
+    }
+
+    fn string_equals(a: &Atom, b: &Atom) {
+        let aa = format!("{}", a);
+        let bb = format!("{}", b);
+
+        println!("EXPECTED = {}", aa);
+        println!("ACTUAL   = {}", bb);
+        assert_eq!(aa, bb);
+    }
+
+    #[test]
+    fn wrap_native_test() {
+        let sym = next_symbol('k');
+        let output = cps_translate(t("(+ 1 2)"), sym.clone()).unwrap();
+
+        let expected = t(&format!("(+/k 1 2 {})", sym));
+
+        println!("output = {}", output);
+        println!("expected = {}", expected);
+
+        string_equals(&expected, &output);
+        // assert_eq!(t("(fn (k0) (k0 (+ 1 2))))"), output)
+    }
+
+    #[test]
+    fn derp_cps_test() {
+        let s = next_symbol('o');
+        let output = cps_translate(t("(+ (+ 1 2) 2))"), s.clone()).unwrap();
+
+        let e = t(&format!("(+/k 1 2 (fn (a2) (+/k 2 a2 {})))", s));
+
+        string_equals(&e, &output);
+    }
 }
