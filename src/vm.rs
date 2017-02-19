@@ -303,8 +303,6 @@ impl VirtualMachine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use parser::*;
-    use atom::*;
     fn run_expr(s: &str) -> Atom {
         let p = tokenize(s).unwrap();
         let mut vm = VirtualMachine::default();

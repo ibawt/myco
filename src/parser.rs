@@ -166,9 +166,6 @@ fn read_tokens(chars: &mut Peekable<Chars>) -> ParseResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use atom::*;
-    use errors::*;
-
     fn make_atom_node(s: &str) -> Atom {
         Atom::parse(s)
     }

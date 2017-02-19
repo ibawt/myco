@@ -4,28 +4,11 @@ use env::*;
 use errors::*;
 use opcodes::*;
 use opcodes::Opcode::*;
-use symbol;
-use parser;
 
 
 fn next_symbol(prefix: char, n: u32) -> Atom {
     let s = format!("{}{}", prefix, n);
     Atom::symbol(&s)
-}
-
-use std::rc::Rc;
-
-fn cps_wrap_native(n: Native, args: &[Atom], cont: Atom) -> Vec<Atom> {
-    let f = Atom::Function(Function::Continuation(NativeContinuation{
-        native: n
-    }));
-
-    let mut v = vec![f];
-    for a in args {
-        v.push(a.clone());
-    }
-    v.push(cont);
-    v
 }
 
 fn split_args(n: &[Atom]) -> (Vec<Atom>, Vec<Atom>) {
@@ -42,10 +25,6 @@ fn split_args(n: &[Atom]) -> (Vec<Atom>, Vec<Atom>) {
             }
         }
     }
-
-    println!("{} splits fns: {}, literals: {}", print_list(n),
-             print_list(&fns), print_list(&literals));
-
     (fns, literals)
 }
 
@@ -108,31 +87,9 @@ pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom, 
                     }
 
                     Ok(current)
-                    // let mut body = vec![native];
-                    // for i in &arg_vars {
-                    //     body.push(i.clone());
-                    // }
-                    // body.push(cont);
-
-                    // let mut x = Atom::list(vec![ Atom::Form(Form::Fn),
-                    //                              Atom::list(vec![arg_vars.last().unwrap().clone()]),
-                    //                              Atom::list(body)]);
-                    // for i in 0..arg_vars.len() {
-                    //     x = try!(cps_translate(fns[i].clone(), x, symbol_count + 1));
-
-                    //     if i > 0 {
-                    //         let ff = Atom::list(vec![Atom::Form(Form::Fn),
-                    //                                  Atom::list(vec![arg_vars[i].clone()]), x]);
-                    //         x = ff;
-                    //         println!("x = {}", x);
-                    //     }
-                    // }
-                    // return Ok(x)
                 }
             }
-            _ => {
-                panic!("invalid function call!")
-            }
+            _ => Err(Error::NotAFunction)
         }
     } else {
         Ok(node)
@@ -410,7 +367,7 @@ pub fn compile(node: Atom, out: &mut Vec<Opcode>, env: &mut Env) -> Result<(), E
                     out.push(Opcode::CALL(func.clone(), list.len() - 1));
                     return Ok(());
                 },
-                Function::Continuation(n) => {
+                Function::Continuation(_) => {
                     out.push(Opcode::CALL(func.clone(), list.len() - 1));
                     return Ok(())
                 }
@@ -423,26 +380,14 @@ pub fn compile(node: Atom, out: &mut Vec<Opcode>, env: &mut Env) -> Result<(), E
         }
         _ => return Err(Error::NotAFunction),
     }
-
-    Err(invalid_arg("bottom here"))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use parser;
-    use atom::*;
-    use std::rc::Rc;
-    use env::Env;
-    use eval::print_list;
-    use vm;
 
     use super::next_symbol;
-
-    fn run_node(node: Atom) -> AtomResult {
-        let mut vm = vm::VirtualMachine::default();
-        vm.run_node(node)
-    }
 
     fn t(s: &str) -> Atom {
         parser::tokenize_single(s).unwrap()

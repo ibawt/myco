@@ -184,8 +184,6 @@ impl Env {
 #[cfg(test)]
 mod tests {
     use self::super::*;
-    use atom::*;
-    use errors::*;
     use symbol::*;
 
     #[test]

@@ -21,7 +21,6 @@ pub fn print_list(list: &[Atom]) -> String {
     s
 }
 
-static mut count: u32 = 0;
 
 pub fn eval_macro(p: &Procedure, args: &[Atom], env: &mut Env) -> AtomResult {
     let mut e = env.bind(&p.params, args);
@@ -44,10 +43,12 @@ fn quote(list: &[Atom]) -> AtomResult {
     list.first().cloned().ok_or(Error::RuntimeAssertion)
 }
 
+// TODO: make this thread safe
+static mut COUNT: u32 = 0;
 fn inc_proc_count() -> u32 {
     unsafe {
-        let c = count;
-        count += 1;
+        let c = COUNT;
+        COUNT += 1;
         c
     }
 }
@@ -332,7 +333,6 @@ pub fn eval(node: Atom, env: &mut Env, current_fn: Option<Function>) -> Result<A
 mod tests {
     use super::*;
     use parser::*;
-    use atom::*;
     use env::Env;
 
     #[test]
