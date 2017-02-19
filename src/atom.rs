@@ -63,6 +63,11 @@ pub struct CompiledFunction {
     pub env: Env,
 }
 
+#[derive (Debug, Copy, Clone, PartialEq)]
+pub struct NativeContinuation {
+    pub native: Native,
+}
+
 #[derive (Debug, Clone, PartialEq)]
 pub enum Function {
     Native(Native),
@@ -145,10 +150,6 @@ pub enum Native {
     Get,
 }
 
-#[derive (Debug, Copy, Clone, PartialEq)]
-pub struct NativeContinuation {
-    pub native: Native,
-}
 
 impl fmt::Display for Native {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

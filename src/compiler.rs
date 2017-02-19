@@ -7,25 +7,9 @@ use opcodes::Opcode::*;
 use symbol;
 use parser;
 
-static mut count: usize = 0;
 
-fn get_unique() -> usize {
-    unsafe {
-        let c = count;
-        count += 1;
-        c
-    }
-}
-
-fn reset_unique() {
-    unsafe {
-        count = 0;
-    }
-}
-
-fn next_symbol(prefix: char) -> Atom {
-    let c = get_unique();
-    let s = format!("{}{}", prefix, c);
+fn next_symbol(prefix: char, n: u32) -> Atom {
+    let s = format!("{}{}", prefix, n);
     Atom::symbol(&s)
 }
 
@@ -65,7 +49,7 @@ fn split_args(n: &[Atom]) -> (Vec<Atom>, Vec<Atom>) {
     (fns, literals)
 }
 
-pub fn cps_translate(node: Atom, cont: Atom) -> Result<Atom, Error> {
+pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom, Error> {
     println!("cps_translate: {}, cont = {}", node, cont);
     if let Atom::List(ref list) = node {
         match list[0] {
@@ -75,8 +59,14 @@ pub fn cps_translate(node: Atom, cont: Atom) -> Result<Atom, Error> {
                 }));
                 // Example
                 // Input: (+ (+ 1 2) 1)
-                // Output: (+ 1 2 (fn (a0)
-                //                   (+ 1 a0 k)))
+                // Output: (+/k 1 2 (fn (a0) (+/k 1 a0 k)))
+
+                // Input: (+ 1 2)
+                // Output: (+/k 1 2 k)
+
+                // Input: (+ (+ 1 2) (+ 3 4) 5)
+                // Output: (+/k 1 2 (fn (a0) (+/k 3 4 (fn (a1) (+/k a0 a1 5 k)))))
+
                 let (fns, literals) = split_args(&list[1..]);
 
                 if fns.is_empty() {
@@ -84,29 +74,60 @@ pub fn cps_translate(node: Atom, cont: Atom) -> Result<Atom, Error> {
                     for i in literals {
                         x.push(i);
                     }
-                    x.push(cont.clone());
+                    x.push(cont);
                     Ok(Atom::list(x))
                 } else {
-                    let arg_var = next_symbol('a');
+                    // Wrap myself
+                    let mut args = vec![];
+                    for (i, _) in fns.iter().enumerate() {
+                        args.push(next_symbol('a', symbol_count + i as u32));
+                    }
+                    let mut body = vec![native];
+                    for a in &args {
+                        body.push(a.clone());
+                    }
 
-                    println!("n = {}", n);
-                    let f = format!("(fn ({}) ({} {} {} {}))",
-                                    arg_var,
-                                    native,
-                                    literals[0],
-                                    arg_var,
-                                    cont,
-                    );
+                    for i in &literals {
+                        body.push(i.clone());
+                    }
 
-                    println!("f = {}", f);
+                    body.push(cont);
 
-                    let x = try!(parser::tokenize_single(&f));
+                    let mut current = Atom::list(vec![ Atom::Form(Form::Fn),
+                                              Atom::list(vec![args[0].clone()]),
+                                              Atom::list(body)]);
 
-                    let outer = try!(cps_translate(fns[0].clone(), x));
+                    for (i, func) in fns.into_iter().enumerate() {
+                        current = cps_translate(func, current, symbol_count + i as u32)?;
 
-                    println!("outer is {}", outer);
+                        if i < (args.len()-1) {
+                            current = Atom::list(vec![Atom::Form(Form::Fn),
+                                                      Atom::list(vec![args[i+1].clone()]),
+                                                      current]);
+                        }
+                    }
 
-                    Ok(outer)
+                    Ok(current)
+                    // let mut body = vec![native];
+                    // for i in &arg_vars {
+                    //     body.push(i.clone());
+                    // }
+                    // body.push(cont);
+
+                    // let mut x = Atom::list(vec![ Atom::Form(Form::Fn),
+                    //                              Atom::list(vec![arg_vars.last().unwrap().clone()]),
+                    //                              Atom::list(body)]);
+                    // for i in 0..arg_vars.len() {
+                    //     x = try!(cps_translate(fns[i].clone(), x, symbol_count + 1));
+
+                    //     if i > 0 {
+                    //         let ff = Atom::list(vec![Atom::Form(Form::Fn),
+                    //                                  Atom::list(vec![arg_vars[i].clone()]), x]);
+                    //         x = ff;
+                    //         println!("x = {}", x);
+                    //     }
+                    // }
+                    // return Ok(x)
                 }
             }
             _ => {
@@ -417,7 +438,6 @@ mod tests {
     use vm;
 
     use super::next_symbol;
-    use super::reset_unique;
 
     fn run_node(node: Atom) -> AtomResult {
         let mut vm = vm::VirtualMachine::default();
@@ -439,8 +459,8 @@ mod tests {
 
     #[test]
     fn wrap_native_test() {
-        let sym = next_symbol('k');
-        let output = cps_translate(t("(+ 1 2)"), sym.clone()).unwrap();
+        let sym = next_symbol('k', 0);
+        let output = cps_translate(t("(+ 1 2)"), sym.clone(), 0).unwrap();
 
         let expected = t(&format!("(+/k 1 2 {})", sym));
 
@@ -452,12 +472,30 @@ mod tests {
     }
 
     #[test]
-    fn derp_cps_test() {
-        let s = next_symbol('o');
-        let output = cps_translate(t("(+ (+ 1 2) 2))"), s.clone()).unwrap();
+    fn simple_nested_cps_test() {
+        let s = next_symbol('o', 0);
+        let output = cps_translate(t("(+ (+ 1 2) 2))"), s.clone(), 0).unwrap();
 
-        let e = t(&format!("(+/k 1 2 (fn (a2) (+/k 2 a2 {})))", s));
+        let e = t(&format!("(+/k 1 2 (fn (a0) (+/k a0 2 {})))", s));
 
         string_equals(&e, &output);
+    }
+
+    #[test]
+    fn trivial_cps_test() {
+        let s = next_symbol('k', 0);
+        let output = cps_translate(t("(+ 1 2))"), s.clone(), 0).unwrap();
+
+        let e = t("(+/k 1 2 k0)");
+
+        string_equals(&e, &output);
+    }
+
+    #[test]
+    fn two_things_to_do() {
+        let s = next_symbol('s', 0);
+        let output = cps_translate(t("(+ (+ 1 2) (+ 3 4) 5)"), s.clone(), 0).unwrap();
+
+        string_equals(&t("(+/k 3 4 (fn (a1) (+/k 1 2 (fn (a0) (+/k a0 a1 5 s0)))))"), &output);
     }
 }
