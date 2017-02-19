@@ -394,6 +394,10 @@ impl Atom {
     pub fn list(v: Vec<Atom>) -> Atom {
         Atom::List(Rc::new(v))
     }
+
+    pub fn empty_list() -> Atom {
+        Atom::list(vec![])
+    }
 }
 
 pub fn to_list(v: Vec<Atom>) -> List {

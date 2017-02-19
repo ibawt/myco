@@ -29,8 +29,10 @@ fn split_args(n: &[Atom]) -> (Vec<Atom>, Vec<Atom>) {
 }
 
 pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom, Error> {
-    println!("cps_translate: {}, cont = {}", node, cont);
     if let Atom::List(ref list) = node {
+        if list.is_empty() {
+            return Ok(Atom::list(vec![]))
+        }
         match list[0] {
             Atom::Function(Function::Native(n)) => {
                 let native = Atom::Function(Function::Continuation(NativeContinuation{
@@ -57,10 +59,8 @@ pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom, 
                     Ok(Atom::list(x))
                 } else {
                     // Wrap myself
-                    let mut args = vec![];
-                    for (i, _) in fns.iter().enumerate() {
-                        args.push(next_symbol('a', symbol_count + i as u32));
-                    }
+                    let args: Vec<Atom> = fns.iter().enumerate().map(|(i,_)| next_symbol('a', symbol_count + i as u32)).collect();
+
                     let mut body = vec![native];
                     for a in &args {
                         body.push(a.clone());
@@ -73,8 +73,8 @@ pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom, 
                     body.push(cont);
 
                     let mut current = Atom::list(vec![ Atom::Form(Form::Fn),
-                                              Atom::list(vec![args[0].clone()]),
-                                              Atom::list(body)]);
+                                                       Atom::list(vec![args[0].clone()]),
+                                                       Atom::list(body)]);
 
                     for (i, func) in fns.into_iter().enumerate() {
                         current = cps_translate(func, current, symbol_count + i as u32)?;
@@ -434,6 +434,14 @@ mod tests {
         let e = t("(+/k 1 2 k0)");
 
         string_equals(&e, &output);
+    }
+
+    #[test]
+    fn nil_input_cps_test() {
+        let s = next_symbol('k', 0);
+        let output = cps_translate(Atom::empty_list(), s.clone(), 0).unwrap();
+
+        assert_eq!(Atom::empty_list(), output);
     }
 
     #[test]
