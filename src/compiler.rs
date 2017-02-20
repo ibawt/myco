@@ -7,7 +7,7 @@ use opcodes::Opcode::*;
 
 
 fn next_symbol(prefix: char, n: u32) -> Atom {
-    let s = format!("{}{}", prefix, n);
+    let s = format!("__{}{}", prefix, n);
     Atom::symbol(&s)
 }
 
@@ -429,7 +429,7 @@ mod tests {
         let s = next_symbol('o', 0);
         let output = cps_translate(t("(+ (+ 1 2) 2))"), s.clone(), 0).unwrap();
 
-        let e = t(&format!("(+/k 1 2 (fn (a0) (+/k a0 2 {})))", s));
+        let e = t(&format!("(+/k 1 2 (fn (__a0) (+/k __a0 2 {})))", s));
 
         string_equals(&e, &output);
     }
@@ -439,7 +439,7 @@ mod tests {
         let s = next_symbol('k', 0);
         let output = cps_translate(t("(+ 1 2))"), s.clone(), 0).unwrap();
 
-        let e = t("(+/k 1 2 k0)");
+        let e = t("(+/k 1 2 __k0)");
 
         string_equals(&e, &output);
     }
@@ -457,7 +457,7 @@ mod tests {
         let s = next_symbol('s', 0);
         let output = cps_translate(t("(+ (+ 1 2) (+ 3 4) 5)"), s.clone(), 0).unwrap();
 
-        string_equals(&t("(+/k 3 4 (fn (a1) (+/k 1 2 (fn (a0) (+/k a0 a1 5 s0)))))"), &output);
+        string_equals(&t("(+/k 3 4 (fn (__a1) (+/k 1 2 (fn (__a0) (+/k __a0 __a1 5 __s0)))))"), &output);
     }
 
 
