@@ -78,10 +78,6 @@ impl Env {
     fn find(&self, key: &str) -> Option<Atom> {
         let gen = self.0.borrow();
         let value = &gen.value;
-        // println!("key = {}", key);
-        // for i in value {
-        //     println!("{} = {}", i.key, i.value);
-        // }
         match value.iter().find(|entry| entry.key.as_ref() == key) {
             Some(ref entry) => Some(entry.value.clone()),
             None => {
@@ -123,13 +119,11 @@ impl Env {
                 }
             } else {
                 let arg = args_iter.next().cloned().unwrap_or(Atom::Nil);
-                // println!("{} = {}", *sym, arg);
                 {
                     // tricking the borrow checker here
                     let mut gen = self.0.borrow_mut();
 
                     if let Some(mut entry) = gen.value.iter_mut().find(|entry| entry.key == *sym) {
-                        println!("replacing!");
                         entry.value = arg;
                         continue;
                     }

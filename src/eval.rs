@@ -24,7 +24,6 @@ pub fn print_list(list: &[Atom]) -> String {
 
 pub fn eval_macro(p: &Procedure, args: &[Atom], env: &mut Env) -> AtomResult {
     let mut e = env.bind(&p.params, args);
-    println!("args: {}", print_list(args));
     eval(Atom::List(p.body.clone()), &mut e, Some(Function::Macro(p.clone())))
 }
 
@@ -292,16 +291,12 @@ pub fn eval(node: Atom, env: &mut Env, current_fn: Option<Function>) -> Result<A
                     Function::Compiled(ref cp) => {
                         let mut e = cp.env.bind(&cp.params, &args);
                         let n = Atom::List(cp.source.clone());
-                        return eval(n, &mut e, None).map(|n| {
-                            println!("n = {}", n);
-                            n
-                        })
+                        return eval(n, &mut e, None)
                     }
                      _ => panic!("not implemented"),
                 }
             }
             _ => {
-                println!("{} isnt' a function", list[0]);
                 return Err(Error::NotAFunction);
             }
         }

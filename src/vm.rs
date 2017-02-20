@@ -68,12 +68,10 @@ fn recur_borrow(v: &mut VirtualMachine, len: usize) {
 
 impl VirtualMachine {
     pub fn run_node(&mut self, node: Atom) -> AtomResult {
-        println!("about to run: {}", node);
         let mut out = vec![];
         let source = try!(node.as_list()).clone();
         let mut e = self.root.clone();
         try!(compiler::compile(node, &mut out, &mut e));
-        println!("IT COMPILED");
         let frame = Frame::new(CompiledFunction {
             body: out,
             source: source,
@@ -81,7 +79,6 @@ impl VirtualMachine {
             env: e,
         });
         self.frames.push(frame);
-        println!("ABOUT TO RUN");
         self.run()
     }
 
@@ -109,9 +106,8 @@ impl VirtualMachine {
     }
 
     pub fn run(&mut self) -> AtomResult {
-        println!("VM::RUN!!");
         while let Some(instruction) = self.next_instruction() {
-            println!("{} - {}", self.current_frame().pc, instruction);
+            trace!("{} - {}", self.current_frame().pc, instruction);
             match instruction {
                 JUMP_IFNOT(addr) => {
                     if !try!(self.pop()).as_bool() {
@@ -184,12 +180,12 @@ impl VirtualMachine {
                             self.push(x);
                         }
                         Atom::Function(Function::Proc(ref f)) => {
-                            println!("compiled functions only!");
-                            println!("{}", print_list(&f.body));
+                            warn!("compiled functions only!");
+                            warn!("{}", print_list(&f.body));
                             return Err(Error::NotImplemented);
                         }
                         _ => {
-                            println!("attempted to call: {}", func);
+                            warn!("attempted to call: {}", func);
                             return Err(Error::NotAFunction);
                         }
                     }
@@ -207,8 +203,8 @@ impl VirtualMachine {
                             continue; // don't advance PC of the new frame
                         }
                         Atom::Function(Function::Proc(ref f)) => {
-                            println!("compiled functions only!");
-                            println!("{}", print_list(&f.body));
+                            warn!("compiled functions only!");
+                            warn!("{}", print_list(&f.body));
                             return Err(Error::NotImplemented);
                         }
                         Atom::Function(Function::Native(n)) => {
@@ -220,7 +216,7 @@ impl VirtualMachine {
                             self.push(r);
                         }
                         _ => {
-                            println!("attempted to call: {}", func);
+                            warn!("attempted to call: {}", func);
                             return Err(Error::NotAFunction);
                         }
                     }
@@ -238,15 +234,12 @@ impl VirtualMachine {
                         Function::Continuation(nc) => {
                             let len = self.stack.len();
                             let k = try!(self.pop());
-                            println!("k = {}", k);
                             let r = try!(eval_native_borrow(self, nc, len - arity));
-                            println!("r = {}", r);
                             let arity = arity - 1;
                             for _ in 0..arity {
                                 try!(self.pop());
                             }
                             self.push(r);
-                            println!("after push");
                             match k {
                                 Atom::Function(Function::Compiled(mut f)) => {
                                     let arity = 1;
@@ -292,8 +285,8 @@ impl VirtualMachine {
             self.sp -= 1;
             self.stack.pop().ok_or(Error::RuntimeAssertion)
         } else {
-            println!("stack = {:?}", &self.stack);
-            println!("StackUnderflow!");
+            error!("stack = {:?}", &self.stack);
+            error!("StackUnderflow!");
             Err(Error::RuntimeAssertion)
         }
     }

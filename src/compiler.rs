@@ -404,10 +404,11 @@ mod tests {
     fn string_equals(a: &Atom, b: &Atom) {
         let aa = format!("{}", a);
         let bb = format!("{}", b);
-
-        println!("EXPECTED = {}", aa);
-        println!("ACTUAL   = {}", bb);
-        assert_eq!(aa, bb);
+        if aa != bb {
+            println!("EXPECTED = {}", aa);
+            println!("ACTUAL   = {}", bb);
+            assert_eq!(aa, bb);
+        }
     }
 
     #[test]
@@ -417,11 +418,7 @@ mod tests {
 
         let expected = t(&format!("(+/k 1 2 {})", sym));
 
-        println!("output = {}", output);
-        println!("expected = {}", expected);
-
         string_equals(&expected, &output);
-        // assert_eq!(t("(fn (k0) (k0 (+ 1 2))))"), output)
     }
 
     #[test]

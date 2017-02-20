@@ -28,7 +28,7 @@ use vm::*;
 fn repl() {
     env_logger::init().unwrap();
 
-    println!("Rust Lisp!");
+    println!("Welcome to Myco!");
 
     let mut vm = VirtualMachine::default();
 
