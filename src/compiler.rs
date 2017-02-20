@@ -31,7 +31,7 @@ fn split_args(n: &[Atom]) -> (Vec<Atom>, Vec<Atom>) {
 pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom, Error> {
     if let Atom::List(ref list) = node {
         if list.is_empty() {
-            return Ok(Atom::list(vec![]))
+            return Ok(Atom::empty_list())
         }
         match list[0] {
             Atom::Function(Function::Native(n)) => {
@@ -61,13 +61,14 @@ pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom, 
                     // Wrap myself
                     let args: Vec<Atom> = fns.iter().enumerate().map(|(i,_)| next_symbol('a', symbol_count + i as u32)).collect();
 
-                    let mut body = vec![native];
+                    let mut body = Vec::with_capacity(1 + args.len() + literals.len() + 1);
+                    body.push(native);
                     for a in &args {
                         body.push(a.clone());
                     }
 
-                    for i in &literals {
-                        body.push(i.clone());
+                    for i in literals.into_iter() {
+                        body.push(i);
                     }
 
                     body.push(cont);
@@ -75,6 +76,7 @@ pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom, 
                     let mut current = Atom::list(vec![ Atom::Form(Form::Fn),
                                                        Atom::list(vec![args[0].clone()]),
                                                        Atom::list(body)]);
+
 
                     for (i, func) in fns.into_iter().enumerate() {
                         current = cps_translate(func, current, symbol_count + i as u32)?;
