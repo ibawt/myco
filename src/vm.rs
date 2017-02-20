@@ -232,6 +232,7 @@ impl VirtualMachine {
                             self.push(r);
                         }
                         Function::Continuation(nc) => {
+                            println!("CALL/K({})", nc);
                             let len = self.stack.len();
                             let k = try!(self.pop());
                             let r = try!(eval_native_borrow(self, nc, len - arity));
@@ -243,7 +244,6 @@ impl VirtualMachine {
                             match k {
                                 Atom::Function(Function::Compiled(mut f)) => {
                                     let arity = 1;
-                                    println!("in here!");
                                     self.print_stack();
                                     f.env.bind_mut(&f.params, &self.stack[self.sp - arity..]);
                                     for _ in 0..arity {

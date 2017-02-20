@@ -32,7 +32,7 @@ pub fn cps_translate_program(node: Atom) -> Result<Atom, Error> {
     let k = next_symbol('k', 0);
     let x = Atom::list(vec![Atom::Form(Form::Fn),
                                 Atom::list(vec![k.clone()]),
-                                Atom::list(vec![k])]);
+                                k]);
 
     cps_translate(node, x, 1)
 }
@@ -436,6 +436,7 @@ mod tests {
         let s = next_symbol('k', 0);
         let output = cps_translate(t("(+ 1 2))"), s.clone(), 0).unwrap();
 
+
         let e = t("(+/k 1 2 __k0)");
 
         string_equals(&e, &output);
@@ -457,9 +458,17 @@ mod tests {
         string_equals(&t("(+/k 3 4 (fn (__a1) (+/k 1 2 (fn (__a0) (+/k __a0 __a1 5 __s0)))))"), &output);
     }
 
+    use vm::*;
+
+    fn meval(n: Atom) -> Atom {
+        let mut vm = VirtualMachine::default();
+        vm.run_node(n).unwrap()
+    }
 
     #[test]
     fn top_level_program_cps() {
+        let x = meval(cps_translate_program(t("(+ (+ 1 2) (+ 3 4) 5)")).unwrap());
 
+        assert_eq!(Atom::from(15), x);
     }
 }
