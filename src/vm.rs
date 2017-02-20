@@ -75,7 +75,6 @@ impl VirtualMachine {
         try!(compiler::compile(node, &mut out, &mut e));
         println!("IT COMPILED");
         let frame = Frame::new(CompiledFunction {
-            id: 0,
             body: out,
             source: source,
             params: empty_list(),
@@ -240,7 +239,7 @@ impl VirtualMachine {
                             let len = self.stack.len();
                             let k = try!(self.pop());
                             println!("k = {}", k);
-                            let r = try!(eval_native_borrow(self, nc.native, len - arity));
+                            let r = try!(eval_native_borrow(self, nc, len - arity));
                             println!("r = {}", r);
                             let arity = arity - 1;
                             for _ in 0..arity {

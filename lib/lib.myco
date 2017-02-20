@@ -2,18 +2,6 @@
   `(let* ~bindings
      (do ~@body)))
 
-(defmacro letrec (bindings & body)
-  (print bindings)
-  (let ((l-part (map (fn (x)
-                         (list (first x) nil)) bindings '()))
-        (b-part (map (fn (x)
-                         (list 'set! (first x) (second x))) bindings '())))
-    (print "l-part" l-part)
-    (print "b-part" b-part)
-    `(let* ((~@l-part))
-       (~@b-part)
-       (do ~@body))))
-
 (defmacro defun (name args & body)
   `(def ~name (fn ~args ~@body)))
 

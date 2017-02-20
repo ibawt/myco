@@ -28,6 +28,24 @@ fn split_args(n: &[Atom]) -> (Vec<Atom>, Vec<Atom>) {
     (fns, literals)
 }
 
+pub fn cps_translate_program(node: Atom) -> Result<Atom, Error> {
+    let k = next_symbol('k', 0);
+    let x = Atom::list(vec![Atom::Form(Form::Fn),
+                                Atom::list(vec![k.clone()]),
+                                Atom::list(vec![k])]);
+
+    cps_translate(node, x, 1)
+}
+
+// Example
+// Input: (+ (+ 1 2) 1)
+// Output: (+/k 1 2 (fn (a0) (+/k 1 a0 k)))
+
+// Input: (+ 1 2)
+// Output: (+/k 1 2 k)
+
+// Input: (+ (+ 1 2) (+ 3 4) 5)
+// Output: (+/k 1 2 (fn (a0) (+/k 3 4 (fn (a1) (+/k a0 a1 5 k)))))
 pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom, Error> {
     if let Atom::List(ref list) = node {
         if list.is_empty() {
@@ -35,23 +53,13 @@ pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom, 
         }
         match list[0] {
             Atom::Function(Function::Native(n)) => {
-                let native = Atom::Function(Function::Continuation(NativeContinuation{
-                    native: n
-                }));
-                // Example
-                // Input: (+ (+ 1 2) 1)
-                // Output: (+/k 1 2 (fn (a0) (+/k 1 a0 k)))
-
-                // Input: (+ 1 2)
-                // Output: (+/k 1 2 k)
-
-                // Input: (+ (+ 1 2) (+ 3 4) 5)
-                // Output: (+/k 1 2 (fn (a0) (+/k 3 4 (fn (a1) (+/k a0 a1 5 k)))))
+                let native = Atom::Function(Function::Continuation(n));
 
                 let (fns, literals) = split_args(&list[1..]);
 
                 if fns.is_empty() {
-                    let mut x = vec![native];
+                    let mut x = Vec::with_capacity(literals.len() +2);
+                    x.push(native);
                     for i in literals {
                         x.push(i);
                     }
@@ -249,7 +257,6 @@ fn compile_form(form: Form,
             let arity = bindings.len();
 
             let func = CompiledFunction {
-                id: 0,
                 body: body,
                 source: list.clone(),
                 params: to_list(bindings),
@@ -284,7 +291,6 @@ fn compile_form(form: Form,
             try!(compile(list[2].clone(), &mut body, &mut env));
             body.push(RETURN);
             let func = CompiledFunction {
-                id: 0,
                 body: body,
                 source: list.clone(),
                 params: try!(list[1].as_list()).clone(),
@@ -452,5 +458,11 @@ mod tests {
         let output = cps_translate(t("(+ (+ 1 2) (+ 3 4) 5)"), s.clone(), 0).unwrap();
 
         string_equals(&t("(+/k 3 4 (fn (a1) (+/k 1 2 (fn (a0) (+/k a0 a1 5 s0)))))"), &output);
+    }
+
+
+    #[test]
+    fn top_level_program_cps() {
+
     }
 }

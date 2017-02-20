@@ -43,16 +43,6 @@ fn quote(list: &[Atom]) -> AtomResult {
     list.first().cloned().ok_or(Error::RuntimeAssertion)
 }
 
-// TODO: make this thread safe
-static mut COUNT: u32 = 0;
-fn inc_proc_count() -> u32 {
-    unsafe {
-        let c = COUNT;
-        COUNT += 1;
-        c
-    }
-}
-
 fn make_proc(list: &[Atom], env: &Env) -> AtomResult {
     let p = try!(list[1].as_list());
     let mut body = Vec::with_capacity(list.len());
@@ -62,7 +52,6 @@ fn make_proc(list: &[Atom], env: &Env) -> AtomResult {
         body.push(i.clone());
     }
     Ok(Atom::Function(Function::Proc(Procedure {
-        id: inc_proc_count(),
         params: p.clone(),
         body: Rc::new(body),
         closures: Env::new(Some(env.clone())),
@@ -88,7 +77,6 @@ pub fn macro_form(args: &[Atom], env: &mut Env) -> AtomResult {
     }
 
     let p = Procedure {
-        id: inc_proc_count(),
         body: Rc::new(body),
         params: params,
         closures: Env::new(Some(env.clone())),
@@ -296,15 +284,6 @@ pub fn eval(node: Atom, env: &mut Env, current_fn: Option<Function>) -> Result<A
                     try!(list.iter().skip(1).map(|n| eval(n.clone(), cur_env, current_fn.clone())).collect());
                 match *func {
                     Function::Proc(ref p) => {
-                        if let Some(Function::Proc(ref cf)) = current_fn {
-                            if p.id == cf.id {
-                                *cur_env = p.closures.bind(&p.params, &args);
-                                cur_node = Atom::List(p.body.clone());
-                                continue;
-                            }
-                        } else {
-                            println!("not a thingy");
-                        }
                         let mut e = p.closures.bind(&p.params, &args);
                         return eval(Atom::List(p.body.clone()), &mut e, Some(func.clone()))
                     }
@@ -503,32 +482,33 @@ mod tests {
         teval("(1 1)");
     }
 
-    #[test]
-    fn tailcall_function() {
-        let mut env = Env::new(None);
+    // FIXME: after doing cps for everything we can asume tail calls
+    // #[test]
+    // fn tailcall_function() {
+    //     let mut env = Env::new(None);
 
-        teval_env("(def sum2 (fn (n acc) (if (= n 0) acc (sum2 (- n 1) (+ n acc)))))",
-                  &mut env)
-            .unwrap();
+    //     teval_env("(def sum2 (fn (n acc) (if (= n 0) acc (sum2 (- n 1) (+ n acc)))))",
+    //               &mut env)
+    //         .unwrap();
 
-        assert_eq!(teval_env("(sum2 10 0)", &mut env).unwrap(), teval("55"));
-        assert_eq!(teval_env("(sum2 10000 0)", &mut env).unwrap(),
-                    teval("50005000"));
+    //     assert_eq!(teval_env("(sum2 10 0)", &mut env).unwrap(), teval("55"));
+    //     assert_eq!(teval_env("(sum2 10000 0)", &mut env).unwrap(),
+    //                 teval("50005000"));
 
 
-        // teval_env("(def foo (fn (n) (if (= n 0) 0 (bar (- n 1)))))", &mut env).unwrap();
-        // teval_env("(def bar (fn (n) (if (= n 0) 0 (foo (- n 1)))))", &mut env).unwrap();
+    //     // teval_env("(def foo (fn (n) (if (= n 0) 0 (bar (- n 1)))))", &mut env).unwrap();
+    //     // teval_env("(def bar (fn (n) (if (= n 0) 0 (foo (- n 1)))))", &mut env).unwrap();
 
-        // assert_eq!(teval_env("(foo 10000)", &mut env).unwrap(), teval("0"));
-        teval_env("(def sum-to (fn (n) (if (= n 0) 0 (+ n (sum-to (- n 1))))))",
-                  &mut env)
-            .unwrap();
-        assert_eq!(teval_env("(sum-to 10)", &mut env).unwrap(), teval("55"));
-    }
+    //     // assert_eq!(teval_env("(foo 10000)", &mut env).unwrap(), teval("0"));
+    //     teval_env("(def sum-to (fn (n) (if (= n 0) 0 (+ n (sum-to (- n 1))))))",
+    //               &mut env)
+    //         .unwrap();
+    //     assert_eq!(teval_env("(sum-to 10)", &mut env).unwrap(), teval("55"));
+    // }
 
-    use base_lib;
 
     fn init_lib(e: &mut Env) {
+        use base_lib;
         eval(base_lib::library().unwrap(), e, None).unwrap();
     }
 

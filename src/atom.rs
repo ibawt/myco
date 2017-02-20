@@ -3,6 +3,7 @@ use number::*;
 use symbol;
 use env::Env;
 use opcodes::Opcode;
+use std::rc::Rc;
 
 #[derive (Debug, Clone, PartialEq, Copy)]
 pub enum Form {
@@ -48,7 +49,6 @@ impl fmt::Display for Form {
 
 #[derive (Debug, Clone, PartialEq)]
 pub struct Procedure {
-    pub id: u32,
     pub params: List,
     pub body: List,
     pub closures: Env,
@@ -56,16 +56,10 @@ pub struct Procedure {
 
 #[derive (Debug, Clone, PartialEq)]
 pub struct CompiledFunction {
-    pub id: u32,
     pub body: Vec<Opcode>,
     pub source: List,
     pub params: List,
     pub env: Env,
-}
-
-#[derive (Debug, Copy, Clone, PartialEq)]
-pub struct NativeContinuation {
-    pub native: Native,
 }
 
 #[derive (Debug, Clone, PartialEq)]
@@ -74,9 +68,8 @@ pub enum Function {
     Proc(Procedure),
     Compiled(CompiledFunction),
     Macro(Procedure),
-    Continuation(NativeContinuation),
+    Continuation(Native)
 }
-
 
 impl fmt::Display for Function {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -91,18 +84,13 @@ impl fmt::Display for Function {
                 try!(write!(f, "compiled-proc:\n"));
                 try!(write!(f, "params: {}\n", eval::print_list(&func.params)));
                 try!(write!(f, "source: {}\n", eval::print_list(&func.source)));
-                write!(f,
-                       "instructions:\n{}",
-                       opcodes::print_instructions(&func.body))
+                write!(f, "instructions:\n{}", opcodes::print_instructions(&func.body))
             }
             Macro(_) => write!(f, "macro"),
-            Continuation(ref c) => {
-                write!(f, "{}/k", c.native)
-            }
+            Continuation(ref c) => write!(f, "{}/k", c)
         }
     }
 }
-use std::rc::Rc;
 
 pub type List = Rc<Vec<Atom>>;
 
@@ -239,9 +227,7 @@ fn find_native(t: &str) -> Option<Atom> {
         match n {
             None => return None,
             Some(Atom::Function(Function::Native(n))) => {
-                return Some(Atom::Function(Function::Continuation(NativeContinuation{
-                    native: n
-                })))
+                return Some(Atom::Function(Function::Continuation(n)))
             },
             _ => ()
         };
