@@ -1,3 +1,4 @@
+#![recursion_limit = "1024"]
 #![feature(test)]
 extern crate test;
 
@@ -5,6 +6,9 @@ extern crate test;
 extern crate log;
 extern crate env_logger;
 extern crate linenoise;
+
+#[macro_use]
+extern crate error_chain;
 
 mod errors;
 mod number;
@@ -19,7 +23,6 @@ mod compiler;
 mod vm;
 mod base_lib;
 
-use errors::Error;
 use std::env::args;
 use std::fs::File;
 use std::io::prelude::*;
@@ -67,7 +70,7 @@ fn repl() {
                                 linenoise::history_add(&lines);
                                 lines.clear();
                             }
-                            Err(Error::EoF) => {}
+                            Err(errors::Error(errors::ErrorKind::EoF, _)) => {}
                             Err(e) => {
                                 println!("Error in evaluation: {:?}", e);
                                 lines.clear();

@@ -28,7 +28,7 @@ fn split_args(n: &[Atom]) -> (Vec<Atom>, Vec<Atom>) {
     (fns, literals)
 }
 
-pub fn cps_translate_program(node: Atom) -> Result<Atom, Error> {
+pub fn cps_translate_program(node: Atom) -> Result<Atom> {
     let k = next_symbol('k', 0);
     let x = Atom::list(vec![Atom::Form(Form::Fn),
                                 Atom::list(vec![k.clone()]),
@@ -46,7 +46,7 @@ pub fn cps_translate_program(node: Atom) -> Result<Atom, Error> {
 
 // Input: (+ (+ 1 2) (+ 3 4) 5)
 // Output: (+/k 1 2 (fn (a0) (+/k 3 4 (fn (a1) (+/k a0 a1 5 k)))))
-pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom, Error> {
+pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom> {
     if let Atom::List(ref list) = node {
         if list.is_empty() {
             return Ok(Atom::empty_list())
@@ -99,6 +99,27 @@ pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom, 
                     Ok(current)
                 }
             }
+            Atom::Form(Form::If) => {
+                // (if (< 3 (+ 3 4)) (* 5 5) (* 6 6))
+                // (+ 3 4 (lambda (a0) (< 3 a0 (lambda (a1)
+                //                                  (if a1
+                //                                        (*/k 5 5 k)
+                //                                          (*/k 6 6 k)))))
+                //
+                let pred_sym = next_symbol('i', symbol_count as u32);
+
+                let x = Atom::list(vec![Atom::Form(Form::Fn),
+                                        Atom::list(vec![pred_sym.clone()]),
+                                        Atom::list(vec![
+                                            Atom::Form(Form::If),
+                                            pred_sym,
+                                            cps_translate(list[2].clone(), cont.clone(), symbol_count + 1)?,
+                                            cps_translate(list[3].clone(), cont, symbol_count + 1)?])]);
+
+                let pred = cps_translate(list[1].clone(), x, symbol_count + 1)?;
+
+                return Ok(pred)
+            },
             Atom::Form(Form::Do) => {
                 let mut body = vec![Atom::Form(Form::Do)];
 
@@ -164,7 +185,7 @@ fn expand_quasiquote(node: &Atom, env: &Env) -> AtomResult {
     }
 }
 
-fn macro_expand(node: Atom, env: &mut Env) -> Result<Atom, Error> {
+fn macro_expand(node: Atom, env: &mut Env) -> Result<Atom> {
     trace!("macro_expand: {}", &node);
     match node {
         Atom::List(ref list) if !list.is_empty() => {
@@ -176,7 +197,7 @@ fn macro_expand(node: Atom, env: &mut Env) -> Result<Atom, Error> {
                 }
                 Atom::Form(Form::Fn) => {
                     if list.len() < 3 {
-                        return Err(Error::NotEnoughArguments);
+                        bail!(ErrorKind::NotEnoughArguments);
                     }
 
                     let mut out = Vec::with_capacity(list.len());
@@ -200,7 +221,7 @@ fn macro_expand(node: Atom, env: &mut Env) -> Result<Atom, Error> {
     Ok(node)
 }
 
-fn compile_node(node: Atom, out: &mut Vec<Opcode>, env: &mut Env) -> Result<(), Error> {
+fn compile_node(node: Atom, out: &mut Vec<Opcode>, env: &mut Env) -> Result<()> {
     match node {
         Atom::Symbol(sym) => out.push(Opcode::LOAD(sym)),
         Atom::List(ref list) => {
@@ -219,7 +240,7 @@ fn compile_form(form: Form,
                 list: &List,
                 out: &mut Vec<Opcode>,
                 env: &mut Env)
-                -> Result<(), Error> {
+                -> Result<()> {
     match form {
         Form::Recur => {
             for n in list.iter().skip(1) {
@@ -259,7 +280,7 @@ fn compile_form(form: Form,
                     try!(compile(list[2].clone(), out, env));
                     out[else_jump_pos] = JUMP_IFNOT(out.len());
                 }
-                _ => return Err(invalid_arg("invalid number for forms for if")),
+                _ => bail!("invalid number for forms for if"),
             }
         }
         Form::Let => {
@@ -335,12 +356,12 @@ fn compile_form(form: Form,
             let expanded = try!(expand_quasiquote(&list[1], env));
             try!(compile(expanded, out, env));
         }
-        _ => return Err(Error::NotImplemented),
+        _ => bail!(ErrorKind::NotImplemented),
     }
     Ok(())
 }
 
-pub fn compile(node: Atom, out: &mut Vec<Opcode>, env: &mut Env) -> Result<(), Error> {
+pub fn compile(node: Atom, out: &mut Vec<Opcode>, env: &mut Env) -> Result<()> {
     match node {
         Atom::List(ref list) => {
             if list.is_empty() {
@@ -409,10 +430,10 @@ pub fn compile(node: Atom, out: &mut Vec<Opcode>, env: &mut Env) -> Result<(), E
                     out.push(CALL(func.clone(), list.len() - 1));
                     return Ok(());
                 }
-                _ => return Err(Error::NotImplemented),
+                _ => bail!(ErrorKind::NotImplemented),
             }
         }
-        _ => return Err(Error::NotAFunction),
+        _ => bail!(ErrorKind::NotAFunction),
     }
 }
 
@@ -501,6 +522,12 @@ mod tests {
     #[test]
     fn do_cps_test() {
         let x = meval(cps_translate_program(t("(do (* 1 2) (+ 3 4))")).unwrap());
+        assert_eq!(Atom::from(7), x);
+    }
+
+    #[test]
+    fn if_cps_test() {
+        let x = meval(cps_translate_program(t("(if false (* 1 2) (+ 3 4))")).unwrap());
         assert_eq!(Atom::from(7), x);
     }
 }

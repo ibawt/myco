@@ -1,4 +1,4 @@
-use errors::Error;
+use errors::*;
 use number::*;
 use symbol;
 use env::Env;
@@ -136,6 +136,7 @@ pub enum Native {
     Count,
     Apply,
     Get,
+    Identity
 }
 
 
@@ -167,6 +168,7 @@ impl fmt::Display for Native {
             Count => write!(f, "count"),
             Apply => write!(f, "apply"),
             Get => write!(f, "get"),
+            Identity => write!(f, "identity")
         }
     }
 }
@@ -218,7 +220,7 @@ impl fmt::Display for Atom {
     }
 }
 
-pub type AtomResult = Result<Atom, Error>;
+pub type AtomResult = Result<Atom>;
 
 fn find_native(t: &str) -> Option<Atom> {
     use self::Native::*;
@@ -257,6 +259,7 @@ fn find_native(t: &str) -> Option<Atom> {
         "count" => Count,
         "apply" => Apply,
         "get" => Get,
+        "identity" => Identity,
         _ => return None,
     };
     Some(Atom::Function(Function::Native(native)))
@@ -324,39 +327,39 @@ impl Atom {
         }
     }
 
-    pub fn as_string(&self) -> Result<&str, Error> {
+    pub fn as_string(&self) -> Result<&str> {
         match *self {
             Atom::String(ref s) => Ok(s),
-            _ => Err(Error::UnexpectedType),
+            _ => Err(ErrorKind::UnexpectedType.into()),
         }
     }
 
-    pub fn as_symbol(&self) -> Result<&symbol::InternedStr, Error> {
+    pub fn as_symbol(&self) -> Result<&symbol::InternedStr> {
         match *self {
             Atom::Symbol(ref sym) => Ok(sym),
-            _ => Err(Error::UnexpectedType),
+            _ => Err(ErrorKind::UnexpectedType.into()),
         }
     }
 
-    pub fn as_list(&self) -> Result<&List, Error> {
+    pub fn as_list(&self) -> Result<&List> {
         match *self {
             Atom::List(ref l) => Ok(l),
-            _ => Err(Error::UnexpectedType),
+            _ => Err(ErrorKind::UnexpectedType.into()),
         }
     }
 
-    pub fn as_number(&self) -> Result<Number, Error> {
+    pub fn as_number(&self) -> Result<Number> {
         match *self {
             Atom::Number(n) => Ok(n),
-            _ => Err(Error::UnexpectedType),
+            _ => Err(ErrorKind::UnexpectedType.into()),
         }
     }
 
     #[allow(dead_code)]
-    pub fn as_function(&self) -> Result<&Function, Error> {
+    pub fn as_function(&self) -> Result<&Function> {
         match *self {
             Atom::Function(ref f) => Ok(f),
-            _ => Err(Error::UnexpectedType),
+            _ => Err(ErrorKind::UnexpectedType.into()),
         }
     }
 

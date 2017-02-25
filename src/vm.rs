@@ -182,11 +182,11 @@ impl VirtualMachine {
                         Atom::Function(Function::Proc(ref f)) => {
                             warn!("compiled functions only!");
                             warn!("{}", print_list(&f.body));
-                            return Err(Error::NotImplemented);
+                            return Err(ErrorKind::NotImplemented.into());
                         }
                         _ => {
                             warn!("attempted to call: {}", func);
-                            return Err(Error::NotAFunction);
+                            bail!(ErrorKind::NotAFunction);
                         }
                     }
                 }
@@ -205,7 +205,7 @@ impl VirtualMachine {
                         Atom::Function(Function::Proc(ref f)) => {
                             warn!("compiled functions only!");
                             warn!("{}", print_list(&f.body));
-                            return Err(Error::NotImplemented);
+                            bail!(ErrorKind::NotImplemented);
                         }
                         Atom::Function(Function::Native(n)) => {
                             let len = self.stack.len();
@@ -217,7 +217,7 @@ impl VirtualMachine {
                         }
                         _ => {
                             warn!("attempted to call: {}", func);
-                            return Err(Error::NotAFunction);
+                            bail!(ErrorKind::NotAFunction);
                         }
                     }
                 }
@@ -262,10 +262,10 @@ impl VirtualMachine {
                                     }
                                     self.push(r);
                                 },
-                                _ => return Err(Error::NotImplemented)
+                                _ => bail!(ErrorKind::NotImplemented)
                             }
                         }
-                        _ => return Err(Error::NotImplemented),
+                        _ => bail!(ErrorKind::NotImplemented),
                     }
                 }
             }
@@ -283,11 +283,11 @@ impl VirtualMachine {
     fn pop(&mut self) -> AtomResult {
         if self.sp > 0 {
             self.sp -= 1;
-            self.stack.pop().ok_or(Error::RuntimeAssertion)
+            self.stack.pop().ok_or(ErrorKind::RuntimeAssertion.into())
         } else {
             error!("stack = {:?}", &self.stack);
             error!("StackUnderflow!");
-            Err(Error::RuntimeAssertion)
+            bail!(ErrorKind::RuntimeAssertion)
         }
     }
 }

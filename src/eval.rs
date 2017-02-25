@@ -29,7 +29,7 @@ pub fn eval_macro(p: &Procedure, args: &[Atom], env: &mut Env) -> AtomResult {
 
 fn define(args: &[Atom], env: &mut Env) -> AtomResult {
     if args.len() != 2 {
-        return Err(invalid_arg("define - eval"));
+        bail!("define - eval");
     }
 
     let key = try!(args[0].as_symbol());
@@ -39,7 +39,7 @@ fn define(args: &[Atom], env: &mut Env) -> AtomResult {
 
 fn quote(list: &[Atom]) -> AtomResult {
     try!(expect_arg_length(list, 1));
-    list.first().cloned().ok_or(Error::RuntimeAssertion)
+    list.first().cloned().ok_or(ErrorKind::RuntimeAssertion.into())
 }
 
 fn make_proc(list: &[Atom], env: &Env) -> AtomResult {
@@ -56,14 +56,10 @@ fn make_proc(list: &[Atom], env: &Env) -> AtomResult {
         closures: Env::new(Some(env.clone())),
     })))
 }
-
-
-
 pub fn macro_form(args: &[Atom], env: &mut Env) -> AtomResult {
     if args.len() < 3 {
-        return Err(invalid_arg("not enough args"));
+        bail!("not enough args");
     }
-
     let name = try!(args[0].as_symbol());
 
     let params = try!(args[1].as_list()).clone();
@@ -121,11 +117,11 @@ fn eval_special_forms(f: Form, list: &[Atom], env: &mut Env) -> AtomResult {
         Fn => make_proc(list, env),
         Quote => quote(&list[1..]),
         MacroExpand => macro_expand(list[1].clone(), env),
-        _ => Err(invalid_arg(&format!("eval special form: {}", f))),
+        _ => bail!(format!("eval special form: {}", f)),
     }
 }
 
-pub fn eval_node(node: Atom, env: &mut Env) -> Result<Atom, Error> {
+pub fn eval_node(node: Atom, env: &mut Env) -> Result<Atom> {
     match node {
         Atom::Symbol(sym) => Ok(env.get(sym.as_ref()).unwrap_or(Atom::Nil)).map(|n| {
             println!("eval_node:get({}) = {}", sym.as_ref(), n);
@@ -138,7 +134,7 @@ pub fn eval_node(node: Atom, env: &mut Env) -> Result<Atom, Error> {
     }
 }
 
-fn macro_expand(node: Atom, env: &mut Env) -> Result<Atom, Error> {
+fn macro_expand(node: Atom, env: &mut Env) -> Result<Atom> {
     trace!("macro_expand: {}", node);
     match node {
         Atom::List(ref list) if !list.is_empty() => {
@@ -150,7 +146,7 @@ fn macro_expand(node: Atom, env: &mut Env) -> Result<Atom, Error> {
                 }
                 Atom::Form(Form::Fn) => {
                     if list.len() < 3 {
-                        return Err(Error::NotEnoughArguments);
+                        return bail!(ErrorKind::NotEnoughArguments);
                     }
 
                     let mut out = Vec::with_capacity(list.len());
@@ -173,11 +169,11 @@ fn macro_expand(node: Atom, env: &mut Env) -> Result<Atom, Error> {
     Ok(node)
 }
 
-pub fn expect_arg_length(args: &[Atom], len: usize) -> Result<(), Error> {
+pub fn expect_arg_length(args: &[Atom], len: usize) -> Result<()> {
     if args.len() == len {
         Ok(())
     } else {
-        Err(Error::NotEnoughArguments)
+        bail!(ErrorKind::NotEnoughArguments)
     }
 }
 
@@ -188,7 +184,7 @@ pub fn trace(node: Atom, msg: &str) -> Atom {
 }
 
 
-pub fn eval(node: Atom, env: &mut Env, current_fn: Option<Function>) -> Result<Atom, Error> {
+pub fn eval(node: Atom, env: &mut Env, current_fn: Option<Function>) -> Result<Atom> {
     let mut cur_node = node;
     let mut cur_env = env;
 
@@ -262,7 +258,7 @@ pub fn eval(node: Atom, env: &mut Env, current_fn: Option<Function>) -> Result<A
                     }
                     Form::If => {
                         if list.len() < 2 {
-                            return Err(Error::NotEnoughArguments);
+                            bail!(ErrorKind::NotEnoughArguments);
                         }
 
                         let condition = try!(eval(list[1].clone(), cur_env, current_fn.clone())).as_bool();
@@ -297,7 +293,7 @@ pub fn eval(node: Atom, env: &mut Env, current_fn: Option<Function>) -> Result<A
                 }
             }
             _ => {
-                return Err(Error::NotAFunction);
+                bail!(ErrorKind::NotAFunction);
             }
         }
     }
