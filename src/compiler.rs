@@ -101,24 +101,30 @@ pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom> 
             }
             Atom::Form(Form::If) => {
                 // (if (< 3 (+ 3 4)) (* 5 5) (* 6 6))
-                // (+ 3 4 (lambda (a0) (< 3 a0 (lambda (a1)
+                // (+/k 3 4 (lambda (a0) (< 3 a0 (lambda (a1)
                 //                                  (if a1
                 //                                        (*/k 5 5 k)
                 //                                          (*/k 6 6 k)))))
                 //
-                let pred_sym = next_symbol('i', symbol_count as u32);
+                if let Atom::List(_) = list[1] {
+                    let pred_sym = next_symbol('i', symbol_count as u32);
+                    let x = Atom::list(vec![Atom::Form(Form::Fn),
+                                            Atom::list(vec![pred_sym.clone()]),
+                                            Atom::list(vec![
+                                                Atom::Form(Form::If),
+                                                pred_sym,
+                                                cps_translate(list[2].clone(), cont.clone(), symbol_count + 1)?,
+                                                cps_translate(list[3].clone(), cont, symbol_count + 1)?])]);
+                    let pred = cps_translate(list[1].clone(), x, symbol_count + 1)?;
 
-                let x = Atom::list(vec![Atom::Form(Form::Fn),
-                                        Atom::list(vec![pred_sym.clone()]),
-                                        Atom::list(vec![
-                                            Atom::Form(Form::If),
-                                            pred_sym,
-                                            cps_translate(list[2].clone(), cont.clone(), symbol_count + 1)?,
-                                            cps_translate(list[3].clone(), cont, symbol_count + 1)?])]);
+                    return Ok(pred)
+                } else {
+                    Ok(Atom::list(vec![Atom::Form(Form::If),
+                                       list[1].clone(),
+                                       cps_translate(list[2].clone(), cont.clone(), symbol_count + 1)?,
+                                       cps_translate(list[3].clone(), cont, symbol_count + 1)?]))
 
-                let pred = cps_translate(list[1].clone(), x, symbol_count + 1)?;
-
-                return Ok(pred)
+                }
             },
             Atom::Form(Form::Do) => {
                 let mut body = vec![Atom::Form(Form::Do)];
@@ -528,6 +534,12 @@ mod tests {
     #[test]
     fn if_cps_test() {
         let x = meval(cps_translate_program(t("(if false (* 1 2) (+ 3 4))")).unwrap());
+        assert_eq!(Atom::from(7), x);
+    }
+
+    #[test]
+    fn more_complex_pred_if_cps_test() {
+        let x = meval(cps_translate_program(t("(if (< 4 (+ 5 6)) (* 1 2) (+ 3 4))")).unwrap());
         assert_eq!(Atom::from(7), x);
     }
 }

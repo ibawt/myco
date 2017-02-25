@@ -7,8 +7,6 @@ use errors::*;
 use number::*;
 use eval;
 
-use errors::*;
-
 fn cons(args: &[Atom], _: &Env) -> AtomResult {
     if args.len() != 2 {
         bail!("argh!")
@@ -165,7 +163,7 @@ fn barf(args: &[Atom], _: &mut Env) -> AtomResult {
 
 fn get(args: &[Atom], _: &mut Env) -> AtomResult {
     if args.len() < 2 {
-        return bail!("get takes 2 args");
+        bail!("get takes 2 args")
     }
     let list = try!(args[0].as_list());
     let ord = try!(args[1].as_number()).as_integer();
@@ -273,7 +271,7 @@ fn cmp(v: &[Atom], _: &Env, cmp: Comparison) -> AtomResult {
 
 fn sub(v: &[Atom], _: &Env) -> AtomResult {
     if v.len() < 1 {
-        return bail!("sub");
+        bail!("sub")
     }
 
     let mut result = try!(v[0].as_number());
