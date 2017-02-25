@@ -99,7 +99,33 @@ pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom, 
                     Ok(current)
                 }
             }
-            _ => Err(Error::NotAFunction)
+            Atom::Form(Form::Do) => {
+                let mut body = vec![Atom::Form(Form::Do)];
+
+                if list.len() < 2 {
+                    return Ok(Atom::list(body))
+                }
+
+                for i in 1..(list.len()-1) {
+                    let sym = next_symbol('d', symbol_count + i as u32);
+                    let mut current = Atom::list(vec![ Atom::Form(Form::Fn),
+                                                       Atom::list(vec![sym.clone()]),
+                                                       sym]);
+
+                    current = cps_translate(list[i].clone(), current, symbol_count + i as u32)?;
+
+                    body.push(current);
+                }
+
+                let x = cps_translate(list[(list.len()-1)].clone(), cont, symbol_count + (list.len() as u32))?;
+
+                body.push(x);
+
+                Ok(Atom::list(body))
+            }
+            _ => {
+                panic!("aqrgh");
+            }
         }
     } else {
         Ok(node)
@@ -470,5 +496,11 @@ mod tests {
         let x = meval(cps_translate_program(t("(+ (+ 1 2) (+ 3 4) 5)")).unwrap());
 
         assert_eq!(Atom::from(15), x);
+    }
+
+    #[test]
+    fn do_cps_test() {
+        let x = meval(cps_translate_program(t("(do (* 1 2) (+ 3 4))")).unwrap());
+        assert_eq!(Atom::from(7), x);
     }
 }

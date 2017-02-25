@@ -107,7 +107,7 @@ impl VirtualMachine {
 
     pub fn run(&mut self) -> AtomResult {
         while let Some(instruction) = self.next_instruction() {
-            trace!("{} - {}", self.current_frame().pc, instruction);
+            println!("{} - {}", self.current_frame().pc, instruction);
             match instruction {
                 JUMP_IFNOT(addr) => {
                     if !try!(self.pop()).as_bool() {
