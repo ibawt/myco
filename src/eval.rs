@@ -29,7 +29,7 @@ pub fn eval_macro(p: &Procedure, args: &[Atom], env: &mut Env) -> AtomResult {
 
 fn define(args: &[Atom], env: &mut Env) -> AtomResult {
     if args.len() != 2 {
-        bail!("define - eval");
+        bail!(ErrorKind::NotEnoughArguments(2, args.len()))
     }
 
     let key = try!(args[0].as_symbol());
@@ -146,7 +146,7 @@ fn macro_expand(node: Atom, env: &mut Env) -> Result<Atom> {
                 }
                 Atom::Form(Form::Fn) => {
                     if list.len() < 3 {
-                        bail!(ErrorKind::NotEnoughArguments)
+                        bail!(ErrorKind::NotEnoughArguments(3, list.len()))
                     }
 
                     let mut out = Vec::with_capacity(list.len());
@@ -173,7 +173,7 @@ pub fn expect_arg_length(args: &[Atom], len: usize) -> Result<()> {
     if args.len() == len {
         Ok(())
     } else {
-        bail!(ErrorKind::NotEnoughArguments)
+        bail!(ErrorKind::NotEnoughArguments(len, args.len()))
     }
 }
 
@@ -258,7 +258,7 @@ pub fn eval(node: Atom, env: &mut Env, current_fn: Option<Function>) -> Result<A
                     }
                     Form::If => {
                         if list.len() < 2 {
-                            bail!(ErrorKind::NotEnoughArguments);
+                            bail!(ErrorKind::NotEnoughArguments(2, list.len()));
                         }
 
                         let condition = try!(eval(list[1].clone(), cur_env, current_fn.clone())).as_bool();

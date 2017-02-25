@@ -203,7 +203,7 @@ fn macro_expand(node: Atom, env: &mut Env) -> Result<Atom> {
                 }
                 Atom::Form(Form::Fn) => {
                     if list.len() < 3 {
-                        bail!(ErrorKind::NotEnoughArguments);
+                        bail!(ErrorKind::NotEnoughArguments(3, list.len()));
                     }
 
                     let mut out = Vec::with_capacity(list.len());

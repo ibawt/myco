@@ -69,13 +69,13 @@ fn first(args: &[Atom], _: &Env) -> AtomResult {
             Ok(Atom::Nil)
         }
     } else {
-        bail!(ErrorKind::NotEnoughArguments)
+        bail!(ErrorKind::NotEnoughArguments(1, args.len()));
     }
 }
 
 fn rest(args: &[Atom], _: &Env) -> AtomResult {
     if args.len() < 1 {
-        bail!(ErrorKind::NotEnoughArguments)
+        bail!(ErrorKind::NotEnoughArguments(1, args.len()));
     }
     if let Atom::Nil = args[0] {
         return Ok(Atom::Nil);
@@ -90,7 +90,7 @@ fn list(args: &[Atom], _: &Env) -> AtomResult {
 
 fn not(args: &[Atom], _: &Env) -> AtomResult {
     args.first()
-        .ok_or(ErrorKind::NotEnoughArguments.into())
+        .ok_or(ErrorKind::NotEnoughArguments(1, args.len()).into())
         .map(|a| {
             Atom::from(match *a {
                 Atom::Boolean(b) => !b,
@@ -117,7 +117,7 @@ fn type_of(args: &[Atom], _: &Env) -> AtomResult {
 
         Ok(Atom::symbol(s))
     } else {
-        bail!(ErrorKind::NotEnoughArguments)
+        bail!(ErrorKind::NotEnoughArguments(1, args.len()))
     }
 }
 
@@ -220,7 +220,7 @@ fn equals(args: &[Atom], _: &Env) -> AtomResult {
         }
         Ok(Atom::Boolean(true))
     } else {
-        Err(ErrorKind::NotEnoughArguments.into())
+        Err(ErrorKind::NotEnoughArguments(1, args.len()).into())
     }
 }
 
@@ -249,7 +249,7 @@ fn error(_: &[Atom], _: &Env) -> AtomResult {
 
 fn cmp(v: &[Atom], _: &Env, cmp: Comparison) -> AtomResult {
     if v.len() < 2 {
-        return Err(ErrorKind::NotEnoughArguments.into());
+        return Err(ErrorKind::NotEnoughArguments(2, v.len()).into());
     }
 
     let initial = try!(v[0].as_number());
@@ -285,7 +285,7 @@ fn sub(v: &[Atom], _: &Env) -> AtomResult {
 
 fn mul(v: &[Atom], _: &Env) -> AtomResult {
     if v.len() < 2 {
-        bail!(ErrorKind::NotEnoughArguments);
+        bail!(ErrorKind::NotEnoughArguments(2, v.len()));
     }
 
     let mut initial = try!(v[0].as_number());
@@ -298,7 +298,7 @@ fn mul(v: &[Atom], _: &Env) -> AtomResult {
 
 fn div(v: &[Atom], _: &Env) -> AtomResult {
     if v.len() < 2 {
-        bail!(ErrorKind::NotEnoughArguments);
+        bail!(ErrorKind::NotEnoughArguments(2, v.len()));
     }
 
     let mut initial = try!(v[0].as_number());
