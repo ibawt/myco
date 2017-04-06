@@ -232,7 +232,6 @@ impl VirtualMachine {
                             self.push(r);
                         }
                         Function::Continuation(nc) => {
-                            println!("CALL/K({})", nc);
                             let len = self.stack.len();
                             let k = try!(self.pop());
                             let r = try!(eval_native_borrow(self, nc, len - arity));

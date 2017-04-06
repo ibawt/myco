@@ -124,7 +124,6 @@ fn eval_special_forms(f: Form, list: &[Atom], env: &mut Env) -> AtomResult {
 pub fn eval_node(node: Atom, env: &mut Env) -> Result<Atom> {
     match node {
         Atom::Symbol(sym) => Ok(env.get(sym.as_ref()).unwrap_or(Atom::Nil)).map(|n| {
-            println!("eval_node:get({}) = {}", sym.as_ref(), n);
             n
         }),
         Atom::List(ref list) => {

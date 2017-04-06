@@ -11,7 +11,7 @@ error_chain! {
         }
         UnexpectedType {
             description("unexpected type")
-            display("untype type")
+            display("unexpected type")
         }
         Parser {
             description("Parser error")
