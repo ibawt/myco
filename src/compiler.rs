@@ -210,9 +210,15 @@ pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom> 
                 // panic!("argh");
                 Ok(current)
             }
+            Atom::Form(Form::Def) => {
+                let v = cps_translate(list[2].clone(), Atom::Function(Function::Native(Native::Identity)), symbol_count)?;
+                Ok(Atom::list(vec![Atom::Form(Form::Def),
+                                   list[1].clone(),
+                                   v]))
+            }
             _ => {
                 println!("list is {}", print_list(list));
-                panic!("idk");
+                bail!(ErrorKind::RuntimeAssertion);
             }
         }
     } else {

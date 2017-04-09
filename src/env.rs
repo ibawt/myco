@@ -98,7 +98,7 @@ impl Env {
     fn num_gen(&self, c: usize) -> usize {
         let gen = self.0.borrow();
         if let Some(ref parent) = gen.parent {
-            return parent.num_gen(c + 1);
+            parent.num_gen(c + 1)
         } else {
             c
         }

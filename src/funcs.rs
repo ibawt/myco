@@ -177,8 +177,10 @@ fn get(args: &[Atom], _: &mut Env) -> AtomResult {
 }
 
 fn identity(args: &[Atom]) -> AtomResult {
-    let x = args.iter().map(|x| x.clone()).collect();
-    Ok(Atom::list(x))
+    match args.first() {
+        Some(x) => Ok(x.clone()),
+        _ => bail!(ErrorKind::RuntimeAssertion)
+    }
 }
 
 pub fn eval_native(n: Native, args: &[Atom], env: &mut Env) -> AtomResult {
