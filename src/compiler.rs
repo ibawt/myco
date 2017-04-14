@@ -29,10 +29,9 @@ fn split_args(n: &[Atom]) -> (Vec<Atom>, Vec<Atom>) {
 }
 
 pub fn cps_translate_program(node: Atom) -> Result<Atom> {
-    let k = next_symbol('k', 0);
-    let x = Atom::list(vec![Atom::Form(Form::Fn), Atom::list(vec![k.clone()]), k]);
-
-    cps_translate(node, x, 1)
+    let a = cps_translate(node, Atom::Function(Function::Native(Native::Identity)), 1)?;
+    println!("after translation: {}", a);
+    Ok(a)
 }
 
 // Example
@@ -191,7 +190,6 @@ pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom> 
                 // println!("translate teh binding body: {}", current);
 
                 for (i, node) in list[1].as_list()?.iter().enumerate().skip(1) {
-                    // println!("in loop node: {}", node);
                     let wrap = Atom::list(vec![Atom::Form(Form::Fn),
                                                Atom::list(vec![bindings[i].clone()]),
                                                current]);
@@ -204,21 +202,23 @@ pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom> 
                                                   Atom::list(vec![bindings[i].clone()]),
                                                   current]);
                     }
-
                 }
-                // println!("cps translated: {}", current);
-                // panic!("argh");
                 Ok(current)
             }
             Atom::Form(Form::Def) => {
-                let v = cps_translate(list[2].clone(), Atom::Function(Function::Native(Native::Identity)), symbol_count)?;
+                let v = cps_translate(list[2].clone(), Atom::identity(), symbol_count)?;
                 Ok(Atom::list(vec![Atom::Form(Form::Def),
                                    list[1].clone(),
                                    v]))
             }
+            Atom::Form(Form::Fn) => {
+                let v = cps_translate(list[2].clone(), Atom::identity(), symbol_count)?;
+                Ok(Atom::list(vec![list[0].clone(), list[1].clone(), v]))
+            }
             _ => {
                 println!("list is {}", print_list(list));
-                bail!(ErrorKind::RuntimeAssertion);
+                // bail!(ErrorKind::RuntimeAssertion);
+                Ok(node.clone())
             }
         }
     } else {
@@ -620,4 +620,3 @@ mod tests {
         assert_eq!(Atom::from(10), x);
     }
 }
-

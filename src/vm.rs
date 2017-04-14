@@ -71,7 +71,8 @@ impl VirtualMachine {
         let mut out = vec![];
         let source = try!(node.as_list()).clone();
         let mut e = self.root.clone();
-        try!(compiler::compile(node, &mut out, &mut e));
+        try!(compiler::compile(compiler::cps_translate_program(node)?, &mut out, &mut e));
+        // try!(compiler::compile(node, &mut out, &mut e));
         let frame = Frame::new(CompiledFunction {
             body: out,
             source: source,

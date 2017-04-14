@@ -312,6 +312,9 @@ fn default_parse(token: &str) -> Atom {
 
 
 impl Atom {
+    pub fn identity() -> Atom {
+        Atom::Function(Function::Native(Native::Identity))
+    }
     pub fn parse(token: &str) -> Atom {
         some!(find_form(token));
         some!(find_native(token));
