@@ -682,6 +682,15 @@ mod tests {
     }
 
     #[test]
+    fn tailcall_function() {
+        let x = meval(cps_translate_program(t("(do
+                              (def sum2 (fn (n acc) (if (= n 0) acc (sum2 (- n 1) (+ n acc)))))
+                              (sum2 10000 0))")).unwrap());
+
+        assert_eq!(Atom::from(50005000), x);
+    }
+
+    #[test]
     fn let_nested_test() {
         let x = meval(cps_translate_program(t("(let* ((x 1)) (let* ((y 1)) (+ x y)))")).unwrap());
         assert_eq!(Atom::from(2), x);
