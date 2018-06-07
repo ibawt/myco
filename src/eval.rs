@@ -185,7 +185,7 @@ pub fn trace(node: Atom, msg: &str) -> Atom {
 
 pub fn eval(node: Atom, env: &mut Env, current_fn: Option<Function>) -> Result<Atom> {
     let mut cur_node = node;
-    let mut cur_env = env;
+    let cur_env = env;
 
     loop {
         match cur_node {

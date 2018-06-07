@@ -161,7 +161,7 @@ impl Env {
         {
             // set in current generation
             let mut gen = self.0.borrow_mut();
-            if let Some(mut entry) = gen.value.iter_mut().find(|entry| entry.key == key) {
+            if let Some(entry) = gen.value.iter_mut().find(|entry| entry.key == key) {
                 entry.value = value;
                 return Ok(Atom::Symbol(key));
             }

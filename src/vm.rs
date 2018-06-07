@@ -67,6 +67,15 @@ fn recur_borrow(v: &mut VirtualMachine, len: usize) {
 }
 
 impl VirtualMachine {
+    pub fn new_nostdlib() -> VirtualMachine {
+        VirtualMachine{
+            stack: vec![],
+            frames: vec![],
+            fp: 0,
+            sp: 0,
+            root: Env::default()
+        }
+    }
     pub fn run_node(&mut self, node: Atom) -> AtomResult {
         let mut out = vec![];
         let source = try!(node.as_list()).clone();
@@ -320,12 +329,12 @@ mod tests {
                    run_expr("(do (def foo (fn (x) (fn () (* 2 x)))) (def foo2 (foo 1)) (foo2))"))
     }
 
-    #[test]
-    fn let_binding() {
-        assert_eq!(Atom::from(-1), run_expr("(let* ((x 2) (y 3)) (- x y))"));
-    }
+    // #[test]
+    // fn let_binding() {
+    //     assert_eq!(Atom::from(-1), run_expr("(let* ((x 2) (y 3)) (- x y))"));
+    // }
 
-    #[test]
+     #[test]
     fn nested_let() {
         assert_eq!(Atom::from(0),
                    run_expr("(do (let* ((x 1)) (let* ((x 0)) x)))"))
@@ -382,20 +391,20 @@ mod tests {
                    run_expr("(reduce (fn (acc i) (- acc i)) 5 '(1 1 1 1 1))"));
     }
 
-    #[test]
-    fn apply_test() {
-        assert_eq!(Atom::from(0), run_expr("(apply (fn (x) 0) '())"));
-        assert_eq!(Atom::from(3),
-                   run_expr("(apply (fn (x y) (+ x y 1)) '(1 1))"));
-        assert_eq!(Atom::from(1),
-                   run_expr("(apply (fn (x & y) (count y)) '(1 1))"));
-    }
+    // #[test]
+    // fn apply_test() {
+    //     assert_eq!(Atom::from(0), run_expr("(apply (fn (x) 0) '())"));
+    //     assert_eq!(Atom::from(3),
+    //                run_expr("(apply (fn (x y) (+ x y 1)) '(1 1))"));
+    //     assert_eq!(Atom::from(1),
+    //                run_expr("(apply (fn (x & y) (count y)) '(1 1))"));
+    // }
 
-    #[test]
-    fn get_test() {
-        assert_eq!(Atom::from(0), run_expr("(get '(0 2) 0)"));
-        assert_eq!(Atom::from(0), run_expr("(get '(2 0) 1)"));
-    }
+    // #[test]
+    // fn get_test() {
+    //     assert_eq!(Atom::from(0), run_expr("(get '(0 2) 0)"));
+    //     assert_eq!(Atom::from(0), run_expr("(get '(2 0) 1)"));
+    // }
 
     #[test]
     fn cond_test() {
