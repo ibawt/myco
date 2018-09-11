@@ -5,7 +5,6 @@ use errors::*;
 use opcodes::*;
 use opcodes::Opcode::*;
 
-
 fn next_symbol(prefix: char, n: u32) -> Atom {
     let s = format!("__{}{}", prefix, n);
     Atom::symbol(&s)
@@ -28,10 +27,9 @@ fn split_args(n: &[Atom]) -> (Vec<Atom>, Vec<Atom>) {
     (fns, literals)
 }
 
-pub fn cps_translate_program(node: Atom) -> Result<Atom> {
-    let a = cps_translate(node, Atom::Function(Function::Native(Native::Identity)), 1)?;
-    println!("CPS Translate Program: {}", a);
-    Ok(a)
+pub fn cps_translate_program(node: Atom, env: &mut Env) -> Result<Atom> {
+    cps_translate(node, Atom::Function(Function::Native(Native::Identity)), env, 1)
+        .map( |a| { println!("CPS Translate Program: {}", a); a})
 }
 
 // Example
@@ -43,14 +41,65 @@ pub fn cps_translate_program(node: Atom) -> Result<Atom> {
 
 // Input: (+ (+ 1 2) (+ 3 4) 5)
 // Output: (+/k 1 2 (fn (a0) (+/k 3 4 (fn (a1) (+/k a0 a1 5 k)))))
-pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom> {
+pub fn cps_translate(node: Atom, cont: Atom, env: &mut Env, symbol_count: u32) -> Result<Atom> {
     println!("cps_translate: {}", node);
     println!("continuation: {}, symbol_count: {}", cont, symbol_count);
+    let node = macro_expand(node, env)?;
+
     if let Atom::List(ref list) = node {
         if list.is_empty() {
             return Ok(Atom::empty_list());
         }
         match list[0] {
+            Atom::Symbol(_) => {
+                // (foo (+ 1 2) (+ 3 4))
+                // (+/k 3 4 (fn (x) (+/k 1 2 (fn (y) (sum x y)))))
+                let (fns, literals) = split_args(&list[1..]);
+
+                if fns.is_empty() {
+                    let mut x = Vec::with_capacity(literals.len() + 2);
+                    x.push(list[0].clone());
+                    for i in literals {
+                        x.push(i);
+                    }
+                    x.push(cont);
+                    Ok(Atom::list(x))
+                } else {
+                    // Wrap myself
+                    let args: Vec<Atom> = fns.iter()
+                        .enumerate()
+                        .map(|(i, _)| next_symbol('a', symbol_count + i as u32))
+                        .collect();
+
+                    let mut body = Vec::with_capacity(1 + args.len() + literals.len() + 1);
+                    body.push(list[0].clone());
+                    for a in &args {
+                        body.push(a.clone());
+                    }
+
+                    for i in literals.into_iter() {
+                        body.push(i);
+                    }
+
+                    body.push(cont);
+
+                    let mut current = Atom::list(vec![Atom::Form(Form::Fn),
+                                                      Atom::list(vec![args[0].clone()]),
+                                                      Atom::list(body)]);
+
+                    for (i, func) in fns.into_iter().enumerate() {
+                        current = cps_translate(func, current, env, symbol_count + i as u32)?;
+
+                        if i < (args.len() - 1) {
+                            current = Atom::list(vec![Atom::Form(Form::Fn),
+                                                      Atom::list(vec![args[i + 1].clone()]),
+                                                      current]);
+                        }
+                    }
+
+                    Ok(current)
+                }
+            }
             Atom::Function(Function::Native(n)) => {
                 let native = Atom::Function(Function::Continuation(n));
 
@@ -89,7 +138,7 @@ pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom> 
 
 
                     for (i, func) in fns.into_iter().enumerate() {
-                        current = cps_translate(func, current, symbol_count + i as u32)?;
+                        current = cps_translate(func, current, env, symbol_count + i as u32)?;
 
                         if i < (args.len() - 1) {
                             current = Atom::list(vec![Atom::Form(Form::Fn),
@@ -109,6 +158,7 @@ pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom> 
                 //                                          (*/k 6 6 k)))))
                 //
                 if let Atom::List(_) = list[1] {
+                    println!("AM IN HERE?");
                     let pred_sym = next_symbol('i', symbol_count as u32);
                     let x = Atom::list(vec![Atom::Form(Form::Fn),
                                             Atom::list(vec![pred_sym.clone()]),
@@ -116,20 +166,24 @@ pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom> 
                                                             pred_sym,
                                                             cps_translate(list[2].clone(),
                                                                           cont.clone(),
+                                                                          env,
                                                                           symbol_count + 1)?,
                                                             cps_translate(list[3].clone(),
                                                                           cont,
+                                                                          env,
                                                                           symbol_count + 1)?])]);
-                    let pred = cps_translate(list[1].clone(), x, symbol_count + 1)?;
+                    let pred = cps_translate(list[1].clone(), x, env, symbol_count + 1)?;
 
                     return Ok(pred);
                 } else {
+                    println!("OR HERE!");
                     Ok(Atom::list(vec![Atom::Form(Form::If),
                                        list[1].clone(),
                                        cps_translate(list[2].clone(),
                                                      cont.clone(),
+                                                     env,
                                                      symbol_count + 1)?,
-                                       cps_translate(list[3].clone(), cont, symbol_count + 1)?]))
+                                       cps_translate(list[3].clone(), cont,env, symbol_count + 1)?]))
 
                 }
             }
@@ -145,7 +199,7 @@ pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom> 
                     let mut current =
                         Atom::list(vec![Atom::Form(Form::Fn), Atom::list(vec![sym.clone()]), sym]);
 
-                    current = cps_translate(list[i].clone(), current, symbol_count + i as u32)?;
+                    current = cps_translate(list[i].clone(), current, env, symbol_count + i as u32)?;
 
                     body.push(current);
                 }
@@ -153,6 +207,7 @@ pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom> 
 
                 let x = cps_translate(list[(list.len() - 1)].clone(),
                                       cont,
+                                      env,
                                       symbol_count + (list.len() as u32))?;
 
                 body.push(x);
@@ -160,22 +215,6 @@ pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom> 
                 Ok(Atom::list(body))
             }
             Atom::Form(Form::Let) => {
-                // (let ((x (+ 1 2)) (y (+ 3 4))) (+ x y))
-                //  (+/k 3 4
-                //     (fn (y)
-                //       (+/k 1 2
-                //         (fn (x)
-                //           (+/k x y k))))
-
-                // (let ((x 1)) x)
-                // ((fn (x) x) 1)
-
-                // (let ((x (+ 1 2)) (y (+ 3 4))) (+ x y))
-                // ((fn (x y) (+ x y)) (+ 1 2) (+ 3 4))
-
-
-                // (let* ((x 1)) x)
-                // (k ((fn (x) x) 1))
                 let binding_pairs = list[1].as_list()?;
                 if binding_pairs.is_empty() {
                     bail!(ErrorKind::RuntimeAssertion);
@@ -186,7 +225,6 @@ pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom> 
                     let list = i.as_list()?;
 
                     let x = list.first().ok_or(ErrorKind::RuntimeAssertion)?;
-                    println!("bindings = {}", x);
 
                     bindings.push(x.clone());
                     bodies.push(list.get(1).ok_or(ErrorKind::RuntimeAssertion)?.clone());
@@ -196,75 +234,23 @@ pub fn cps_translate(node: Atom, cont: Atom, symbol_count: u32) -> Result<Atom> 
                                               Atom::list(bindings),
                                               list[2].clone(),
                 ]);
-                println!("currnet: {}", current);
                 let mut x = vec![current];
                 for i in bodies {
                     x.push(i.clone());
                 }
                 let current = Atom::list(x);
-                return cps_translate(current, cont, symbol_count);
-                // // binds = [ x ]
-                // // convert the body of the let
-                // let mut current =
-                //     Atom::list(vec![Atom::Form(Form::Fn),
-                //                     Atom::list(vec![bindings[0].clone()]),
-                //                     cps_translate(list[2].clone(), cont.clone(), symbol_count)?]);
-                // // should return x
-                // println!("pre-trans: {}", list[2]);
-                // println!("current:  {}", current);
-
-                // let binding_body = cps_translate(binding_pairs[0].as_list()?[1].clone(), current.clone(), symbol_count)?;
-
-                // if list[1].as_list()?.len() == 1 {
-                //     println!("list[1].len() == 1");
-                //     // current = Atom::list(vec![cont, Atom::list(vec![current.clone(),
-                //     //                                                 binding_body,
-                //     //                                                 ])]);
-
-                //     current = Atom::list(vec![cont, Atom::list(vec![current.clone(),
-                //                                                     binding_body,
-                //     ])]);
-                //     println!("current: {}", current);
-
-                //     return Ok(current);
-                // }
-
-                // current = binding_body;
-
-                // for (i, node) in list[1].as_list()?.iter().enumerate().skip(1) {
-
-                //     let wrap = Atom::list(vec![Atom::Form(Form::Fn),
-                //                                Atom::list(vec![bindings[i].clone()]),
-                //                                current]);
-                //     println!("{}: wrap = {}", i, wrap);
-
-                //     current =
-                //         cps_translate(node.as_list()?[i].clone(), wrap, symbol_count + i as u32)?;
-
-                //     println!("{}: current = {}", i, current);
-
-                //     if i < (bindings.len() -1) {
-                //         current = Atom::list(vec![Atom::Form(Form::Fn),
-                //                                   Atom::list(vec![bindings[i].clone()]),
-                //                                   current]);
-
-                //         println!("doing last thingy: {}", current)
-                //     }
-                // }
-                // Ok(current)
+                return cps_translate(current, cont, env, symbol_count);
             }
             Atom::Form(Form::Def) => {
-                let v = cps_translate(list[2].clone(), Atom::identity(), symbol_count)?;
+                let v = cps_translate(list[2].clone(), Atom::identity(), env, symbol_count)?;
                 Ok(Atom::list(vec![Atom::Form(Form::Def),
                                    list[1].clone(),
                                    v]))
             }
             Atom::Form(Form::Fn) => {
-                let v = cps_translate(list[2].clone(), Atom::identity(), symbol_count)?;
+                let v = cps_translate(list[2].clone(), Atom::identity(), env, symbol_count)?;
                 Ok(Atom::list(vec![list[0].clone(), list[1].clone(), v]))
             }
-            // Atom::Symbol(s) => {
-            // }
             _ => {
                 Ok(node.clone())
             }
@@ -307,7 +293,7 @@ fn expand_quasiquote(node: &Atom, env: &Env) -> AtomResult {
 }
 
 fn macro_expand(node: Atom, env: &mut Env) -> Result<Atom> {
-    trace!("macro_expand: {}", &node);
+    println!("macro_expand: {}", &node);
     match node {
         Atom::List(ref list) if !list.is_empty() => {
             match list[0] {
@@ -577,8 +563,9 @@ mod tests {
 
     #[test]
     fn wrap_native_test() {
+        let mut env = Env::default();
         let sym = next_symbol('k', 0);
-        let output = cps_translate(t("(+ 1 2)"), sym.clone(), 0).unwrap();
+        let output = cps_translate(t("(+ 1 2)"), sym.clone(),&mut env, 0).unwrap();
 
         let expected = t(&format!("(+/k 1 2 {})", sym));
 
@@ -587,8 +574,9 @@ mod tests {
 
     #[test]
     fn simple_nested_cps_test() {
+        let mut env = Env::default();
         let s = next_symbol('o', 0);
-        let output = cps_translate(t("(+ (+ 1 2) 2))"), s.clone(), 0).unwrap();
+        let output = cps_translate(t("(+ (+ 1 2) 2))"), s.clone(), &mut env, 0).unwrap();
 
         let e = t(&format!("(+/k 1 2 (fn (__a0) (+/k __a0 2 {})))", s));
 
@@ -597,8 +585,9 @@ mod tests {
 
     #[test]
     fn trivial_cps_test() {
+        let mut env = Env::default();
         let s = next_symbol('k', 0);
-        let output = cps_translate(t("(+ 1 2))"), s.clone(), 0).unwrap();
+        let output = cps_translate(t("(+ 1 2))"), s.clone(),&mut env, 0).unwrap();
 
 
         let e = t("(+/k 1 2 __k0)");
@@ -608,16 +597,18 @@ mod tests {
 
     #[test]
     fn nil_input_cps_test() {
+        let mut env = Env::default();
         let s = next_symbol('k', 0);
-        let output = cps_translate(Atom::empty_list(), s.clone(), 0).unwrap();
+        let output = cps_translate(Atom::empty_list(), s.clone(),&mut env, 0).unwrap();
 
         assert_eq!(Atom::empty_list(), output);
     }
 
     #[test]
     fn two_things_to_do() {
+        let mut env = Env::default();
         let s = next_symbol('s', 0);
-        let output = cps_translate(t("(+ (+ 1 2) (+ 3 4) 5)"), s.clone(), 0).unwrap();
+        let output = cps_translate(t("(+ (+ 1 2) (+ 3 4) 5)"), s.clone(), &mut env, 0).unwrap();
 
         string_equals(&t("(+/k 3 4 (fn (__a1) (+/k 1 2 (fn (__a0) (+/k __a0 __a1 5 __s0)))))"),
                       &output);
@@ -632,45 +623,52 @@ mod tests {
 
     #[test]
     fn top_level_program_cps() {
-        let x = meval(cps_translate_program(t("(+ (+ 1 2) (+ 3 4) 5)")).unwrap());
+        let mut env = Env::default();
+        let x = meval(cps_translate_program(t("(+ (+ 1 2) (+ 3 4) 5)"), &mut env).unwrap());
 
         assert_eq!(Atom::from(15), x);
     }
 
     #[test]
     fn do_cps_test() {
-        let x = meval(cps_translate_program(t("(do (* 1 2) (+ 3 4))")).unwrap());
+        let mut env = Env::default();
+        let x = meval(cps_translate_program(t("(do (* 1 2) (+ 3 4))"), &mut env).unwrap());
         assert_eq!(Atom::from(7), x);
     }
 
     #[test]
     fn if_cps_test() {
-        let x = meval(cps_translate_program(t("(if false (* 1 2) (+ 3 4))")).unwrap());
+        let mut env = Env::default();
+        let x = meval(cps_translate_program(t("(if false (* 1 2) (+ 3 4))"), &mut env).unwrap());
         assert_eq!(Atom::from(7), x);
     }
 
     #[test]
     fn more_complex_pred_if_cps_test() {
-        let x = meval(cps_translate_program(t("(if (< 4 (+ 5 6)) (* 1 2) (+ 3 4))")).unwrap());
+        let mut env = Env::default();
+        let x = meval(cps_translate_program(t("(if (< 4 (+ 5 6)) (* 1 2) (+ 3 4))"), &mut env).unwrap());
         assert_eq!(Atom::from(7), x);
     }
 
     #[test]
     fn def_cps_test() {
-        let x = meval(cps_translate_program(t("(do (def x 5) (+ 3 4) x)")).unwrap());
+        let mut env = Env::default();
+        let x = meval(cps_translate_program(t("(do (def x 5) (+ 3 4) x)"), &mut env).unwrap());
         assert_eq!(Atom::from(5), x);
     }
 
     #[test]
     fn let_cps_test() {
-        let x = meval(cps_translate_program(t("(let* ((x (+ 1 2)) (y (+ 3 4))) (+ x y))"))
+        let mut env = Env::default();
+        let x = meval(cps_translate_program(t("(let* ((x (+ 1 2)) (y (+ 3 4))) (+ x y))"), &mut env)
                           .unwrap());
         assert_eq!(Atom::from(10), x);
     }
 
     #[test]
     fn let_cps_test_2() {
-        let x = meval(cps_translate_program(t("(let* ((x 1) (y 1)) (- y x))"))
+        let mut env = Env::default();
+        let x = meval(cps_translate_program(t("(let* ((x 1) (y 1)) (- y x))"), &mut env)
                       .unwrap());
         assert_eq!(Atom::from(0), x);
     }
@@ -683,16 +681,25 @@ mod tests {
 
     #[test]
     fn tailcall_function() {
+        let mut env = Env::default();
         let x = meval(cps_translate_program(t("(do
                               (def sum2 (fn (n acc) (if (= n 0) acc (sum2 (- n 1) (+ n acc)))))
-                              (sum2 10000 0))")).unwrap());
+                              (sum2 10000 0))"), &mut env).unwrap());
 
         assert_eq!(Atom::from(50005000), x);
     }
 
     #[test]
     fn let_nested_test() {
-        let x = meval(cps_translate_program(t("(let* ((x 1)) (let* ((y 1)) (+ x y)))")).unwrap());
+        let mut env = Env::default();
+        let x = meval(cps_translate_program(t("(let* ((x 1)) (let* ((y 1)) (+ x y)))"), &mut env).unwrap());
         assert_eq!(Atom::from(2), x);
+    }
+
+    #[test]
+    fn macro_test() {
+        let mut env = Env::default();
+        let x = meval(cps_translate_program(t("(do (defmacro foo (x) `(~x)) (foo 1))"), &mut env).unwrap());
+        assert_eq!(Atom::list(vec![Atom::from(1)]), x);
     }
 }

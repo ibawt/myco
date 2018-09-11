@@ -46,9 +46,9 @@ impl Default for VirtualMachine {
             sp: 0,
             root: Env::default(),
         };
-        base_lib::library()
-            .and_then(|n| vm.run_node(n))
-            .expect("base library should always compile and run!");
+        // base_lib::library()
+        //     .and_then(|n| vm.run_node(n))
+        //     .expect("base library should always compile and run!");
 
         vm
     }
@@ -80,8 +80,7 @@ impl VirtualMachine {
         let mut out = vec![];
         let source = try!(node.as_list()).clone();
         let mut e = self.root.clone();
-        try!(compiler::compile(compiler::cps_translate_program(node)?, &mut out, &mut e));
-        // try!(compiler::compile(node, &mut out, &mut e));
+        compiler::compile(compiler::cps_translate_program(node, &mut e)?, &mut out, &mut e)?;
         let frame = Frame::new(CompiledFunction {
             body: out,
             source: source,
@@ -329,10 +328,10 @@ mod tests {
                    run_expr("(do (def foo (fn (x) (fn () (* 2 x)))) (def foo2 (foo 1)) (foo2))"))
     }
 
-    // #[test]
-    // fn let_binding() {
-    //     assert_eq!(Atom::from(-1), run_expr("(let* ((x 2) (y 3)) (- x y))"));
-    // }
+    #[test]
+    fn let_binding() {
+        assert_eq!(Atom::from(-1), run_expr("(let* ((x 2) (y 3)) (- x y))"));
+    }
 
      #[test]
     fn nested_let() {
