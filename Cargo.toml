@@ -9,6 +9,7 @@ homepage = "https://github.com/ibawt/myco"
 log = "0.3"
 env_logger = "0.3"
 linenoise-rust = "0.2"
+error-chain = "0.10.0"
 
 [profile.release]
 debug=true

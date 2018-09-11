@@ -1,8 +1,9 @@
-use errors::Error;
+use errors::*;
 use number::*;
 use symbol;
 use env::Env;
 use opcodes::Opcode;
+use std::rc::Rc;
 
 #[derive (Debug, Clone, PartialEq, Copy)]
 pub enum Form {
@@ -46,14 +47,12 @@ impl fmt::Display for Form {
     }
 }
 
-
 #[derive (Debug, Clone, PartialEq)]
 pub struct Procedure {
     pub params: List,
     pub body: List,
     pub closures: Env,
 }
-
 
 #[derive (Debug, Clone, PartialEq)]
 pub struct CompiledFunction {
@@ -69,8 +68,8 @@ pub enum Function {
     Proc(Procedure),
     Compiled(CompiledFunction),
     Macro(Procedure),
+    Continuation(Native)
 }
-
 
 impl fmt::Display for Function {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -85,15 +84,13 @@ impl fmt::Display for Function {
                 try!(write!(f, "compiled-proc:\n"));
                 try!(write!(f, "params: {}\n", eval::print_list(&func.params)));
                 try!(write!(f, "source: {}\n", eval::print_list(&func.source)));
-                write!(f,
-                       "instructions: {}\n",
-                       opcodes::print_instructions(&func.body))
+                write!(f, "instructions:\n{}", opcodes::print_instructions(&func.body))
             }
             Macro(_) => write!(f, "macro"),
+            Continuation(ref c) => write!(f, "{}/k", c)
         }
     }
 }
-use std::rc::Rc;
 
 pub type List = Rc<Vec<Atom>>;
 
@@ -139,7 +136,9 @@ pub enum Native {
     Count,
     Apply,
     Get,
+    Identity
 }
+
 
 impl fmt::Display for Native {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -169,6 +168,7 @@ impl fmt::Display for Native {
             Count => write!(f, "count"),
             Apply => write!(f, "apply"),
             Get => write!(f, "get"),
+            Identity => write!(f, "identity")
         }
     }
 }
@@ -220,10 +220,21 @@ impl fmt::Display for Atom {
     }
 }
 
-pub type AtomResult = Result<Atom, Error>;
+pub type AtomResult = Result<Atom>;
 
 fn find_native(t: &str) -> Option<Atom> {
     use self::Native::*;
+    if t.ends_with("/k") {
+        let n = find_native(&t[0..t.len()-2]);
+        match n {
+            None => return None,
+            Some(Atom::Function(Function::Native(n))) => {
+                return Some(Atom::Function(Function::Continuation(n)))
+            },
+            _ => ()
+        };
+    }
+
     let native = match t {
         "+" => Add,
         "-" => Sub,
@@ -248,6 +259,7 @@ fn find_native(t: &str) -> Option<Atom> {
         "count" => Count,
         "apply" => Apply,
         "get" => Get,
+        "identity" => Identity,
         _ => return None,
     };
     Some(Atom::Function(Function::Native(native)))
@@ -300,6 +312,9 @@ fn default_parse(token: &str) -> Atom {
 
 
 impl Atom {
+    pub fn identity() -> Atom {
+        Atom::Function(Function::Native(Native::Identity))
+    }
     pub fn parse(token: &str) -> Atom {
         some!(find_form(token));
         some!(find_native(token));
@@ -315,39 +330,39 @@ impl Atom {
         }
     }
 
-    pub fn as_string(&self) -> Result<&str, Error> {
+    pub fn as_string(&self) -> Result<&str> {
         match *self {
             Atom::String(ref s) => Ok(s),
-            _ => Err(Error::UnexpectedType),
+            _ => Err(ErrorKind::UnexpectedType.into()),
         }
     }
 
-    pub fn as_symbol(&self) -> Result<&symbol::InternedStr, Error> {
+    pub fn as_symbol(&self) -> Result<&symbol::InternedStr> {
         match *self {
             Atom::Symbol(ref sym) => Ok(sym),
-            _ => Err(Error::UnexpectedType),
+            _ => Err(ErrorKind::UnexpectedType.into()),
         }
     }
 
-    pub fn as_list(&self) -> Result<&List, Error> {
+    pub fn as_list(&self) -> Result<&List> {
         match *self {
             Atom::List(ref l) => Ok(l),
-            _ => Err(Error::UnexpectedType),
+            _ => Err(ErrorKind::UnexpectedType.into()),
         }
     }
 
-    pub fn as_number(&self) -> Result<Number, Error> {
+    pub fn as_number(&self) -> Result<Number> {
         match *self {
             Atom::Number(n) => Ok(n),
-            _ => Err(Error::UnexpectedType),
+            _ => Err(ErrorKind::UnexpectedType.into()),
         }
     }
 
     #[allow(dead_code)]
-    pub fn as_function(&self) -> Result<&Function, Error> {
+    pub fn as_function(&self) -> Result<&Function> {
         match *self {
             Atom::Function(ref f) => Ok(f),
-            _ => Err(Error::UnexpectedType),
+            _ => Err(ErrorKind::UnexpectedType.into()),
         }
     }
 
@@ -370,6 +385,10 @@ impl Atom {
 
     pub fn list(v: Vec<Atom>) -> Atom {
         Atom::List(Rc::new(v))
+    }
+
+    pub fn empty_list() -> Atom {
+        Atom::list(vec![])
     }
 }
 
